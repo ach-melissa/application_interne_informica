@@ -24,7 +24,18 @@ const TopbarAdmin = () => {
       </div>
 
       {/* Right */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+
+        {/* Language toggle */}
+        <div className="flex items-center bg-[#F1F5F9] rounded-lg p-1 text-xs font-medium">
+          <button className="px-2.5 py-1 rounded-md bg-white text-[#2563EB] shadow-sm transition">
+            FR
+          </button>
+          <button className="px-2.5 py-1 rounded-md text-[#94A3B8] hover:text-[#1E293B] transition">
+            AR
+          </button>
+        </div>
+
         {/* Notifications */}
         <button className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#F8FAFC] border border-[#E2E8F0] transition">
           <Bell size={18} className="text-[#64748B]" />
@@ -33,7 +44,7 @@ const TopbarAdmin = () => {
 
         {/* User */}
         <div className="flex items-center gap-2 cursor-pointer group relative">
-          <div className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center shrink-0">
             <span className="text-white text-xs font-bold">
               {user?.prenom?.[0]}{user?.nom?.[0]}
             </span>
@@ -45,7 +56,7 @@ const TopbarAdmin = () => {
             <p className="text-xs text-[#64748B] mt-0.5">Administrateur</p>
           </div>
 
-          {/* Dropdown on hover */}
+          {/* Dropdown */}
           <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-[#E2E8F0] rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-50">
             <button
               onClick={handleLogout}
