@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
   BookOpen,
@@ -9,6 +10,7 @@ import {
   UserCircle,
   ChevronLeft,
   ChevronRight,
+  LogOut,
 } from 'lucide-react';
 
 const navItems = [
@@ -23,6 +25,12 @@ const navItems = [
 const SidebarAdmin = ({ collapsed, setCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <aside
@@ -85,16 +93,42 @@ const SidebarAdmin = ({ collapsed, setCollapsed }) => {
         {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
 
-      {/* Bottom: user */}
-      <div className="px-3 py-4 border-t border-[#2D3F55]">
+      {/* Bottom: user + logout */}
+      <div className="px-3 py-4 border-t border-[#2D3F55] space-y-2">
+        {/* User info */}
         <div className={`flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}>
           <div className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center shrink-0">
-            <span className="text-white text-xs font-bold">A</span>
+            <span className="text-white text-xs font-bold">
+              {user?.prenom?.[0]}{user?.nom?.[0]}
+            </span>
           </div>
           {!collapsed && (
             <div>
-              <p className="text-white text-sm font-medium leading-none">Admin</p>
+              <p className="text-white text-sm font-medium leading-none">
+                {user?.prenom} {user?.nom}
+              </p>
               <p className="text-[#94A3B8] text-xs mt-0.5">Administrateur</p>
+            </div>
+          )}
+        </div>
+
+        {/* Logout button */}
+        <div className="relative group">
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[#94A3B8] hover:bg-red-500/10 hover:text-red-400 transition ${
+              collapsed ? 'justify-center' : ''
+            }`}
+          >
+            <LogOut size={18} className="shrink-0" />
+            {!collapsed && <span className="text-sm font-medium">Déconnexion</span>}
+          </button>
+
+          {/* Tooltip when collapsed */}
+          {collapsed && (
+            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-[#0F172A] text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+              Déconnexion
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#0F172A]" />
             </div>
           )}
         </div>
