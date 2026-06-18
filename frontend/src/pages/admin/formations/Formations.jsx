@@ -17,8 +17,11 @@ const Formations = () => {
   useEffect(() => {
     const fetchFormations = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/formations`);
-        if (!res.ok) throw new Error('Erreur serveur');
+const token = localStorage.getItem('token');
+const res = await fetch(`${import.meta.env.VITE_API_URL}/api/formations`, {
+  headers: { Authorization: `Bearer ${token}` }
+});
+if (!res.ok) throw new Error('Erreur serveur');
         const data = await res.json();
         setFormations(data);
       } catch (err) {
@@ -33,8 +36,11 @@ const Formations = () => {
   const fetchInscriptionsConfirmed = async () => {
     setLoadingInscriptions(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions?statut=confirmed`);
-      if (!res.ok) throw new Error('Erreur serveur');
+const token = localStorage.getItem('token');
+const res = await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions?statut=confirmed`, {
+  headers: { Authorization: `Bearer ${token}` }
+});
+if (!res.ok) throw new Error('Erreur serveur');
       const data = await res.json();
       setInscriptions(data);
     } catch (err) {
@@ -48,8 +54,11 @@ const Formations = () => {
     setLoadingInscriptions(true);
     setSelectedFormation(formation);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions?formation_id=${formation.id}`);
-      if (!res.ok) throw new Error('Erreur serveur');
+const token = localStorage.getItem('token');
+const res = await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions?formation_id=${formation.id}`, {
+  headers: { Authorization: `Bearer ${token}` }
+});
+if (!res.ok) throw new Error('Erreur serveur');
       const data = await res.json();
       setInscriptions(data);
     } catch (err) {

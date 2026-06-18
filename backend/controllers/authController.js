@@ -5,52 +5,59 @@ const jwt = require('jsonwebtoken');
 const login = async (req, res) => {
   const { identifier, password } = req.body;
 
+  console.log('--- Tentative de login ---');
+  console.log('identifier reçu:', JSON.stringify(identifier));
+
+  if (!identifier || !password) {
+    return res.status(400).json({ message: 'Identifiant et mot de passe requis' });
+  }
+
   try {
-    // STEP 1: search by email
-    const { data: byEmail } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', identifier)
-      .single();
+let { data: user, error } = await supabase
+  .from('users')
+  .select('*')
+  .eq('email', identifier)
+  .maybeSingle();
 
-    // STEP 2: if not found, search by username
-    let user = byEmail;
+if (error) {
+  console.error('Erreur Supabase (email):', error);
+  return res.status(500).json({ message: 'Erreur serveur' });
+}
 
-    if (!user) {
-      const { data: byUsername } = await supabase
-        .from('users')
-        .select('*')
-        .eq('nom_utilisateur', identifier)
-        .single();
+if (!user) {
+  const { data: userByUsername, error: error2 } = await supabase
+    .from('users')
+    .select('*')
+    .eq('nom_utilisateur', identifier)
+    .maybeSingle();
 
-      user = byUsername;
-    }
+  if (error2) {
+    console.error('Erreur Supabase (username):', error2);
+    return res.status(500).json({ message: 'Erreur serveur' });
+  }
 
-    // STEP 3: check user exists
+  user = userByUsername;
+}
+
     if (!user) {
       return res.status(401).json({ message: 'Utilisateur introuvable' });
     }
 
-    // STEP 4: block student
     if (user.role === 'etudiant') {
       return res.status(403).json({ message: 'Accès refusé' });
     }
 
-    // STEP 5: check password
     const validPassword = await bcrypt.compare(password, user.mot_de_passe);
-
     if (!validPassword) {
       return res.status(401).json({ message: 'Mot de passe incorrect' });
     }
 
-    // STEP 6: generate token
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // STEP 7: response
     res.json({
       token,
       user: {

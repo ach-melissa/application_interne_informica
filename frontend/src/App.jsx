@@ -5,10 +5,12 @@ import Login from './pages/Login';
 import Dashboard from './pages/admin/dashboard/Dashboard';
 import Formations from './pages/admin/formations/Formations';
 import Groups from './pages/admin/formations/groups/Groups';
+import GroupDetail from './pages/admin/formations/groups/GroupDetail';
 import Utilisateurs from './pages/admin/utilisateurs/Utilisateurs';
 import Profs from './pages/admin/profs/Profs';
 import Students from './pages/admin/students/Students';
 import Archive from './pages/admin/archive/Archive';
+import ProfPointage from './pages/admin/profs/ProfPointage';
 
 function App() {
   return (
@@ -21,16 +23,21 @@ function App() {
               <Dashboard />
             </PrivateRoute>
           } />
-         <Route path="/admin/formations" element={
-  <PrivateRoute allowedRoles={['admin']}>
-    <Formations />
-  </PrivateRoute>
-} />
-<Route path="/admin/formations/:id/groups" element={
-  <PrivateRoute allowedRoles={['admin']}>
-    <Groups />
-  </PrivateRoute>
-} />
+          <Route path="/admin/formations" element={
+            <PrivateRoute allowedRoles={['admin']}>
+              <Formations />
+            </PrivateRoute>
+          } />
+          <Route path="/admin/formations/:id/groups" element={
+            <PrivateRoute allowedRoles={['admin']}>
+              <Groups />
+            </PrivateRoute>
+          } />
+          <Route path="/admin/formations/:id/groups/:groupId" element={
+            <PrivateRoute allowedRoles={['admin']}>
+              <GroupDetail />
+            </PrivateRoute>
+          } />
           <Route path="/admin/utilisateurs" element={
             <PrivateRoute allowedRoles={['admin']}>
               <Utilisateurs />
@@ -41,6 +48,11 @@ function App() {
               <Profs />
             </PrivateRoute>
           } />
+          <Route path="/admin/profs/:id/pointage" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <ProfPointage />
+  </PrivateRoute>
+} />
           <Route path="/admin/students" element={
             <PrivateRoute allowedRoles={['admin']}>
               <Students />

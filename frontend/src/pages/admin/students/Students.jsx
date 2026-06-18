@@ -52,8 +52,11 @@ const Students = () => {
   useEffect(() => {
     const fetchEtudiants = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/etudiants`);
-        if (!res.ok) throw new Error('Erreur serveur');
+const token = localStorage.getItem('token');
+const res = await fetch(`${import.meta.env.VITE_API_URL}/api/etudiants`, {
+  headers: { Authorization: `Bearer ${token}` }
+});
+if (!res.ok) throw new Error('Erreur serveur');
         const data = await res.json();
         setEtudiants(data);
       } catch (err) {
@@ -69,13 +72,17 @@ const Students = () => {
     setEtudiants((prev) =>
       prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
     );
-    try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/etudiants/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value }),
-      });
-    } catch (err) {
+try {
+  const token = localStorage.getItem('token');
+  await fetch(`${import.meta.env.VITE_API_URL}/api/etudiants/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ [field]: value }),
+  });
+} catch (err) {
       console.error('Update failed:', err);
     }
   };
