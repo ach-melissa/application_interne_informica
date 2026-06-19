@@ -338,11 +338,14 @@ const createProfGroupSession = async (req, res) => {
 
     const { data, error } = await supabase
       .from('sessions')
-      .insert({ group_id: req.params.groupId, date, statut: 'planifiée' })
+      .insert({ group_id: req.params.groupId, date })
       .select()
       .single();
 
-    if (error) return res.status(500).json({ message: 'Erreur serveur' });
+    if (error) {
+      console.error('createProfGroupSession:', error);
+      return res.status(500).json({ message: error.message });
+    }
     res.status(201).json(data);
   } catch (err) {
     console.error(err);
@@ -374,11 +377,13 @@ const updateProfGroupSession = async (req, res) => {
       return res.status(403).json({ message: 'Accès refusé' });
     }
 
-    const { date, duree_minutes, statut } = req.body;
+    const { date, duree, emarg_enseignant, emarg_stagiaires, statut } = req.body;
     const patch = {};
-    if (date !== undefined) patch.date = date;
-    if (duree_minutes !== undefined) patch.duree_minutes = duree_minutes;
-    if (statut !== undefined) patch.statut = statut;
+    if (date              !== undefined) patch.date              = date;
+    if (duree             !== undefined) patch.duree             = duree;
+    if (emarg_enseignant  !== undefined) patch.emarg_enseignant  = emarg_enseignant;
+    if (emarg_stagiaires  !== undefined) patch.emarg_stagiaires  = emarg_stagiaires;
+    if (statut            !== undefined) patch.statut            = statut;
 
     const { data, error } = await supabase
       .from('sessions')
@@ -387,14 +392,16 @@ const updateProfGroupSession = async (req, res) => {
       .select()
       .single();
 
-    if (error) return res.status(500).json({ message: 'Erreur serveur' });
+    if (error) {
+      console.error('updateProfGroupSession:', error);
+      return res.status(500).json({ message: error.message });
+    }
     res.json(data);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
-
 
 const deleteProfGroupSession = async (req, res) => {
   try {

@@ -1,21 +1,24 @@
 import { useAuth } from '../context/AuthContext';
-import { User } from 'lucide-react';
 
 const TopbarProf = () => {
   const { user } = useAuth();
+  const initials = [user?.prenom?.[0], user?.nom?.[0]].filter(Boolean).join('').toUpperCase() || 'P';
 
   return (
-    <header className="h-14 bg-white border-b border-[#E2E8F0] flex items-center justify-between px-6">
+    <header className="h-14 bg-white border-b border-[#E2E8F0] flex items-center justify-between px-6 shrink-0">
+      {/* Left — empty, space for page title if needed */}
       <div />
+
+      {/* Right — user chip */}
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-[#EFF6FF] flex items-center justify-center">
-          <User size={16} className="text-[#2563EB]" />
-        </div>
         <div className="text-right">
-          <p className="text-sm font-medium text-[#1E293B]">
-            {user?.nom} {user?.prenom}
+          <p className="text-sm font-semibold text-[#1E293B]">
+            {user?.prenom} {user?.nom}
           </p>
-          <p className="text-xs text-[#94A3B8] capitalize">{user?.role}</p>
+          <p className="text-xs text-[#94A3B8]">Prof</p>
+        </div>
+        <div className="w-9 h-9 rounded-full bg-[#2563EB] flex items-center justify-center shrink-0">
+          <span className="text-white text-sm font-bold">{initials}</span>
         </div>
       </div>
     </header>
