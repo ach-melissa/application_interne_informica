@@ -12,7 +12,9 @@ import Utilisateurs from './pages/admin/utilisateurs/Utilisateurs';
 import Profs from './pages/admin/profs/Profs';
 import Students from './pages/admin/students/Students';
 import Archive from './pages/admin/archive/Archive';
+import ArchiveYear from './pages/admin/archive/ArchiveYear';
 import ProfPointage from './pages/admin/profs/ProfPointage';
+
 
 // ── Pages prof (nouvelles) ─────────────────────────────────
 import DashboardProf from './pages/prof/dashboard/DashboardProf';
@@ -70,10 +72,15 @@ function App() {
             </PrivateRoute>
           } />
           <Route path="/admin/archive" element={
-            <PrivateRoute allowedRoles={['admin']}>
-              <Archive />
-            </PrivateRoute>
-          } />
+  <PrivateRoute allowedRoles={['admin']}>
+    <Archive />
+  </PrivateRoute>
+} />
+<Route path="/admin/archive/:year" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <ArchiveYear />
+  </PrivateRoute>
+} />
 
           {/* ── Routes prof (nouvelles) ── */}
           <Route path="/prof" element={

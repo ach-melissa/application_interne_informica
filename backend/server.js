@@ -9,6 +9,7 @@ const inscriptionRoutes = require('./routes/inscriptionRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const profRoutes = require('./routes/profRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 app.use(cors());
@@ -19,7 +20,9 @@ app.use('/api/formations', formationRoutes);
 app.use('/api/etudiants', etudiantRoutes);
 app.use('/api/inscriptions', inscriptionRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api/teachers', teacherRoutes);
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/profs', profRoutes);
 
 app.listen(process.env.PORT, () => {
