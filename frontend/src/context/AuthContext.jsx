@@ -20,8 +20,17 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Met à jour le user en mémoire + localStorage (après modification du profil)
+  const updateUser = (updatedFields) => {
+    setUser((prev) => {
+      const next = { ...prev, ...updatedFields };
+      localStorage.setItem('user', JSON.stringify(next));
+      return next;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

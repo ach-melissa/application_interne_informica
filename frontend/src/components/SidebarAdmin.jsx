@@ -72,16 +72,22 @@ const SidebarAdmin = ({ collapsed, setCollapsed }) => {
 
       {/* Bottom */}
       <div className="px-3 py-4 border-t border-gray-100 space-y-2">
-        <div className={`flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}>
-          <div className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center shrink-0">
-            <span className="text-white text-xs font-bold">{user?.prenom?.[0]}{user?.nom?.[0]}</span>
-          </div>
-          {!collapsed && (
-            <div>
-              <p className="text-gray-800 text-sm font-medium leading-none">{user?.prenom} {user?.nom}</p>
-              <p className="text-gray-400 text-xs mt-0.5">Administrateur</p>
+        <div className="relative group">
+          <button
+            onClick={() => navigate('/profile')}
+            className={`w-full flex items-center gap-2 px-1 py-1 rounded-xl hover:bg-gray-50 transition ${collapsed ? 'justify-center' : ''}`}
+          >
+            <div className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center shrink-0">
+              <span className="text-white text-xs font-bold">{user?.prenom?.[0]}{user?.nom?.[0]}</span>
             </div>
-          )}
+            {!collapsed && (
+              <div className="text-left">
+                <p className="text-gray-800 text-sm font-medium leading-none">{user?.prenom} {user?.nom}</p>
+                <p className="text-gray-400 text-xs mt-0.5">Administrateur</p>
+              </div>
+            )}
+          </button>
+          {collapsed && <Tooltip label="Mon Profil" />}
         </div>
 
         <div className="relative group">

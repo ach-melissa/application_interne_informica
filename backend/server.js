@@ -24,6 +24,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/profs', profRoutes);
+app.use('/api/users', require('./routes/userRoutes'));
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on port ${process.env.PORT}`);

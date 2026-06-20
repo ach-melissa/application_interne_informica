@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import SidebarProf from '../components/SidebarProf';
-import TopbarProf from '../components/TopbarProf';
+import Topbar from '../components/Topbar';
 
 const ProfLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(() => {
@@ -16,7 +16,7 @@ const ProfLayout = ({ children }) => {
     <div className="flex h-screen bg-[#f6faff] overflow-hidden">
       <SidebarProf collapsed={collapsed} setCollapsed={handleSetCollapsed} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopbarProf />
+        <Topbar />
         <main className="flex-1 overflow-y-auto p-6">
           {children}
         </main>

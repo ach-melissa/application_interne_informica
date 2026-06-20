@@ -20,6 +20,11 @@ import ProfPointage from './pages/admin/profs/ProfPointage';
 import DashboardProf from './pages/prof/dashboard/DashboardProf';
 import GroupsProf from './pages/prof/groups/GroupsProf';
 
+// ── Pages comptable (nouvelles) ─────────────────────────────
+import DashboardComptable from './pages/comptable/dashboard/DashboardComptable';
+import Paiements from './pages/comptable/paiements/Paiements';
+import Salaires from './pages/comptable/salaires/Salaires';
+
 // ── Page partagée (nouvelle) ───────────────────────────────
 import Profile from './pages/shared/profile/Profile';
 
@@ -91,6 +96,23 @@ function App() {
           <Route path="/prof/groups" element={
             <PrivateRoute allowedRoles={['prof']}>
               <GroupsProf />
+            </PrivateRoute>
+          } />
+
+          {/* ── Routes comptable (nouvelles) ── */}
+          <Route path="/comptable" element={
+            <PrivateRoute allowedRoles={['comptable']}>
+              <DashboardComptable />
+            </PrivateRoute>
+          } />
+          <Route path="/comptable/paiements" element={
+            <PrivateRoute allowedRoles={['comptable']}>
+              <Paiements />
+            </PrivateRoute>
+          } />
+          <Route path="/comptable/salaires" element={
+            <PrivateRoute allowedRoles={['comptable']}>
+              <Salaires />
             </PrivateRoute>
           } />
 

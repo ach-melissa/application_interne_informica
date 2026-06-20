@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, User, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/images/logo_informica.png';
 import logoIcon from '../assets/images/logo_informica_icon.png';
@@ -7,7 +7,6 @@ import logoIcon from '../assets/images/logo_informica_icon.png';
 const navItems = [
   { path: '/prof',        label: 'Dashboard',  icon: LayoutDashboard, exact: true },
   { path: '/prof/groups', label: 'Mes Groupes', icon: Users },
-  { path: '/profile',     label: 'Mon Profil',  icon: User },
 ];
 
 const Tooltip = ({ label }) => (
@@ -74,16 +73,22 @@ const SidebarProf = ({ collapsed, setCollapsed }) => {
 
       {/* Bottom */}
       <div className="px-3 py-4 border-t border-gray-100 space-y-2">
-        <div className={`flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}>
-          <div className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center shrink-0">
-            <span className="text-white text-xs font-bold">{initials}</span>
-          </div>
-          {!collapsed && (
-            <div>
-              <p className="text-gray-800 text-sm font-medium leading-none">{user?.prenom} {user?.nom}</p>
-              <p className="text-gray-400 text-xs mt-0.5">Prof</p>
+        <div className="relative group">
+          <button
+            onClick={() => navigate('/profile')}
+            className={`w-full flex items-center gap-2 px-1 py-1 rounded-xl hover:bg-gray-50 transition ${collapsed ? 'justify-center' : ''}`}
+          >
+            <div className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center shrink-0">
+              <span className="text-white text-xs font-bold">{initials}</span>
             </div>
-          )}
+            {!collapsed && (
+              <div className="text-left">
+                <p className="text-gray-800 text-sm font-medium leading-none">{user?.prenom} {user?.nom}</p>
+                <p className="text-gray-400 text-xs mt-0.5">Prof</p>
+              </div>
+            )}
+          </button>
+          {collapsed && <Tooltip label="Mon Profil" />}
         </div>
 
         <div className="relative group">

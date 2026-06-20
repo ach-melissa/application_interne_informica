@@ -1,35 +1,26 @@
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import SidebarComptable from '../components/SidebarComptable';
+import Topbar from '../components/Topbar';
 
 const ComptableLayout = ({ children }) => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(() =>
+    localStorage.getItem('comptable_sidebar_collapsed') === 'true'
+  );
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const handleCollapse = (val) => {
+    setCollapsed(val);
+    localStorage.setItem('comptable_sidebar_collapsed', val);
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <aside className="w-64 bg-white shadow-md flex flex-col">
-        <div className="p-6 border-b">
-          <h1 className="text-xl font-bold text-purple-600">Informica</h1>
-          <p className="text-sm text-gray-500">Comptable</p>
-        </div>
-        <nav className="flex-1 p-4 space-y-2">
-          <a href="/comptable" className="block px-4 py-2 rounded-lg hover:bg-purple-50 text-gray-700">
-            Dashboard
-          </a>
-        </nav>
-        <div className="p-4 border-t">
-          <p className="text-sm text-gray-600">{user?.prenom} {user?.nom}</p>
-          <button onClick={handleLogout} className="mt-2 text-sm text-red-500 hover:underline">
-            Déconnexion
-          </button>
-        </div>
-      </aside>
-      <main className="flex-1 overflow-y-auto p-8">{children}</main>
+    <div className="flex h-screen bg-[#f6faff] overflow-hidden">
+      <SidebarComptable collapsed={collapsed} setCollapsed={handleCollapse} />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Topbar />
+        <main className="flex-1 overflow-y-auto p-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 };
