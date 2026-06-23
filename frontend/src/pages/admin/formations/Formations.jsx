@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Users, Clock, DollarSign, BookOpen, UserCheck } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
-
+import AddFormationModal from './AddFormationModal';
 const Formations = () => {
+  const [showAddModal, setShowAddModal] = useState(false);
   const [formations, setFormations] = useState([]);
   const [inscriptions, setInscriptions] = useState([]);
   const [search, setSearch] = useState('');
@@ -153,10 +154,13 @@ if (!res.ok) throw new Error('Erreur serveur');
           </p>
         </div>
         {view === 'formations' && (
-          <button className="flex items-center gap-2 bg-[#2563EB] text-white px-4 py-2.5 rounded-lg hover:bg-[#1D4ED8] transition text-sm font-medium">
-            <Plus size={18} />
-            Ajouter une formation
-          </button>
+         <button
+  onClick={() => setShowAddModal(true)}
+  className="flex items-center gap-2 bg-[#2563EB] text-white px-4 py-2.5 rounded-lg hover:bg-[#1D4ED8] transition text-sm font-medium"
+>
+  <Plus size={18} />
+  Ajouter une formation
+</button>
         )}
       </div>
 
@@ -289,6 +293,15 @@ if (!res.ok) throw new Error('Erreur serveur');
           <InscriptionsTable />
         </>
       )}
+      {showAddModal && (
+  <AddFormationModal
+    onClose={() => setShowAddModal(false)}
+    onSuccess={(newFormation) => {
+      setFormations((prev) => [newFormation, ...prev]);
+      setShowAddModal(false);
+    }}
+  />
+)}
     </AdminLayout>
   );
 };

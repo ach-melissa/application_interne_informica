@@ -6,8 +6,7 @@ const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `
 
 const SOURCE_OPTS     = ['Amis/Famille','Instagram','TikTok','Facebook','Recherche Google','Site Web','Bouche-à-oreille','Publicité','Autre'];
 const REGISTERED_OPTS = ['hanane','yasmine','page_facebook','amira'];
-const NIVEAU_OPTS     = ['Primaire','Moyen','Lycée','BEM','BAC','Licence','Master','Doctorat','Autre'];
-
+const NIVEAU_OPTS = ['Primaire','Moyen','Secondaire','Bac','Licence','Master','Doctorat','Autre'];
 const inp = 'w-full border border-blue-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white';
 const Label = ({ icon: Icon, text }) => (
   <p className="flex items-center gap-1 text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">
@@ -16,6 +15,8 @@ const Label = ({ icon: Icon, text }) => (
 );
 
 const AddEtudiantModal = ({ onClose, onSuccess }) => {
+  const [files, setFiles] = useState({ photo: null, piece_identite: null });
+const handleFile = f => e => setFiles(p => ({ ...p, [f]: e.target.files[0] }));
   const [formations, setFormations] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState(null);
@@ -32,21 +33,28 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
 
   const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }));
 
-  const handleSubmit = async () => {
-    if (!form.nom || !form.prenom || !form.telephone || !form.formation_id) {
-      setError('Nom, prénom, téléphone et formation sont obligatoires.'); return;
-    }
-    setSubmitting(true); setError(null);
-    try {
-      const res = await fetch(`${API}/api/etudiants`, {
-        method: 'POST', headers: getHeaders(), body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      onSuccess?.(); onClose();
-    } catch (err) { setError(err.message); }
-    finally { setSubmitting(false); }
-  };
+ const handleSubmit = async () => {
+  if (!form.nom || !form.prenom || !form.telephone || !form.formation_id) {
+    setError('Nom, prénom, téléphone et formation sont obligatoires.'); return;
+  }
+  setSubmitting(true); setError(null);
+  try {
+    const fd = new FormData();
+    Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
+    if (files.photo)          fd.append('photo',          files.photo);
+    if (files.piece_identite) fd.append('piece_identite', files.piece_identite);
+
+    const res = await fetch(`${API}/api/etudiants`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    onSuccess?.(); onClose();
+  } catch (err) { setError(err.message); }
+  finally { setSubmitting(false); }
+};
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
@@ -76,6 +84,23 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
               </select>
             </div>
             <div className="col-span-2"><Label icon={MapPin} text="Adresse" /><input value={form.adresse} onChange={set('adresse')} className={inp} /></div>
+          <div>
+  <Label icon={User} text="Photo" />
+  <input type="file" accept="image/*" onChange={handleFile('photo')}
+    className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer" />
+  {files.photo && (
+    <img src={URL.createObjectURL(files.photo)} className="mt-1.5 h-16 w-16 rounded-lg object-cover border border-blue-100" />
+  )}
+</div>
+
+<div>
+  <Label icon={User} text="Pièce d'identité" />
+  <input type="file" accept="image/*,application/pdf" onChange={handleFile('piece_identite')}
+    className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer" />
+  {files.piece_identite && (
+    <p className="text-[10px] text-slate-400 mt-1 truncate">{files.piece_identite.name}</p>
+  )}
+</div>
           </div>
 
           {/* Inscription info */}

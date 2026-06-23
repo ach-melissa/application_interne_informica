@@ -34,7 +34,8 @@ const Row = ({ icon: Icon, label, children }) => (
 
 const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
   const e = inscription?.etudiant;
-
+const [files, setFiles] = useState({ photo: null, piece_identite: null });
+const handleFile = f => e => setFiles(p => ({ ...p, [f]: e.target.files[0] }));
   const [editing, setEditing]       = useState(false);
   const [submitting, setSubmit]     = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -59,28 +60,35 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
   const cancelEdit = () => { setEditing(false); setConfirmSave(false); setError(null); };
 
-  const doSave = async () => {
-    setSubmit(true); setError(null); setConfirmSave(false);
-    try {
-      const [r1, r2] = await Promise.all([
-        fetch(`${API}/api/etudiants/etudiant/${e.id}`, {
-          method: 'PATCH', headers: getHeaders(),
-          body: JSON.stringify({ nom: form.nom, prenom: form.prenom, telephone: form.telephone,
-            email: form.email, adresse: form.adresse, niveau_scolaire: form.niveau_scolaire,
-            date_naissance: form.date_naissance, lieu_naissance: form.lieu_naissance }),
-        }),
-        fetch(`${API}/api/etudiants/${inscription.id}`, {
-          method: 'PATCH', headers: getHeaders(),
-          body: JSON.stringify({ source: form.source, registered_by: form.registered_by,
-            statut: form.statut, first_try: form.first_try || null,
-            second_try: form.second_try || null, third_try: form.third_try || null }),
-        }),
-      ]);
-      if (!r1.ok || !r2.ok) throw new Error('Erreur de mise à jour');
-      setEditing(false); onSuccess?.();
-    } catch (err) { setError(err.message); }
-    finally { setSubmit(false); }
-  };
+ const doSave = async () => {
+  setSubmit(true); setError(null); setConfirmSave(false);
+  try {
+    const r2 = await fetch(`${API}/api/etudiants/${inscription.id}`, {
+      method: 'PATCH', headers: getHeaders(),
+      body: JSON.stringify({
+        source: form.source, registered_by: form.registered_by,
+        statut: form.statut, first_try: form.first_try || null,
+        second_try: form.second_try || null, third_try: form.third_try || null,
+      }),
+    });
+
+    const fd = new FormData();
+    ['nom','prenom','telephone','email','adresse','niveau_scolaire','date_naissance','lieu_naissance']
+      .forEach(k => { if (form[k] !== undefined) fd.append(k, form[k]); });
+    if (files.photo)          fd.append('photo',          files.photo);
+    if (files.piece_identite) fd.append('piece_identite', files.piece_identite);
+
+    const r1 = await fetch(`${API}/api/etudiants/etudiant/${e.id}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: fd,
+    });
+
+    if (!r1.ok || !r2.ok) throw new Error('Erreur de mise à jour');
+    setEditing(false); onSuccess?.();
+  } catch (err) { setError(err.message); }
+  finally { setSubmit(false); }
+};
 
   const doDelete = async () => {
     setSubmit(true); setError(null);
@@ -199,8 +207,47 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
             <Field icon={MapPin}         label="Lieu naissance"  field="lieu_naissance" />
             <Field icon={GraduationCap}  label="Niveau scolaire" field="niveau_scolaire" />
             <div className="col-span-2">
-              <Field icon={MapPin} label="Adresse" field="adresse" />
-            </div>
+  <Field icon={MapPin} label="Adresse" field="adresse" />
+</div>
+
+{/* 👇 add this right after */}
+<div className="col-span-2 grid grid-cols-2 gap-3 pt-2 border-t border-blue-100">
+  {/* Photo */}
+  <div>
+    <Row icon={User} label="Photo">
+      {editing ? (
+        <div>
+          <input type="file" accept="image/*" onChange={handleFile('photo')}
+            className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer" />
+          {(files.photo || e?.photo) && (
+            <img src={files.photo ? URL.createObjectURL(files.photo) : e.photo}
+              className="mt-1.5 h-20 w-20 rounded-lg object-cover border border-blue-100" />
+          )}
+        </div>
+      ) : e?.photo ? (
+        <img src={e.photo} className="h-20 w-20 rounded-lg object-cover border border-blue-100 mt-0.5" />
+      ) : <p className="text-xs text-slate-400">—</p>}
+    </Row>
+  </div>
+
+  {/* Pièce d'identité */}
+  <div>
+    <Row icon={User} label="Pièce d'identité">
+      {editing ? (
+        <div>
+          <input type="file" accept="image/*,application/pdf" onChange={handleFile('piece_identite')}
+            className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer" />
+          {files.piece_identite && <p className="text-[10px] text-slate-400 mt-1 truncate">{files.piece_identite.name}</p>}
+          {!files.piece_identite && e?.piece_identite && (
+            <a href={e.piece_identite} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 underline mt-1 block">Voir actuelle</a>
+          )}
+        </div>
+      ) : e?.piece_identite ? (
+        <a href={e.piece_identite} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 underline">Voir le document</a>
+      ) : <p className="text-xs text-slate-400">—</p>}
+    </Row>
+  </div>
+</div>
           </div>
 
           {/* Inscription */}

@@ -131,7 +131,7 @@ const Students = () => {
     { label: '3ème appel', Icon: PhoneCall,   width: 95  },
     { label: 'Source',     Icon: Megaphone,   width: 105 },
     { label: 'Par',        Icon: UserCheck,   width: 70  },
-    { label: 'Statut',     Icon: CheckCircle2,width: 94 },
+    { label: 'Statut',     Icon: CheckCircle2,width: 96 },
   ];
 
   return (
