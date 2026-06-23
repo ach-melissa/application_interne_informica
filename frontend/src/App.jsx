@@ -21,6 +21,8 @@ import ProfPointage from './pages/admin/profs/ProfPointage';
 // ── Pages prof (nouvelles) ─────────────────────────────────
 import DashboardProf from './pages/prof/dashboard/DashboardProf';
 import GroupsProf from './pages/prof/groups/GroupsProf';
+import EmploiDuTemps from './pages/prof/EmploiDuTemps';
+import ProfLayout from './layouts/ProfLayout';
 
 // ── Pages comptable (nouvelles) ─────────────────────────────
 import DashboardComptable from './pages/comptable/dashboard/DashboardComptable';
@@ -102,6 +104,14 @@ function App() {
               <GroupsProf />
             </PrivateRoute>
           } />
+<Route path="/prof/emploi-du-temps" element={
+  <PrivateRoute allowedRoles={['prof']}>
+    <ProfLayout>
+      <EmploiDuTemps />
+    </ProfLayout>
+  </PrivateRoute>
+} />
+
 
           {/* ── Routes comptable (nouvelles) ── */}
           <Route path="/comptable" element={

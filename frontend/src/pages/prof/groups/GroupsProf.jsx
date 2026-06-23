@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Users, Calendar, ClipboardList, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, ClipboardList, ChevronDown, ChevronUp } from 'lucide-react';
 import ProfLayout from '../../../layouts/ProfLayout';
 import GroupStudents from './GroupStudents';
-import GroupSchedule from './GroupSchedule';
 import GroupAttendance from './GroupAttendance';
 
 const TABS = [
   { key: 'students',   label: 'Étudiants',  Icon: Users },
-  { key: 'schedule',   label: 'Horaires',   Icon: Calendar },
   { key: 'attendance', label: 'Pointage',   Icon: ClipboardList },
 ];
 
@@ -16,17 +14,13 @@ const GroupsProf = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Which group card is expanded
   const [openGroup, setOpenGroup] = useState(null);
-  // Active tab per group: { [groupId]: 'students' | 'schedule' | 'attendance' }
   const [activeTab, setActiveTab] = useState({});
 
-  // Per-group fetched data
-  const [students, setStudents] = useState({});     // { [groupId]: [...] }
-  const [attendance, setAttendance] = useState({}); // { [groupId]: { sessions, records } }
+  const [students, setStudents] = useState({});
+  const [attendance, setAttendance] = useState({});
   const [loadingTab, setLoadingTab] = useState({});
 
-  // ── Fetch all groups on mount ────────────────────────────
   useEffect(() => {
     const fetchGroups = async () => {
       try {
@@ -46,7 +40,6 @@ const GroupsProf = () => {
     fetchGroups();
   }, []);
 
-  // ── Toggle a group card open/closed ─────────────────────
   const toggleGroup = (groupId) => {
     if (openGroup === groupId) {
       setOpenGroup(null);
@@ -59,17 +52,15 @@ const GroupsProf = () => {
     }
   };
 
-  // ── Switch tabs ──────────────────────────────────────────
   const switchTab = (groupId, tab) => {
     setActiveTab((prev) => ({ ...prev, [groupId]: tab }));
     if (tab === 'students' && !students[groupId]) fetchStudents(groupId);
     if (tab === 'attendance') {
       if (!attendance[groupId]) fetchAttendance(groupId);
-      if (!students[groupId]) fetchStudents(groupId); // needed for fiche rows
+      if (!students[groupId]) fetchStudents(groupId);
     }
   };
 
-  // ── Data fetchers ────────────────────────────────────────
   const fetchStudents = async (groupId) => {
     if (students[groupId]) return;
     setLoadingTab((prev) => ({ ...prev, [groupId]: true }));
@@ -108,22 +99,10 @@ const GroupsProf = () => {
     }
   };
 
-  // ── Callbacks from child components ─────────────────────
-  const handleStudentsUpdate = (groupId, updatedStudents) => {
-    setStudents((prev) => ({ ...prev, [groupId]: updatedStudents }));
-  };
-
-  const handleScheduleUpdate = (groupId, newScheduleMap) => {
-    setGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, schedule: newScheduleMap } : g))
-    );
-  };
-
   const handleAttendanceUpdate = (groupId, updated) => {
     setAttendance((prev) => ({ ...prev, [groupId]: updated }));
   };
 
-  // ── Render ───────────────────────────────────────────────
   return (
     <ProfLayout>
       <div className="mb-6">
@@ -153,7 +132,6 @@ const GroupsProf = () => {
                 key={g.id}
                 className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden"
               >
-                {/* ── Group header (clickable) ── */}
                 <button
                   onClick={() => toggleGroup(g.id)}
                   className="w-full flex items-center justify-between px-6 py-4 hover:bg-[#F8FAFC] transition"
@@ -185,10 +163,8 @@ const GroupsProf = () => {
                   </div>
                 </button>
 
-                {/* ── Expanded panel ── */}
                 {openGroup === g.id && (
                   <div className="border-t border-[#E2E8F0]">
-                    {/* Tab bar */}
                     <div className="flex border-b border-[#E2E8F0] px-6 gap-1">
                       {TABS.map(({ key, label, Icon }) => (
                         <button
@@ -206,7 +182,6 @@ const GroupsProf = () => {
                       ))}
                     </div>
 
-                    {/* Tab content */}
                     <div className="p-6">
                       {loadingTab[g.id] ? (
                         <div className="flex justify-center py-8">
@@ -215,18 +190,8 @@ const GroupsProf = () => {
                       ) : (
                         <>
                           {activeTab[g.id] === 'students' && (
-                            <GroupStudents
-                              students={students[g.id] ?? []}
-                            />
+                            <GroupStudents students={students[g.id] ?? []} />
                           )}
-
-                          {activeTab[g.id] === 'schedule' && (
-                            <GroupSchedule
-                              group={g}
-                              onUpdate={handleScheduleUpdate}
-                            />
-                          )}
-
                           {activeTab[g.id] === 'attendance' && (
                             <GroupAttendance
                               groupId={g.id}

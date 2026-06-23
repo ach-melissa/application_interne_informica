@@ -1,13 +1,15 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/images/logo_informica.png';
 import logoIcon from '../assets/images/logo_informica_icon.png';
+import { LayoutDashboard, Users, CalendarDays, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const navItems = [
-  { path: '/prof',        label: 'Dashboard',  icon: LayoutDashboard, exact: true },
-  { path: '/prof/groups', label: 'Mes Groupes', icon: Users },
+  { path: '/prof',                  label: 'Dashboard',        icon: LayoutDashboard, exact: true },
+  { path: '/prof/groups',           label: 'Mes Groupes',      icon: Users },
+  { path: '/prof/emploi-du-temps',  label: 'Emploi du Temps',  icon: CalendarDays },
 ];
+
 
 const Tooltip = ({ label }) => (
   <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">

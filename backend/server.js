@@ -10,7 +10,15 @@ const groupRoutes = require('./routes/groupRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const profRoutes = require('./routes/profRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+
 const enumRoutes = require('./routes/enumRoutes');
+
+const comptableRoutes = require('./routes/comptableRoutes');
+const scheduleRoutes = require('./routes/scheduleRoutes');
+const sessionRoutes = require('./routes/sessionRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -26,6 +34,10 @@ app.use('/api/teachers', teacherRoutes);
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/profs', profRoutes);
 app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/comptable', comptableRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on port ${process.env.PORT}`);

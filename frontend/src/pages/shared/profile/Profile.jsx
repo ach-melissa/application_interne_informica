@@ -348,7 +348,7 @@ const ProfileContent = ({ user, onUpdated }) => {
   };
 
   return (
-    <div className="max-w-xl">
+    <div className="max-w-5xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#1E293B]">Mon Profil</h1>
         <p className="text-[#64748B] text-sm mt-1">Vos informations personnelles</p>
@@ -449,14 +449,14 @@ const ProfileContent = ({ user, onUpdated }) => {
             INFORMATIONS PERSONNELLES
           </p>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {user?.nom_utilisateur && (
               <div className="rounded-xl border border-[#E2E8F0] px-4 py-3">
                 <div className="flex items-center gap-1.5 text-[#94A3B8]">
                   <AtSign size={14} />
                   <span className="text-xs">Nom d'utilisateur</span>
                 </div>
-                <p className="text-sm font-medium text-[#1E293B] mt-1">{user?.nom_utilisateur}</p>
+                <p className="text-sm font-bold text-[#1E293B] mt-1">{user?.nom_utilisateur}</p>
               </div>
             )}
 
@@ -465,7 +465,7 @@ const ProfileContent = ({ user, onUpdated }) => {
                 <Mail size={14} />
                 <span className="text-xs">Email</span>
               </div>
-              <p className="text-sm font-medium text-[#1E293B] mt-1 truncate">{user?.email || '—'}</p>
+              <p className="text-sm font-bold text-[#1E293B] mt-1 truncate">{user?.email || '—'}</p>
             </div>
 
             <div className="rounded-xl border border-[#E2E8F0] px-4 py-3">
@@ -473,7 +473,7 @@ const ProfileContent = ({ user, onUpdated }) => {
                 <Phone size={14} />
                 <span className="text-xs">Téléphone</span>
               </div>
-              <p className="text-sm font-medium text-[#1E293B] mt-1">{user?.telephone || '—'}</p>
+              <p className="text-sm font-bold text-[#1E293B] mt-1">{user?.telephone || '—'}</p>
             </div>
 
             <div className="rounded-xl border border-[#E2E8F0] px-4 py-3">
@@ -481,7 +481,7 @@ const ProfileContent = ({ user, onUpdated }) => {
                 <Calendar size={14} />
                 <span className="text-xs">Date de naissance</span>
               </div>
-              <p className="text-sm font-medium text-[#1E293B] mt-1">{formatDate(user?.date_naissance)}</p>
+              <p className="text-sm font-bold text-[#1E293B] mt-1">{formatDate(user?.date_naissance)}</p>
             </div>
 
             <div className="rounded-xl border border-[#E2E8F0] px-4 py-3">
@@ -489,7 +489,7 @@ const ProfileContent = ({ user, onUpdated }) => {
                 <Shield size={14} />
                 <span className="text-xs">Rôle</span>
               </div>
-              <p className="text-sm font-medium text-[#1E293B] mt-1">
+              <p className="text-sm font-bold text-[#1E293B] mt-1">
                 {ROLE_LABELS[user?.role] ?? user?.role}
               </p>
             </div>
@@ -499,7 +499,7 @@ const ProfileContent = ({ user, onUpdated }) => {
                 <Calendar size={14} />
                 <span className="text-xs">Inscrit le</span>
               </div>
-              <p className="text-sm font-medium text-[#1E293B] mt-1">{formatDate(user?.created_at)}</p>
+              <p className="text-sm font-bold text-[#1E293B] mt-1">{formatDate(user?.created_at)}</p>
             </div>
           </div>
         </div>
