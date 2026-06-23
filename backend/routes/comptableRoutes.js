@@ -8,15 +8,24 @@ const {
 } = require('../controllers/comptableController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 
+const {
+  getAllPayments,
+  updatePaymentStatut,
+  createPayment,
+  getFormationPayments,
+} = require('../controllers/comptablePaymentController');
+
 const auth = [verifyToken, requireRole('admin', 'comptable')];
 
 // Dashboard
 router.get('/stats',              ...auth, getStats);
 
-// Paiements
-router.get('/paiements',          ...auth, getPaiements);
-router.post('/paiements',         ...auth, createPaiement);
-router.patch('/paiements/:id',    ...auth, updatePaiement);
+// ── Paiements (new controller replaces old handlers) ──────────────────────
+// IMPORTANT: specific route /paiements/formation/:id MUST come before /paiements/:id
+router.get('/paiements/formation/:formationId', ...auth, getFormationPayments);
+router.get   ('/paiements',     ...auth, getAllPayments);
+router.post  ('/paiements',     ...auth, createPayment);
+router.patch ('/paiements/:id', ...auth, updatePaymentStatut);
 
 // Salaires
 router.get('/salaires',           ...auth, getSalaires);

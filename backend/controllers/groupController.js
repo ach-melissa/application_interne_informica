@@ -7,7 +7,8 @@ const getGroupsByFormation = async (req, res) => {
     .from('groups')
     .select(`
       *,
-      teacher:teacher_id(id, user:user_id(nom, prenom))
+      teacher:teacher_id(id, user:user_id(nom, prenom)),
+      formations:formation_id(nom)
     `)
     .eq('formation_id', formation_id)
     .eq('archived', false)
