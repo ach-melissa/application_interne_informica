@@ -10,7 +10,7 @@ const groupRoutes = require('./routes/groupRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const profRoutes = require('./routes/profRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
-
+const enumRoutes = require('./routes/enumRoutes');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -18,6 +18,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/formations', formationRoutes);
 app.use('/api/etudiants', etudiantRoutes);
+app.use('/api/enums', enumRoutes);
 app.use('/api/inscriptions', inscriptionRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/payments', paymentRoutes);

@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 
+//form page 
+import InscriptionForm from './pages/InscriptionForm/InscriptionForm';
 // ── Pages admin (inchangées) ───────────────────────────────
 import Login from './pages/Login';
 import Dashboard from './pages/admin/dashboard/Dashboard';
@@ -34,6 +36,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          {/* ── Public inscription form ── */}
+          <Route path="/inscription" element={<InscriptionForm />} />
 
           {/* ── Routes admin (inchangées) ── */}
           <Route path="/admin" element={

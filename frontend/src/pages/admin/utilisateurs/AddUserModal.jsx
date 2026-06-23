@@ -1,91 +1,86 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, User, Mail, Phone, Calendar, Shield, Lock } from 'lucide-react';
 
-const AddUserModal = ({ onClose }) => {
+const API = import.meta.env.VITE_API_URL;
+const getHeaders = () => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${localStorage.getItem('token')}`,
+});
+
+const ROLES = ['admin','prof','comptable'];
+const roleMeta = { admin: 'Admin', prof: 'Prof', comptable: 'Comptable' };
+const inp = 'w-full border border-blue-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white';
+const Label = ({ icon: Icon, text }) => (
+  <p className="flex items-center gap-1 text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">
+    {Icon && <Icon size={10} />}{text}
+  </p>
+);
+
+const AddUserModal = ({ onClose, onSuccess }) => {
   const [form, setForm] = useState({
     nom: '', prenom: '', email: '', nom_utilisateur: '',
     mot_de_passe: '', telephone: '', date_naissance: '', role: 'prof',
   });
+  const [submitting, setSubmit] = useState(false);
+  const [error, setError]       = useState(null);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('New user:', form);
-    onClose();
+  const handleSubmit = async () => {
+    if (!form.nom || !form.prenom || !form.email || !form.nom_utilisateur || !form.mot_de_passe) {
+      setError("Nom, prénom, email, nom d'utilisateur et mot de passe sont obligatoires."); return;
+    }
+    setSubmit(true); setError(null);
+    try {
+      const res = await fetch(`${API}/api/users`, {
+        method: 'POST', headers: getHeaders(), body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? data.message);
+      onSuccess?.(); onClose();
+    } catch (err) { setError(err.message); }
+    finally { setSubmit(false); }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-[#1E293B]">Ajouter un utilisateur</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100">
-            <X size={18} />
-          </button>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+
+        <div className="flex items-center justify-between px-5 py-4 border-b border-blue-50 sticky top-0 bg-white z-10">
+          <h2 className="text-sm font-semibold text-slate-800">Ajouter un utilisateur</h2>
+          <button onClick={onClose} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-[#64748B] mb-1 block">Nom</label>
-              <input name="nom" value={form.nom} onChange={handleChange} required
-                className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[#64748B] mb-1 block">Prénom</label>
-              <input name="prenom" value={form.prenom} onChange={handleChange} required
-                className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-[#64748B] mb-1 block">Email</label>
-            <input name="email" type="email" value={form.email} onChange={handleChange} required
-              className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-[#64748B] mb-1 block">Nom d'utilisateur</label>
-            <input name="nom_utilisateur" value={form.nom_utilisateur} onChange={handleChange} required
-              className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-[#64748B] mb-1 block">Mot de passe</label>
-            <input name="mot_de_passe" type="password" value={form.mot_de_passe} onChange={handleChange} required
-              className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-[#64748B] mb-1 block">Téléphone</label>
-              <input name="telephone" value={form.telephone} onChange={handleChange}
-                className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[#64748B] mb-1 block">Date de naissance</label>
-              <input name="date_naissance" type="date" value={form.date_naissance} onChange={handleChange}
-                className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-[#64748B] mb-1 block">Rôle</label>
-            <select name="role" value={form.role} onChange={handleChange}
-              className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]">
-              <option value="admin">Admin</option>
-              <option value="prof">Prof</option>
-              <option value="comptable">Comptable</option>
-            </select>
+        <div className="p-5 space-y-3">
+          {error && <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+
+          <div className="bg-blue-50/40 rounded-xl border border-blue-100 p-4 grid grid-cols-2 gap-3">
+            <div><Label icon={User} text="Nom *" /><input value={form.nom} onChange={set('nom')} className={inp} /></div>
+            <div><Label icon={User} text="Prénom *" /><input value={form.prenom} onChange={set('prenom')} className={inp} /></div>
+            <div className="col-span-2"><Label icon={Mail} text="Email *" /><input type="email" value={form.email} onChange={set('email')} className={inp} /></div>
+            <div><Label icon={Phone} text="Téléphone" /><input value={form.telephone} onChange={set('telephone')} className={inp} /></div>
+            <div><Label icon={Calendar} text="Date naissance" /><input type="date" value={form.date_naissance} onChange={set('date_naissance')} className={inp} /></div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm rounded-lg border border-[#E2E8F0] text-[#64748B] hover:bg-gray-50 transition">
-              Annuler
-            </button>
-            <button type="submit"
-              className="px-4 py-2 text-sm rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8] transition font-medium">
-              Ajouter
+          <div className="bg-blue-50/40 rounded-xl border border-blue-100 p-4 grid grid-cols-2 gap-3">
+            <div><Label icon={User} text="Nom d'utilisateur *" /><input value={form.nom_utilisateur} onChange={set('nom_utilisateur')} className={inp} /></div>
+            <div><Label icon={Lock} text="Mot de passe *" /><input type="password" value={form.mot_de_passe} onChange={set('mot_de_passe')} className={inp} /></div>
+            <div className="col-span-2">
+              <Label icon={Shield} text="Rôle" />
+              <select value={form.role} onChange={set('role')} className={inp}>
+                {ROLES.map(r => <option key={r} value={r}>{roleMeta[r]}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">Annuler</button>
+            <button onClick={handleSubmit} disabled={submitting}
+              className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 font-medium">
+              {submitting ? 'Ajout...' : 'Ajouter'}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

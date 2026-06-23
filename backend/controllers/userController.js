@@ -206,4 +206,21 @@ const deleteMyPhoto = async (req, res) => {
   }
 };
 
-module.exports = { getMe, updateMe, changeMyPassword, uploadMyPhoto, deleteMyPhoto };
+const getUsers = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select(SAFE_FIELDS)
+      .order('created_at', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+    const withPhotos = await Promise.all(data.map(withPhotoUrl));
+    res.json(withPhotos);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// update the exports line:
+module.exports = { getMe, updateMe, changeMyPassword, uploadMyPhoto, deleteMyPhoto, getUsers };

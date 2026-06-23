@@ -1,3 +1,4 @@
+// etduinats controllr 
 const supabase = require('../supabaseClient');
 
 const getEtudiants = async (req, res) => {
@@ -77,4 +78,17 @@ const updateEtudiant = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant };
+const deleteEtudiant = async (req, res) => {
+  const { id } = req.params;
+
+  // deleting the inscription (id = inscription id)
+  const { error } = await supabase
+    .from('inscriptions')
+    .delete()
+    .eq('id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+};
+
+module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant };

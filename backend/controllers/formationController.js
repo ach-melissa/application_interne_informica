@@ -1,3 +1,4 @@
+// formation controller 
 const supabase = require('../supabaseClient');
 
 const getFormations = async (req, res) => {

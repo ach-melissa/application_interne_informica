@@ -1,171 +1,190 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddUserModal from './AddUserModal';
 import UserDetailsModal from './UserDetailsModal';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Shield, X, CheckCircle2, CalendarDays } from 'lucide-react';
 
-const staticUsers = [
-  { id: 1, nom: 'Benali', prenom: 'Karim', email: 'karim@informica.dz', nom_utilisateur: 'karim.b', role: 'admin', statut: 'active', created_at: '2024-03-15' },
-  { id: 2, nom: 'Meziani', prenom: 'Sara', email: 'sara@informica.dz', nom_utilisateur: 'sara.m', role: 'prof', statut: 'active', created_at: '2024-03-10' },
-  { id: 3, nom: 'Hamidi', prenom: 'Amine', email: 'amine@informica.dz', nom_utilisateur: 'amine.h', role: 'comptable', statut: 'inactive', created_at: '2024-02-28' },
-  { id: 4, nom: 'Ouali', prenom: 'Nadia', email: 'nadia@informica.dz', nom_utilisateur: 'nadia.o', role: 'prof', statut: 'active', created_at: '2024-02-10' },
-  { id: 5, nom: 'Kaci', prenom: 'Yacine', email: 'yacine@informica.dz', nom_utilisateur: 'yacine.k', role: 'admin', statut: 'archived', created_at: '2024-01-05' },
+const API = import.meta.env.VITE_API_URL;
+
+const ROLES = ['admin','prof','comptable','etudiant'];
+const roleMeta = {
+  admin:     { cls: 'bg-blue-100 text-blue-700',       label: 'Admin' },
+  prof:      { cls: 'bg-emerald-100 text-emerald-700', label: 'Prof' },
+  comptable: { cls: 'bg-violet-100 text-violet-700',   label: 'Comptable' },
+  etudiant:  { cls: 'bg-orange-100 text-orange-700',   label: 'Étudiant' },
+};
+const statutMeta = {
+  active:   { cls: 'bg-emerald-100 text-emerald-700', label: 'Actif' },
+  inactive: { cls: 'bg-slate-100 text-slate-500',     label: 'Inactif' },
+  archived: { cls: 'bg-red-100 text-red-500',         label: 'Archivé' },
+};
+
+const Avatar = ({ user, size = 7 }) => {
+  const s = `w-${size} h-${size}`;
+  return user.photo_url
+    ? <img src={user.photo_url} alt="" className={`${s} rounded-full object-cover flex-shrink-0`} />
+    : <div className={`${s} rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600 flex-shrink-0`}>
+        {user.prenom?.[0]}{user.nom?.[0]}
+      </div>;
+};
+
+const COLS = [
+  { label: 'Utilisateur', width: 200 },
+  { label: 'Email',       width: 190 },
+  { label: 'Rôle',        width: 100 },
+  { label: 'Statut',      width: 95  },
+  { label: 'Créé le',     width: 90  },
 ];
 
-const roleBadge = {
-  admin: 'bg-blue-100 text-blue-600',
-  prof: 'bg-green-100 text-green-600',
-  comptable: 'bg-purple-100 text-purple-600',
-  etudiant: 'bg-orange-100 text-orange-600',
-};
-
-const statutBadge = {
-  active: 'bg-green-100 text-green-600',
-  inactive: 'bg-gray-100 text-gray-500',
-  archived: 'bg-red-100 text-red-400',
-};
-
 const Utilisateurs = () => {
-  const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [users, setUsers] = useState(
-    [...staticUsers].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-  );
-  const [showAdd, setShowAdd] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [users, setUsers]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
+  const [search, setSearch]     = useState('');
+  const [roleFilter, setRole]     = useState('');
+  const [statutFilter, setStatut] = useState('');
+  const [dateFrom, setDateFrom]   = useState('');
+  const [dateTo, setDateTo]       = useState('');
+  const [showAdd, setShowAdd]   = useState(false);
+  const [selected, setSelected] = useState(null);
 
-  const filtered = users.filter((u) => {
-    const matchSearch =
-      u.nom.toLowerCase().includes(search.toLowerCase()) ||
-      u.prenom.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
-    const matchRole = roleFilter === 'all' || u.role === roleFilter;
-    return matchSearch && matchRole;
+  const fetchUsers = () => {
+    const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+    fetch(`${API}/api/users`, { headers: h })
+      .then(r => r.json()).then(setUsers).catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  };
+  useEffect(fetchUsers, []);
+
+  const filtered = users.filter(u => {
+    const txt = `${u.nom} ${u.prenom} ${u.email}`.toLowerCase();
+    if (search       && !txt.includes(search.toLowerCase())) return false;
+    if (roleFilter   && u.role   !== roleFilter)             return false;
+    if (statutFilter && (u.archived ? 'archived' : u.statut ?? 'active') !== statutFilter) return false;
+    if (dateFrom && u.created_at && new Date(u.created_at) < new Date(dateFrom)) return false;
+    if (dateTo   && u.created_at && new Date(u.created_at) > new Date(dateTo))   return false;
+    return true;
   });
 
-  const handleUpdate = (updatedUser) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
-    );
-    setSelectedUser(updatedUser);
-  };
+  const activeCount = (search ? 1 : 0) + (roleFilter ? 1 : 0) + (statutFilter ? 1 : 0) + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
+  const clearAll = () => { setSearch(''); setRole(''); setStatut(''); setDateFrom(''); setDateTo(''); };
 
-  const handleDelete = (id) => {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-    setSelectedUser(null);
-  };
+  const FilterSel = ({ icon: Icon, label, value, onChange, opts, display }) => (
+    <div className="relative flex items-center">
+      {Icon && <Icon size={13} className="absolute left-2 text-blue-400 pointer-events-none" />}
+      <select value={value} onChange={e => onChange(e.target.value)}
+        className={`text-xs border rounded-lg py-1.5 pr-6 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer transition
+          ${value ? 'border-blue-400 text-blue-700 font-medium' : 'border-blue-200 text-slate-500'} pl-7`}>
+        <option value="">{label}</option>
+        {opts.map(o => <option key={o} value={o}>{display ? display(o) : o}</option>)}
+      </select>
+      {value && (
+        <button onClick={() => onChange('')} className="absolute right-1.5 text-slate-300 hover:text-red-400"><X size={10} /></button>
+      )}
+    </div>
+  );
 
   return (
     <AdminLayout>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">Utilisateurs</h1>
-          <p className="text-[#64748B] text-sm mt-1">{users.length} utilisateurs</p>
+          <h1 className="text-xl font-bold text-slate-800">Utilisateurs</h1>
+          <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {users.length} utilisateurs</p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 bg-[#2563EB] text-white px-4 py-2.5 rounded-lg hover:bg-[#1D4ED8] transition text-sm font-medium"
-        >
-          <Plus size={18} />
-          Ajouter
+        <button onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition">
+          <Plus size={14} /> Ajouter
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <div className="relative w-64">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-          <input
-            type="text"
-            placeholder="Rechercher..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white"
-          />
+      {/* Filter bar */}
+      <div className="bg-white border border-blue-100 rounded-xl px-3 py-2.5 mb-4 flex flex-wrap gap-2 items-center shadow-sm">
+        <div className="relative min-w-[160px] flex-1 max-w-[220px]">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
+          <input placeholder="Nom, email…" value={search} onChange={e => setSearch(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 border border-blue-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
         </div>
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="text-sm border border-[#E2E8F0] rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-[#1E293B]"
-        >
-          <option value="all">Tous les rôles</option>
-          <option value="admin">Admin</option>
-          <option value="prof">Prof</option>
-          <option value="comptable">Comptable</option>
-          <option value="etudiant">Étudiant</option>
-        </select>
+        <div className="w-px h-5 bg-blue-100" />
+        <FilterSel icon={Shield}       label="Rôle"   value={roleFilter}   onChange={setRole}   opts={ROLES}                          display={o => roleMeta[o]?.label ?? o} />
+        <FilterSel icon={CheckCircle2} label="Statut" value={statutFilter} onChange={setStatut} opts={['active','inactive','archived']} display={o => statutMeta[o]?.label ?? o} />
+
+        <div className="w-px h-5 bg-blue-100" />
+
+        <div className="flex items-center gap-1.5 bg-blue-50/60 border border-blue-200 rounded-lg px-2 py-1">
+          <CalendarDays size={12} className="text-blue-400 flex-shrink-0" />
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+            className={`text-xs bg-transparent focus:outline-none transition ${dateFrom ? 'text-blue-700 font-medium' : 'text-slate-400'}`} />
+          <span className="text-blue-300 text-[10px] font-bold px-0.5">–</span>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+            className={`text-xs bg-transparent focus:outline-none transition ${dateTo ? 'text-blue-700 font-medium' : 'text-slate-400'}`} />
+        </div>
+        {activeCount > 0 && (
+          <button onClick={clearAll} className="ml-auto flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50">
+            <X size={11} /> Tout effacer
+          </button>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-              <th className="text-left px-5 py-3 text-[#64748B] font-medium">Utilisateur</th>
-              <th className="text-left px-5 py-3 text-[#64748B] font-medium">Email</th>
-              <th className="text-left px-5 py-3 text-[#64748B] font-medium">Rôle</th>
-              <th className="text-left px-5 py-3 text-[#64748B] font-medium">Statut</th>
-              <th className="text-left px-5 py-3 text-[#64748B] font-medium">Créé le</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center py-10 text-[#94A3B8]">
-                  Aucun utilisateur trouvé
-                </td>
-              </tr>
-            ) : (
-              filtered.map((u) => (
-                <tr
-                  key={u.id}
-                  onClick={() => setSelectedUser(u)}
-                  className="border-b border-[#F1F5F9] hover:bg-[#F8FAFC] cursor-pointer transition group"
-                >
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#EFF6FF] flex items-center justify-center text-[#2563EB] font-bold text-xs shrink-0">
-                        {u.prenom[0]}{u.nom[0]}
-                      </div>
-                      <div>
-                        <p className="font-medium text-[#1E293B] group-hover:text-[#2563EB] transition">
-                          {u.prenom} {u.nom}
-                        </p>
-                        <p className="text-xs text-[#94A3B8]">@{u.nom_utilisateur}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3 text-[#64748B]">{u.email}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${roleBadge[u.role]}`}>
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statutBadge[u.statut]}`}>
-                      {u.statut}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-[#94A3B8] text-xs">
-                    {new Date(u.created_at).toLocaleDateString('fr-FR')}
-                  </td>
+      {loading && <div className="flex justify-center py-16"><div className="w-7 h-7 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}
+      {error   && <p className="text-red-500 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+
+      {!loading && !error && (
+        <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
+              <colgroup>
+                {COLS.map(c => <col key={c.label} style={{ width: `${c.width}px` }} />)}
+              </colgroup>
+              <thead className="bg-blue-50 border-b border-blue-100">
+                <tr>
+                  {COLS.map(({ label }) => (
+                    <th key={label} className="text-left px-3 py-2.5 text-blue-500 font-semibold text-[10px] tracking-wide uppercase">
+                      {label}
+                    </th>
+                  ))}
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {showAdd && <AddUserModal onClose={() => setShowAdd(false)} />}
-      {selectedUser && (
-        <UserDetailsModal
-          user={selectedUser}
-          onClose={() => setSelectedUser(null)}
-          onUpdate={handleUpdate}
-          onDelete={handleDelete}
-        />
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={5} className="text-center py-10 text-slate-400">Aucun utilisateur trouvé.</td></tr>
+                ) : filtered.map(u => {
+                  const statut = u.archived ? 'archived' : (u.statut ?? 'active');
+                  return (
+                    <tr key={u.id} onClick={() => setSelected(u)} className="hover:bg-blue-50/40 transition cursor-pointer">
+                      <td className="px-3 py-2 overflow-hidden">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar user={u} size={7} />
+                          <div className="min-w-0">
+                            <p className="font-medium text-slate-700 truncate">{u.prenom} {u.nom}</p>
+                            <p className="text-[10px] text-slate-400 truncate">@{u.nom_utilisateur}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-slate-500 truncate">{u.email}</td>
+                      <td className="px-3 py-2 overflow-hidden">
+                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${roleMeta[u.role]?.cls ?? 'bg-slate-100 text-slate-500'}`}>
+                          {roleMeta[u.role]?.label ?? u.role}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 overflow-hidden">
+                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${statutMeta[statut]?.cls ?? 'bg-slate-100 text-slate-500'}`}>
+                          {statutMeta[statut]?.label ?? statut}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-slate-400 truncate">
+                        {u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
+
+      {showAdd  && <AddUserModal     onClose={() => setShowAdd(false)} onSuccess={fetchUsers} />}
+      {selected && <UserDetailsModal user={selected} onClose={() => setSelected(null)} onSuccess={() => { fetchUsers(); setSelected(null); }} />}
     </AdminLayout>
   );
 };

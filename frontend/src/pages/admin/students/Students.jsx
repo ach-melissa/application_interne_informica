@@ -1,221 +1,268 @@
 import { useState, useEffect } from 'react';
-import { Search, User, Plus } from 'lucide-react';
+import {
+  Search, Plus, X, CheckCircle2, Clock, XCircle, Ban,
+  Phone, PhoneOff, PhoneMissed, PhoneCall, Building2, Lock,
+  Users, Radio, UserCheck, CalendarDays, Megaphone,
+} from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddEtudiantModal from './AddEtudiantModal';
 import EtudiantDetailModal from './EtudiantDetailModal';
 
-const TRY_OPTIONS = ['repondu', 'non_repondu', 'occupe', 'injoignable', 'P_bureau', 'ferme'];
-const REGISTERED_BY_OPTIONS = ['hanane', 'yasmine', 'page_facebook', 'amira'];
-const SOURCE_OPTIONS = ['Amis/Famille', 'Instagram', 'TikTok', 'Facebook', 'Recherche Google', 'Site Web', 'Bouche-à-oreille', 'Publicité', 'Autre'];
-const STATUT_OPTIONS = ['pending', 'confirmed', 'non_confirmed'];
+const API = import.meta.env.VITE_API_URL;
 
-const statutLabel = (val) => {
-  if (val === 'confirmed') return 'Confirmé';
-  if (val === 'pending') return 'En attente';
-  if (val === 'non_confirmed') return 'Non confirmé';
-  return val;
+const TRY_OPTS        = ['repondu','non_repondu','occupe','injoignable','P_bureau','ferme'];
+const SOURCE_OPTS     = ['Amis/Famille','Instagram','TikTok','Facebook','Recherche Google','Site Web','Bouche-à-oreille','Publicité','Autre'];
+const REGISTERED_OPTS = ['hanane','yasmine','page_facebook','amira'];
+const STATUT_OPTS     = ['pending','confirmed','non_confirmed','rejected'];
+
+const statutMeta = {
+  confirmed:     { label: 'Confirmé',     cls: 'bg-blue-100 text-blue-700' },
+  pending:       { label: 'En attente',   cls: 'bg-amber-100 text-amber-700' },
+  non_confirmed: { label: 'Non confirmé', cls: 'bg-red-100 text-red-600' },
+  rejected:      { label: 'Rejeté',       cls: 'bg-slate-100 text-slate-500' },
 };
 
-const statutColor = (val) => {
-  if (val === 'confirmed') return 'bg-green-100 text-green-600';
-  if (val === 'pending') return 'bg-yellow-100 text-yellow-600';
-  if (val === 'non_confirmed') return 'bg-red-100 text-red-500';
-  return 'bg-gray-100 text-gray-500';
+const tryMeta = {
+  repondu:     'bg-emerald-100 text-emerald-700',
+  non_repondu: 'bg-red-100 text-red-600',
+  occupe:      'bg-orange-100 text-orange-600',
+  injoignable: 'bg-slate-100 text-slate-500',
+  P_bureau:    'bg-blue-100 text-blue-600',
+  ferme:       'bg-violet-100 text-violet-600',
 };
 
-const tryColor = (val) => {
-  if (val === 'repondu') return 'bg-green-100 text-green-700';
-  if (val === 'non_repondu') return 'bg-red-100 text-red-600';
-  if (val === 'occupe') return 'bg-orange-100 text-orange-600';
-  if (val === 'injoignable') return 'bg-gray-100 text-gray-500';
-  if (val === 'P_bureau') return 'bg-blue-100 text-blue-600';
-  if (val === 'ferme') return 'bg-purple-100 text-purple-600';
-  return 'bg-gray-50 text-gray-400';
-};
-
-const TrySelect = ({ value, onChange }) => (
+const TrySelect = ({ value, onChange, disabled }) => (
   <select
-    value={value ?? TRY_OPTIONS[0]}
-    onChange={(e) => onChange(e.target.value)}
-    className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#2563EB] ${tryColor(value ?? TRY_OPTIONS[0])}`}
+    value={value ?? ''}
+    onChange={e => onChange(e.target.value || null)}
+    onClick={e => e.stopPropagation()}
+    disabled={disabled}
+    className={`text-[11px] font-medium px-2 py-0.5 rounded-full border-0 focus:outline-none focus:ring-1 focus:ring-blue-400 w-full
+      ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
+      ${tryMeta[value] ?? 'bg-slate-100 text-slate-400'}`}
   >
-    {TRY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+    <option value="">— aucun —</option>
+    {TRY_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
   </select>
 );
 
-const API = import.meta.env.VITE_API_URL;
+const FilterSelect = ({ icon: Icon, label, value, onChange, opts, display }) => (
+  <div className="relative flex items-center">
+    {Icon && <Icon size={13} className="absolute left-2 text-blue-400 pointer-events-none" />}
+    <select
+      value={value || ''}
+      onChange={e => onChange(e.target.value)}
+      className={`text-xs border rounded-lg py-1.5 pr-6 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer transition
+        ${value ? 'border-blue-400 text-blue-700 font-medium' : 'border-blue-200 text-slate-500'}
+        ${Icon ? 'pl-7' : 'pl-2'}`}
+    >
+      <option value="">{label}</option>
+      {opts.map(o => <option key={o} value={o}>{display ? display(o) : o}</option>)}
+    </select>
+    {value && (
+      <button onClick={() => onChange('')} className="absolute right-1.5 text-slate-300 hover:text-red-400 transition">
+        <X size={10} />
+      </button>
+    )}
+  </div>
+);
 
 const Students = () => {
-  const [etudiants, setEtudiants] = useState([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showAdd, setShowAdd] = useState(false);
-  const [selectedInscription, setSelectedInscription] = useState(null);
+  const [etudiants, setEtudiants]   = useState([]);
+  const [formations, setFormations] = useState([]);
+  const [search, setSearch]         = useState('');
+  const [filters, setFilters]       = useState({});
+  const [dateFrom, setDateFrom]     = useState('');
+  const [dateTo, setDateTo]         = useState('');
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
+  const [showAdd, setShowAdd]       = useState(false);
+  const [selected, setSelected]     = useState(null);
 
-  const fetchEtudiants = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API}/api/etudiants`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Erreur serveur');
-      const data = await res.json();
-      setEtudiants(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+    Promise.all([
+      fetch(`${API}/api/etudiants`,  { headers: h }).then(r => r.json()),
+      fetch(`${API}/api/formations`, { headers: h }).then(r => r.json()),
+    ])
+      .then(([e, f]) => { setEtudiants(e); setFormations(f); })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const refetch = () => {
+    const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+    fetch(`${API}/api/etudiants`, { headers: h }).then(r => r.json()).then(setEtudiants);
   };
-
-  useEffect(() => { fetchEtudiants(); }, []);
 
   const updateField = async (id, field, value) => {
-    setEtudiants((prev) => prev.map((e) => (e.id === id ? { ...e, [field]: value } : e)));
-    try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API}/api/etudiants/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ [field]: value }),
-      });
-    } catch (err) {
-      console.error('Update failed:', err);
-    }
+    setEtudiants(prev => prev.map(e => e.id === id ? { ...e, [field]: value } : e));
+    await fetch(`${API}/api/etudiants/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: JSON.stringify({ [field]: value }),
+    }).catch(console.error);
   };
 
-  const filtered = etudiants.filter((i) =>
-    `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase().includes(search.toLowerCase()) ||
-    i.etudiant?.telephone?.includes(search)
-  );
+  const setFilter = (k, v) => setFilters(f => ({ ...f, [k]: v || undefined }));
+
+  const filtered = etudiants.filter(i => {
+    const name = `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase();
+    if (search && !name.includes(search.toLowerCase()) && !i.etudiant?.telephone?.includes(search)) return false;
+    if (filters.statut        && i.statut           !== filters.statut)         return false;
+    if (filters.source        && i.source           !== filters.source)         return false;
+    if (filters.registered_by && i.registered_by    !== filters.registered_by)  return false;
+    if (filters.formation     && i.formation?.nom   !== filters.formation)      return false;
+    if (dateFrom && i.date_inscription && new Date(i.date_inscription) < new Date(dateFrom)) return false;
+    if (dateTo   && i.date_inscription && new Date(i.date_inscription) > new Date(dateTo))   return false;
+    return true;
+  });
+
+  const activeCount = Object.values(filters).filter(Boolean).length + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
+  const clearAll = () => { setFilters({}); setDateFrom(''); setDateTo(''); setSearch(''); };
+
+  const COLS = [
+    { label: 'Étudiant',   Icon: null,        width: 130 },
+    { label: 'Tél.',       Icon: Phone,       width: 80 },
+    { label: 'Formation',  Icon: Users,       width: 150 },
+    { label: 'Date',       Icon: CalendarDays,width: 75  },
+    { label: '1er appel',  Icon: PhoneCall,   width: 95  },
+    { label: '2ème appel', Icon: PhoneCall,   width: 95  },
+    { label: '3ème appel', Icon: PhoneCall,   width: 95  },
+    { label: 'Source',     Icon: Megaphone,   width: 105 },
+    { label: 'Par',        Icon: UserCheck,   width: 70  },
+    { label: 'Statut',     Icon: CheckCircle2,width: 94 },
+  ];
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">Étudiants</h1>
-          <p className="text-[#64748B] text-sm mt-1">{etudiants.length} inscriptions</p>
+          <h1 className="text-xl font-bold text-slate-800">Étudiants</h1>
+          <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {etudiants.length} inscriptions</p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 bg-[#b8995a] text-white px-4 py-2.5 rounded-lg hover:bg-[#a0854d] transition text-sm font-medium"
-        >
-          <Plus size={18} />
-          Ajouter
+        <button onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition">
+          <Plus size={14} /> Ajouter
         </button>
       </div>
 
-      <div className="relative mb-6 max-w-sm">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-        <input
-          type="text"
-          placeholder="Rechercher..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white"
-        />
+      {/* Filter bar */}
+      <div className="bg-white border border-blue-100 rounded-xl px-3 py-2.5 mb-4 flex flex-wrap gap-2 items-center shadow-sm">
+        <div className="relative min-w-[160px] flex-1 max-w-[220px]">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
+          <input placeholder="Nom, téléphone…" value={search} onChange={e => setSearch(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 border border-blue-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+        </div>
+
+        <div className="w-px h-5 bg-blue-100" />
+
+        <FilterSelect icon={CheckCircle2} label="Statut"         value={filters.statut || ''}        onChange={v => setFilter('statut', v)}        opts={STATUT_OPTS}               display={o => statutMeta[o]?.label ?? o} />
+        <FilterSelect icon={Radio}        label="Source"          value={filters.source || ''}        onChange={v => setFilter('source', v)}        opts={SOURCE_OPTS} />
+        <FilterSelect icon={UserCheck}    label="Enregistré par"  value={filters.registered_by || ''} onChange={v => setFilter('registered_by', v)} opts={REGISTERED_OPTS} />
+        <FilterSelect icon={Users}        label="Formation"       value={filters.formation || ''}     onChange={v => setFilter('formation', v)}     opts={formations.map(f => f.nom)} />
+
+        <div className="w-px h-5 bg-blue-100" />
+
+        <div className="flex items-center gap-1.5 bg-blue-50/60 border border-blue-200 rounded-lg px-2 py-1">
+          <CalendarDays size={12} className="text-blue-400 flex-shrink-0" />
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+            className={`text-xs bg-transparent focus:outline-none transition ${dateFrom ? 'text-blue-700 font-medium' : 'text-slate-400'}`} />
+          <span className="text-blue-300 text-[10px] font-bold px-0.5">–</span>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+            className={`text-xs bg-transparent focus:outline-none transition ${dateTo ? 'text-blue-700 font-medium' : 'text-slate-400'}`} />
+        </div>
+
+        {(activeCount > 0 || search) && (
+          <button onClick={clearAll} className="ml-auto flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50">
+            <X size={11} /> Tout effacer
+          </button>
+        )}
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+        <div className="flex justify-center py-16">
+          <div className="w-7 h-7 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
-
-      {error && (
-        <p className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-3">Erreur : {error}</p>
-      )}
+      {error && <p className="text-red-500 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">Erreur : {error}</p>}
 
       {!loading && !error && (
-        <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
-              <tr>
-                <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Étudiant</th>
-                <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Téléphone</th>
-                <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Formation</th>
-                <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Date</th>
-                <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">1er appel</th>
-                <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">2ème appel</th>
-                <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">3ème appel</th>
-                <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Source</th>
-                <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Enregistré par</th>
-                <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Statut</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F1F5F9]">
-              {filtered.length === 0 ? (
+        <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
+              <colgroup>
+                {COLS.map(c => <col key={c.label} style={{ width: `${c.width}px` }} />)}
+              </colgroup>
+              <thead className="bg-blue-50 border-b border-blue-100">
                 <tr>
-                  <td colSpan={10} className="text-center py-10 text-[#94A3B8]">Aucun étudiant trouvé.</td>
-                </tr>
-              ) : (
-                filtered.map((i) => (
-                  <tr key={i.id} onClick={() => setSelectedInscription(i)} className="hover:bg-[#F8FAFC] transition cursor-pointer">
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#EFF6FF] flex items-center justify-center flex-shrink-0">
-                          <User size={14} className="text-[#2563EB]" />
-                        </div>
-                        <span className="font-medium text-[#1E293B]">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
+                  {COLS.map(({ label, Icon }) => (
+                    <th key={label} className="text-left px-3 py-2.5 text-blue-500 font-semibold text-[10px] tracking-wide uppercase overflow-hidden">
+                      <div className="flex items-center gap-1">
+                        {Icon && <Icon size={11} className="text-blue-400 flex-shrink-0" />}
+                        <span className="truncate">{label}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-[#64748B] whitespace-nowrap">{i.etudiant?.telephone ?? '—'}</td>
-                    <td className="px-4 py-3 text-[#64748B] whitespace-nowrap">{i.formation?.nom ?? '—'}</td>
-                    <td className="px-4 py-3 text-[#64748B] whitespace-nowrap">
-                      {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <TrySelect value={i.first_try} onChange={(val) => updateField(i.id, 'first_try', val)} />
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <TrySelect value={i.second_try} onChange={(val) => updateField(i.id, 'second_try', val)} />
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <TrySelect value={i.third_try} onChange={(val) => updateField(i.id, 'third_try', val)} />
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={i.source ?? SOURCE_OPTIONS[0]}
-                        onChange={(e) => updateField(i.id, 'source', e.target.value)}
-                        className="text-xs text-[#64748B] bg-transparent focus:outline-none cursor-pointer"
-                      >
-                        {SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={i.registered_by ?? REGISTERED_BY_OPTIONS[0]}
-                        onChange={(e) => updateField(i.id, 'registered_by', e.target.value)}
-                        className="text-xs text-[#64748B] bg-transparent focus:outline-none cursor-pointer"
-                      >
-                        {REGISTERED_BY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={i.statut ?? 'pending'}
-                        onChange={(e) => updateField(i.id, 'statut', e.target.value)}
-                        className={`text-xs font-medium px-2.5 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#2563EB] ${statutColor(i.statut)}`}
-                      >
-                        {STATUT_OPTIONS.map((o) => <option key={o} value={o}>{statutLabel(o)}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={10} className="text-center py-10 text-slate-400">Aucun étudiant trouvé.</td></tr>
+                ) : filtered.map(i => {
+                  const sm = statutMeta[i.statut];
+                  return (
+                    <tr key={i.id} onClick={() => setSelected(i)} className="hover:bg-blue-50/40 transition cursor-pointer">
+                      <td className="px-3 py-2 overflow-hidden">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600 flex-shrink-0">
+                            {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}
+                          </div>
+                          <span className="font-medium text-slate-700 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-slate-500 truncate">{i.etudiant?.telephone ?? '—'}</td>
+                      <td className="px-3 py-2 overflow-hidden">
+                        {i.formation?.nom
+                          ? <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[11px] font-medium truncate block max-w-full">{i.formation.nom}</span>
+                          : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-slate-400 truncate">
+                        {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
+                      </td>
+
+                      {[
+                        { f: 'first_try',  disabled: false },
+                        { f: 'second_try', disabled: !i.first_try },
+                        { f: 'third_try',  disabled: !i.second_try },
+                      ].map(({ f, disabled }) => (
+                        <td key={f} className="px-2 py-2 overflow-hidden">
+                          <TrySelect value={i[f]} onChange={val => updateField(i.id, f, val)} disabled={disabled} />
+                        </td>
+                      ))}
+
+                      <td className="px-3 py-2 text-slate-500 truncate">{i.source ?? '—'}</td>
+                      <td className="px-3 py-2 text-slate-500 truncate">{i.registered_by ?? '—'}</td>
+                      <td className="px-2 py-2 overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <select
+                          value={i.statut ?? 'pending'}
+                          onChange={e => updateField(i.id, 'statut', e.target.value)}
+                          className={`text-[11px] font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none w-full ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}
+                        >
+                          {STATUT_OPTS.map(o => <option key={o} value={o}>{statutMeta[o]?.label ?? o}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {showAdd && (
-        <AddEtudiantModal onClose={() => setShowAdd(false)} onSuccess={() => { fetchEtudiants(); setShowAdd(false); }} />
-      )}
-      {selectedInscription && (
-        <EtudiantDetailModal inscription={selectedInscription} onClose={() => setSelectedInscription(null)} onSuccess={fetchEtudiants} />
-      )}
+      {showAdd   && <AddEtudiantModal    onClose={() => setShowAdd(false)} onSuccess={() => { refetch(); setShowAdd(false); }} />}
+      {selected  && <EtudiantDetailModal inscription={selected}            onClose={() => setSelected(null)}                  onSuccess={refetch} />}
     </AdminLayout>
   );
 };
