@@ -35,43 +35,6 @@ groups(
 };
 
 // ============================================================
-// ADMIN — pointage d'un groupe par group_id (query param)
-// ============================================================
-const getProfPointage = async (req, res) => {
-  const { group_id } = req.query;
-
-  const { data: sessions, error: sessError } = await supabase
-    .from('sessions')
-    .select('id, date, statut')
-    .eq('group_id', group_id)
-    .order('date', { ascending: true });
-
-  if (sessError) return res.status(500).json({ error: sessError.message });
-
-  const { data: inscriptions, error: insError } = await supabase
-    .from('inscriptions')
-    .select('etudiant:etudiant_id(id, nom, prenom)')
-    .eq('group_id', group_id);
-
-  if (insError) return res.status(500).json({ error: insError.message });
-
-  const sessionIds = sessions.map((s) => s.id);
-
-  let attendance = [];
-  if (sessionIds.length > 0) {
-    const { data: attData, error: attError } = await supabase
-      .from('attendance')
-      .select('session_id, etudiant_id, statut')
-      .in('session_id', sessionIds);
-
-    if (attError) return res.status(500).json({ error: attError.message });
-    attendance = attData;
-  }
-
-  res.json({ sessions, inscriptions, attendance });
-};
-
-// ============================================================
 // PROF — ses propres groupes + formations + schedules
 // ============================================================
 const getProfGroups = async (req, res) => {
@@ -548,7 +511,6 @@ const deleteAttendanceRecord = async (req, res) => {
 
 module.exports = {
   getProfs,
-  getProfPointage,
   getProfGroups,
   getProfGroupStudents,
   updateProfGroupStudent,

@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const {
   getProfs,
-  getProfPointage,
   getProfGroups,
   getProfGroupStudents,
   updateProfGroupStudent,
@@ -19,8 +18,6 @@ const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 
 // ── Admin routes ───────────────────────────────────────────
 router.get('/', verifyToken, requireRole('admin'), getProfs);
-router.get('/:id/pointage', verifyToken, requireRole('admin'), getProfPointage);
-
 // ── Prof — own groups ──────────────────────────────────────
 router.get('/me/groups', verifyToken, requireRole('prof'), getProfGroups);
 
