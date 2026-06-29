@@ -15,7 +15,7 @@ import Profs from './pages/admin/profs/Profs';
 import Students from './pages/admin/students/Students';
 import Archive from './pages/admin/archive/Archive';
 import ArchiveYear from './pages/admin/archive/ArchiveYear';
-import ProfPointage from './pages/admin/profs/ProfPointage';
+import ProfDetail from './pages/admin/profs/ProfDetail';
 
 
 // ── Pages prof (nouvelles) ─────────────────────────────────
@@ -72,9 +72,9 @@ function App() {
               <Profs />
             </PrivateRoute>
           } />
-          <Route path="/admin/profs/:id/pointage" element={
+          <Route path="/admin/profs/:id" element={
             <PrivateRoute allowedRoles={['admin']}>
-              <ProfPointage />
+              <ProfDetail  />
             </PrivateRoute>
           } />
           <Route path="/admin/students" element={

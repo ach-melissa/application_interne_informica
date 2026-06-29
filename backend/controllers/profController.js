@@ -12,10 +12,10 @@ const getProfs = async (req, res) => {
     .select(`
       id,
       user:user_id(id, nom, prenom, email, telephone),
-      groups(
-        id, nom,
-        formation:formation_id(nom)
-      )
+groups(
+  id, nom,
+  formation:formation_id(id, nom)
+)
     `)
     .order('created_at', { ascending: false });
 

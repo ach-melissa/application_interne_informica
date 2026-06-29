@@ -2,14 +2,17 @@
 const supabase = require('../supabaseClient');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
+
+
 const getEtudiants = async (req, res) => {
   const { data, error } = await supabase
     .from('inscriptions')
-    .select(`
-      *,
-      etudiant:etudiant_id(*),
-      formation:formation_id(nom)
-    `)
+.select(`
+  *,
+  etudiant:etudiant_id(*),
+  formation:formation_id(nom),
+  groups(nom, jours_formation, heure_formation)
+`)
     .order('created_at', { ascending: false });
 
   if (error) return res.status(500).json({ error: error.message });
@@ -18,16 +21,15 @@ const getEtudiants = async (req, res) => {
 
 const updateInscription = async (req, res) => {
   const { id } = req.params;
-  const { source, registered_by, statut, first_try, second_try, third_try } = req.body;
+  const updates = {};
 
-  const updates = { 
-  source: source || null, 
-  registered_by: registered_by || null, 
-  statut, 
-  first_try: first_try || null, 
-  second_try: second_try || null, 
-  third_try: third_try || null 
-};
+  if ('source' in req.body)        updates.source        = req.body.source || null;
+  if ('registered_by' in req.body) updates.registered_by = req.body.registered_by || null;
+  if ('statut' in req.body)        updates.statut        = req.body.statut;
+  if ('first_try' in req.body)     updates.first_try     = req.body.first_try || null;
+  if ('second_try' in req.body)    updates.second_try    = req.body.second_try || null;
+  if ('third_try' in req.body)     updates.third_try     = req.body.third_try || null;
+
   console.log('updateInscription id:', id);
   console.log('updateInscription updates:', updates);
 
@@ -155,4 +157,35 @@ const deleteEtudiant = async (req, res) => {
   res.json({ success: true });
 };
 
-module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant, upload };
+const getGroupsByFormation = async (req, res) => {
+  const { formation_id } = req.params;
+  
+  // Sans le join teacher pour tester
+  const { data, error } = await supabase
+    .from('groups')
+    .select('id, nom, jours_formation, heure_formation')
+    .eq('formation_id', formation_id);
+
+  console.log('error:', error);
+  console.log('data:', data);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+const assignGroup = async (req, res) => {
+  const { id } = req.params;
+  const { group_id } = req.body;
+
+  const { data, error } = await supabase
+    .from('inscriptions')
+    .update({ group_id: group_id || null })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant, upload,getGroupsByFormation, assignGroup };

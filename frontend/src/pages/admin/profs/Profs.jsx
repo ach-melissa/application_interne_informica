@@ -72,7 +72,8 @@ const token = localStorage.getItem('token');
             <p className="text-[#64748B] text-sm">Aucun professeur trouvé.</p>
           ) : (
             filtered.map((p) => (
-              <div key={p.id} className="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-sm hover:shadow-md transition">
+<div key={p.id} onClick={() => navigate(`/admin/profs/${p.id}`)}
+  className="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-sm hover:shadow-md transition cursor-pointer">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-full bg-[#EFF6FF] flex items-center justify-center flex-shrink-0">
                     <GraduationCap size={22} className="text-[#2563EB]" />
@@ -94,18 +95,6 @@ const token = localStorage.getItem('token');
                     <BookOpen size={13} />
                     {p.formations?.length > 0 ? p.formations.join(', ') : 'Aucune formation'}
                   </div>
-                </div>
-
-                <div className="flex gap-2 flex-wrap">
-                  {p.groups?.map((g) => (
-                    <button
-                      key={g.id}
-                      onClick={() => navigate(`/admin/profs/${p.id}/pointage?group_id=${g.id}&group_nom=${g.nom}&formation=${g.formation?.nom ?? ''}`)}
-                      className="text-xs font-medium text-[#2563EB] border border-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition"
-                    >
-                      Pointage — {g.nom}
-                    </button>
-                  ))}
                 </div>
               </div>
             ))

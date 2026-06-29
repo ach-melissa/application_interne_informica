@@ -4,6 +4,8 @@ import {
   User, Phone, Mail, MapPin, GraduationCap, Calendar,
   Radio, UserCheck, ClipboardList, PhoneCall,
 } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
+import AssignGroupModal from './AssignGroupModal';
 
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({
@@ -35,6 +37,7 @@ const Row = ({ icon: Icon, label, children }) => (
 const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
   const e = inscription?.etudiant;
 const [files, setFiles] = useState({ photo: null, piece_identite: null });
+const [showAssign, setShowAssign] = useState(false);
 const handleFile = f => e => setFiles(p => ({ ...p, [f]: e.target.files[0] }));
   const [editing, setEditing]       = useState(false);
   const [submitting, setSubmit]     = useState(false);
@@ -162,6 +165,13 @@ const handleFile = f => e => setFiles(p => ({ ...p, [f]: e.target.files[0] }));
                   className="flex items-center gap-1 text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50">
                   <Trash2 size={12} /> Supprimer
                 </button>
+                {!editing && form.statut === 'confirmed' && (
+  <button onClick={() => setShowAssign(true)}
+    className="flex items-center gap-1 text-xs border border-emerald-200 text-emerald-600 px-3 py-1.5 rounded-lg hover:bg-emerald-50">
+    <UserPlus size={12} />
+    {inscription.group_id ? 'Changer groupe' : 'Affecter groupe'}
+  </button>
+)}
               </>
             )}
             <button onClick={onClose} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
@@ -251,7 +261,7 @@ const handleFile = f => e => setFiles(p => ({ ...p, [f]: e.target.files[0] }));
           </div>
 
           {/* Inscription */}
-          <div className="bg-blue-50/40 rounded-xl border border-blue-100 p-4 grid grid-cols-2 gap-3">
+<div className="bg-blue-50/40 rounded-xl border border-blue-100 p-4 grid grid-cols-2 gap-3">
             {/* statut */}
             <Row icon={ClipboardList} label="Statut">
               {editing
@@ -277,9 +287,25 @@ const handleFile = f => e => setFiles(p => ({ ...p, [f]: e.target.files[0] }));
               <TryField label="2ème appel" field="second_try" prev="first_try" />
               <TryField label="3ème appel" field="third_try"  prev="second_try" />
             </div>
+            {/* Groupe assigné */}
+            <div className="col-span-2 pt-1 border-t border-blue-100 mt-1">
+              <Row icon={UserCheck} label="Groupe">
+                <p className="text-xs text-slate-700 font-medium">
+                  {inscription.groups?.nom ?? <span className="text-slate-300 font-normal">—</span>}
+                </p>
+              </Row>
+            </div>
           </div>
         </div>
       </div>
+
+      {showAssign && (
+        <AssignGroupModal
+          inscription={inscription}
+          onClose={() => setShowAssign(false)}
+          onSuccess={() => { onSuccess?.(); setShowAssign(false); }}
+        />
+      )}
     </div>
   );
 };

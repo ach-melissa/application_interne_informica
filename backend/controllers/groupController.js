@@ -79,7 +79,8 @@ const getGroupEtudiants = async (req, res) => {
       etudiant:etudiant_id(*),
       formation:formation_id(nom)
     `)
-    .eq('group_id', id);
+    .eq('group_id', id)
+    .eq('statut', 'confirmed');
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
