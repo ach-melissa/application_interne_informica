@@ -10,6 +10,7 @@ import Dashboard from './pages/admin/dashboard/Dashboard';
 import Formations from './pages/admin/formations/Formations';
 import Groups from './pages/admin/formations/groups/Groups';
 import GroupDetail from './pages/admin/formations/groups/GroupDetail';
+import EmploisGlobal from './pages/admin/formations/EmploisGlobal';
 import Utilisateurs from './pages/admin/utilisateurs/Utilisateurs';
 import Profs from './pages/admin/profs/Profs';
 import Students from './pages/admin/students/Students';
@@ -52,6 +53,11 @@ function App() {
               <Formations />
             </PrivateRoute>
           } />
+          <Route path="/admin/formations/:id/emplois" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <EmploisGlobal />
+  </PrivateRoute>
+} />
           <Route path="/admin/formations/:id/groups" element={
             <PrivateRoute allowedRoles={['admin']}>
               <Groups />

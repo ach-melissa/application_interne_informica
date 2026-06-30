@@ -60,6 +60,14 @@ const updateGroup = async (req, res) => {
 const deleteGroup = async (req, res) => {
   const { id } = req.params;
 
+  // Remettre group_id à null pour les étudiants de ce groupe
+  const { error: unassignError } = await supabase
+    .from('inscriptions')
+    .update({ group_id: null })
+    .eq('group_id', id);
+
+  if (unassignError) return res.status(500).json({ error: unassignError.message });
+
   const { error } = await supabase
     .from('groups')
     .update({ archived: true })
@@ -85,5 +93,17 @@ const getGroupEtudiants = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
+const getUnassignedStudents = async (req, res) => {
+  const { formation_id } = req.params;
 
-module.exports = { getGroupsByFormation, createGroup, updateGroup, deleteGroup, getGroupEtudiants };
+  const { data, error } = await supabase
+    .from('inscriptions')
+    .select('id, etudiant_id, etudiant:etudiant_id(id, nom, prenom, telephone)')
+    .eq('formation_id', formation_id)
+    .eq('statut', 'confirmed')
+    .is('group_id', null);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+module.exports = { getGroupsByFormation, createGroup, updateGroup, deleteGroup, getGroupEtudiants , getUnassignedStudents };

@@ -57,4 +57,28 @@ const getProfSchedule = async (req, res) => {
   res.json(data);
 };
 
-module.exports = { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule , getProfSchedule  };
+const getSchedulesByFormation = async (req, res) => {
+  const { formation_id } = req.params;
+
+  // d'abord récupère les group_ids de cette formation
+  const { data: groups, error: groupsError } = await supabase
+    .from('groups')
+    .select('id')
+    .eq('formation_id', formation_id);
+
+  if (groupsError) return res.status(500).json({ error: groupsError.message });
+
+  const groupIds = groups.map((g) => g.id);
+
+  if (groupIds.length === 0) return res.json([]);
+
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('*, groups(id, nom)')
+    .in('group_id', groupIds);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+module.exports = { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule , getProfSchedule ,getSchedulesByFormation  };

@@ -40,4 +40,45 @@ const createFormation = async (req, res) => {
   res.status(201).json(data);
 };
 
-module.exports = { getFormations, createFormation };
+const updateFormation = async (req, res) => {
+  const { id } = req.params;
+  const { nom, prix, heures, description } = req.body;
+
+  if (!nom || !nom.trim()) {
+    return res.status(400).json({ error: 'Le nom de la formation est obligatoire.' });
+  }
+  if (prix === undefined || prix === null || isNaN(prix) || Number(prix) < 0) {
+    return res.status(400).json({ error: 'Le prix doit être un nombre valide.' });
+  }
+  if (heures === undefined || heures === null || isNaN(heures) || Number(heures) <= 0) {
+    return res.status(400).json({ error: "Le nombre d'heures doit être un nombre valide." });
+  }
+
+  const { data, error } = await supabase
+    .from('formations')
+    .update({
+      nom: nom.trim(),
+      prix: Number(prix),
+      heures: Number(heures),
+      description: description?.trim() || null,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+const deleteFormation = async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase
+    .from('formations')
+    .delete()
+    .eq('id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+};
+
+module.exports = { getFormations, createFormation, updateFormation, deleteFormation };

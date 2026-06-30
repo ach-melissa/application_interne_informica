@@ -11,11 +11,16 @@ const Label = ({ icon: Icon, text }) => (
   </p>
 );
 
-const AddFormationModal = ({ onClose, onSuccess }) => {
+const AddFormationModal = ({ onClose, onSuccess, formation = null }) => {
+const isEdit = !!formation;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [form, setForm] = useState({ nom: '', prix: '', heures: '', description: '' });
-
+const [form, setForm] = useState({
+  nom: formation?.nom || '',
+  prix: formation?.prix ?? '',
+  heures: formation?.heures ?? '',
+  description: formation?.description || '',
+});
   const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }));
 
   const handleSubmit = async () => {
@@ -26,11 +31,14 @@ const AddFormationModal = ({ onClose, onSuccess }) => {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/api/formations`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(form),
-      });
+const res = await fetch(
+  isEdit ? `${API}/api/formations/${formation.id}` : `${API}/api/formations`,
+  {
+    method: isEdit ? 'PATCH' : 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(form),
+  }
+);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       onSuccess?.(data);
@@ -48,7 +56,7 @@ const AddFormationModal = ({ onClose, onSuccess }) => {
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-blue-50 sticky top-0 bg-white z-10">
-          <h2 className="text-sm font-semibold text-slate-800">Ajouter une formation</h2>
+<h2 className="text-sm font-semibold text-slate-800">{isEdit ? 'Modifier la formation' : 'Ajouter une formation'}</h2>
           <button onClick={onClose} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
         </div>
 
@@ -79,7 +87,7 @@ const AddFormationModal = ({ onClose, onSuccess }) => {
             <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">Annuler</button>
             <button onClick={handleSubmit} disabled={submitting}
               className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 font-medium">
-              {submitting ? 'Ajout...' : 'Ajouter'}
+              {submitting ? 'Enregistrement...' : isEdit ? 'Modifier' : 'Ajouter'}
             </button>
           </div>
         </div>

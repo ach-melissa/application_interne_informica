@@ -6,6 +6,7 @@ import PaymentsTab from './PaymentsTab';
 import PaymentHistoryModal from './PaymentHistoryModal';
 import ScheduleTab from './ScheduleTab';
 import PointageTab from './PointageTab';
+import AttestationsTab from './AttestationsTab';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -60,6 +61,7 @@ const GroupDetail = () => {
     { key: 'paiements', label: 'Paiements' },
     { key: 'emploi',    label: 'Emploi du temps' },
     { key: 'pointage',  label: 'Pointage' },
+    { key: 'attestations', label: 'Attestations' }, 
   ];
 
   return (
@@ -184,10 +186,10 @@ const GroupDetail = () => {
         </>
       )}
 
-      {activeTab === 'paiements' && <PaymentsTab groupId={groupId} onSelectStudent={setSelectedStudent} />}
-      {activeTab === 'emploi'    && <ScheduleTab groupId={groupId} />}
-      {activeTab === 'pointage'  && <PointageTab groupId={groupId} etudiants={etudiants.map(i => i.etudiant)} group={group} />}
-
+{activeTab === 'paiements'    && <PaymentsTab groupId={groupId} onSelectStudent={setSelectedStudent} />}
+{activeTab === 'emploi'       && <ScheduleTab groupId={groupId} />}
+{activeTab === 'pointage'     && <PointageTab groupId={groupId} etudiants={etudiants.map(i => i.etudiant)} group={group} />}
+{activeTab === 'attestations' && <AttestationsTab etudiants={etudiants} formationId={formation_id} groupId={groupId} />}
       <PaymentHistoryModal student={selectedStudent} formationId={group?.formation_id} onClose={() => setSelectedStudent(null)} />
     </AdminLayout>
   );

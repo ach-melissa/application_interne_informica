@@ -13,6 +13,7 @@ const Formations = () => {
   const [loadingInscriptions, setLoadingInscriptions] = useState(false);
   const [error, setError] = useState(null);
   const [selectedFormation, setSelectedFormation] = useState(null);
+  const [editingFormation, setEditingFormation] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -68,6 +69,35 @@ if (!res.ok) throw new Error('Erreur serveur');
       setLoadingInscriptions(false);
     }
   };
+const handleArchive = async (formation) => {
+  if (!window.confirm(`Archiver "${formation.nom}" ?`)) return;
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/formations/${formation.id}/archive`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Erreur serveur');
+    setFormations((prev) => prev.filter((f) => f.id !== formation.id));
+  } catch (err) {
+    setError(err.message);
+  }
+};
+
+const handleDelete = async (formation) => {
+  if (!window.confirm(`Supprimer définitivement "${formation.nom}" ? Cette action est irréversible.`)) return;
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/formations/${formation.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Erreur serveur');
+    setFormations((prev) => prev.filter((f) => f.id !== formation.id));
+  } catch (err) {
+    setError(err.message);
+  }
+};
 
   const filtered = formations.filter((f) =>
     f.nom.toLowerCase().includes(search.toLowerCase())
@@ -185,7 +215,7 @@ if (!res.ok) throw new Error('Erreur serveur');
                 : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
             }`}
           >
-            Tous les inscriptions
+            Tout les inscriptions
           </button>
         </div>
       )}
@@ -245,27 +275,47 @@ if (!res.ok) throw new Error('Erreur serveur');
                       <DollarSign size={13} /> {Number(f.prix).toLocaleString()} DA
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      onClick={() => navigate(`/admin/formations/${f.id}/groups`)}
-                      className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] border border-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition"
-                    >
-                      <Users size={13} /> Groupes
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSearch('');
-                        fetchInscriptionsByFormation(f);
-                        setView('formation_inscriptions');
-                      }}
-                      className="flex items-center gap-1.5 text-xs font-medium text-[#10B981] border border-[#10B981] px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition"
-                    >
-                      <UserCheck size={13} /> Inscriptions
-                    </button>
-                    <button className="text-xs font-medium text-[#F97316] border border-[#F97316] px-3 py-1.5 rounded-lg hover:bg-orange-50 transition">
-                      Modifier
-                    </button>
-                  </div>
+<div className="flex items-center gap-2 flex-wrap">
+  <button
+    onClick={() => navigate(`/admin/formations/${f.id}/groups`)}
+    className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] border border-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition"
+  >
+    <Users size={13} /> Groupes
+  </button>
+  <button
+    onClick={() => {
+      setSearch('');
+      fetchInscriptionsByFormation(f);
+      setView('formation_inscriptions');
+    }}
+    className="flex items-center gap-1.5 text-xs font-medium text-[#10B981] border border-[#10B981] px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition"
+  >
+    <UserCheck size={13} /> Inscriptions
+  </button>
+  <button
+    onClick={() => navigate(`/admin/formations/${f.id}/emplois`)}
+    className="text-xs font-medium text-[#7C3AED] border border-[#7C3AED] px-3 py-1.5 rounded-lg hover:bg-violet-50 transition"
+  >
+    Emplois global
+  </button>
+  <button
+    onClick={() => setEditingFormation(f)}
+    className="text-xs font-medium text-[#F97316] border border-[#F97316] px-3 py-1.5 rounded-lg hover:bg-orange-50 transition"
+  >
+    Modifier
+  </button>
+<button
+  className="text-xs font-medium text-[#64748B] border border-[#64748B] px-3 py-1.5 rounded-lg hover:bg-slate-50 transition"
+>
+  Archiver
+</button>
+  <button
+    onClick={() => handleDelete(f)}
+    className="text-xs font-medium text-red-500 border border-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
+  >
+    Supprimer
+  </button>
+</div>
                 </div>
               ))}
             </div>
@@ -273,7 +323,7 @@ if (!res.ok) throw new Error('Erreur serveur');
         </>
       )}
 
-      {/* VIEW: Tous les inscriptions confirmés */}
+      {/* VIEW: Tout les inscriptions confirmés */}
       {view === 'all_inscriptions' && !loadingInscriptions && !error && (
         <InscriptionsTable />
       )}
@@ -299,6 +349,16 @@ if (!res.ok) throw new Error('Erreur serveur');
     onSuccess={(newFormation) => {
       setFormations((prev) => [newFormation, ...prev]);
       setShowAddModal(false);
+    }}
+  />
+)}
+{editingFormation && (
+  <AddFormationModal
+    formation={editingFormation}
+    onClose={() => setEditingFormation(null)}
+    onSuccess={(updated) => {
+      setFormations((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+      setEditingFormation(null);
     }}
   />
 )}

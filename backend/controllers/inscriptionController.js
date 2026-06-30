@@ -15,5 +15,18 @@ const getInscriptions = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
+const assignToGroup = async (req, res) => {
+  const { id } = req.params; // inscription_id
+  const { group_id } = req.body;
 
-module.exports = { getInscriptions };
+  const { data, error } = await supabase
+    .from('inscriptions')
+    .update({ group_id })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+module.exports = { getInscriptions, assignToGroup };
