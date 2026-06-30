@@ -222,5 +222,155 @@ const getUsers = async (req, res) => {
   }
 };
 
+// ============================================================
+// POST /api/users — créer un utilisateur (admin)
+// ============================================================
+// ============================================================
+// POST /api/users — créer un utilisateur (admin)
+// (multer fournit req.file en mémoire via upload.single('photo'))
+// ============================================================
+const createUser = async (req, res) => {
+  try {
+    const { nom, prenom, email, nom_utilisateur, mot_de_passe, telephone, date_naissance, role } = req.body;
+
+    if (!nom || !prenom || !email || !nom_utilisateur || !mot_de_passe || !role) {
+      return res.status(400).json({ message: 'Champs requis manquants' });
+    }
+
+    if (req.file) {
+      if (!ALLOWED_TYPES.includes(req.file.mimetype)) {
+        return res.status(400).json({ message: 'Format non supporté (jpg, png ou webp uniquement)' });
+      }
+      if (req.file.size > MAX_SIZE) {
+        return res.status(400).json({ message: 'Le fichier ne doit pas dépasser 5 Mo' });
+      }
+    }
+
+    const hashed = await bcrypt.hash(mot_de_passe, 10);
+
+    const { data: newUser, error } = await supabase
+      .from('users')
+      .insert({
+        nom, prenom, email, nom_utilisateur,
+        mot_de_passe: hashed,
+        telephone: telephone || null,
+        date_naissance: date_naissance || null,
+        role,
+      })
+      .select(SAFE_FIELDS)
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        const field = error.message.includes('email') ? 'Cet email' : "Ce nom d'utilisateur";
+        return res.status(409).json({ message: `${field} est déjà utilisé` });
+      }
+      console.error('createUser:', error);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+
+    if (!req.file) {
+      return res.status(201).json(await withPhotoUrl(newUser));
+    }
+
+    // Upload de la photo maintenant qu'on a l'id du nouvel utilisateur
+    const ext = req.file.mimetype.split('/')[1];
+    const path = `${newUser.id}/${Date.now()}.${ext}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+
+    if (uploadErr) {
+      console.error('createUser (photo upload):', uploadErr);
+      return res.status(201).json(await withPhotoUrl(newUser)); // user créé, photo échouée — pas bloquant
+    }
+
+    const { data: withPhoto, error: photoErr } = await supabase
+      .from('users')
+      .update({ photo_path: path })
+      .eq('id', newUser.id)
+      .select(SAFE_FIELDS)
+      .single();
+
+    if (photoErr) {
+      console.error('createUser (photo db):', photoErr);
+      return res.status(201).json(await withPhotoUrl(newUser));
+    }
+
+    res.status(201).json(await withPhotoUrl(withPhoto));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// ============================================================
+// PATCH /api/users/:id — modifier un utilisateur (admin)
+// ============================================================
+const updateUser = async (req, res) => {
+  try {
+    const { nom, prenom, email, nom_utilisateur, telephone, date_naissance, role, mot_de_passe } = req.body;
+
+    const patch = {};
+    if (nom             !== undefined) patch.nom             = nom;
+    if (prenom          !== undefined) patch.prenom          = prenom;
+    if (email           !== undefined) patch.email           = email;
+    if (nom_utilisateur !== undefined) patch.nom_utilisateur = nom_utilisateur;
+    if (telephone       !== undefined) patch.telephone       = telephone;
+    if (date_naissance  !== undefined) patch.date_naissance  = date_naissance;
+    if (role            !== undefined) patch.role            = role;
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ message: 'Aucune donnée à mettre à jour' });
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(patch)
+      .eq('id', req.params.id)
+      .select(SAFE_FIELDS)
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        const field = error.message.includes('email') ? 'Cet email' : "Ce nom d'utilisateur";
+        return res.status(409).json({ message: `${field} est déjà utilisé` });
+      }
+      console.error('updateUser:', error);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+
+    res.json(await withPhotoUrl(data));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// ============================================================
+// DELETE /api/users/:id — supprimer un utilisateur (admin)
+// ============================================================
+const deleteUser = async (req, res) => {
+  try {
+    const { data: existing } = await supabase.storage.from(AVATAR_BUCKET).list(req.params.id);
+    if (existing?.length) {
+      await supabase.storage
+        .from(AVATAR_BUCKET)
+        .remove(existing.map((f) => `${req.params.id}/${f.name}`));
+    }
+
+    const { error } = await supabase.from('users').delete().eq('id', req.params.id);
+    if (error) {
+      console.error('deleteUser:', error);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+
+    res.json({ message: 'Utilisateur supprimé' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
 // update the exports line:
-module.exports = { getMe, updateMe, changeMyPassword, uploadMyPhoto, deleteMyPhoto, getUsers };
+module.exports = { getMe, updateMe, changeMyPassword, uploadMyPhoto, deleteMyPhoto, getUsers , createUser, updateUser, deleteUser };

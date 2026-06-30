@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-
 // ─────────────────────────────────────────────────────────────
 // Attendance dropdown  (P / A / R / —)
 // ─────────────────────────────────────────────────────────────
@@ -14,38 +13,40 @@ const OPTIONS = [
 const COLOR = { present: 'text-green-600', absent: 'text-red-500', retard: 'text-orange-500' };
 const LABEL = { present: 'P', absent: 'A', retard: 'R' };
 
-const AttendanceDropdown = ({ value, onChange, disabled }) => {
+import { createPortal } from 'react-dom';
+
+const AttendanceDropdown = ({ value, onChange, pending, locked }) => {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const wrapRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
 
   return (
-    <div ref={ref} className="relative flex items-center justify-center w-full h-full min-h-[28px]">
+    <div ref={wrapRef} className="relative w-full h-full min-h-[28px]">
       <button
-        onClick={() => !disabled && setOpen((o) => !o)}
-        disabled={disabled}
+        onClick={(e) => { e.stopPropagation(); if (pending || locked) return; setOpen((o) => !o); }}
+        disabled={pending || locked}
         className={`font-bold text-sm w-full h-full flex items-center justify-center transition
-          ${disabled ? 'opacity-40 cursor-wait' : 'cursor-pointer hover:bg-blue-50'}
+          ${pending ? 'opacity-40 cursor-wait' : locked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-blue-50'}
           ${value ? COLOR[value] : 'text-[#CBD5E1]'}
         `}
       >
-        {disabled
+        {pending
           ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          : value ? LABEL[value] : ''}
+          : value ? LABEL[value] : '—'}
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-0.5 bg-white border border-[#E2E8F0] rounded-lg shadow-xl overflow-hidden flex flex-col min-w-[52px]">
+        <div className="absolute z-30 top-full left-1/2 -translate-x-1/2 mt-0.5 bg-white border border-[#E2E8F0] rounded-xl shadow-lg p-1 flex flex-col gap-0.5 min-w-[52px]">
           {OPTIONS.map((opt) => (
             <button
               key={String(opt.value)}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
+              onClick={(e) => { e.stopPropagation(); onChange(opt.value); setOpen(false); }}
               className={`py-1.5 px-3 text-sm font-bold text-center hover:bg-[#F1F5F9] transition ${opt.color}`}
             >
               {opt.label}
@@ -60,7 +61,7 @@ const AttendanceDropdown = ({ value, onChange, disabled }) => {
 // ─────────────────────────────────────────────────────────────
 // Inline editable text cell  (click → input → blur/Enter saves)
 // ─────────────────────────────────────────────────────────────
-const EditableCell = ({ value, onChange, type = 'text', placeholder = '' }) => {
+const EditableCell = ({ value, onChange, type = 'text', placeholder = '', disabled = false }) => {
   const [editing, setEditing] = useState(false);
   const [draft,   setDraft]   = useState(value ?? '');
 
@@ -86,9 +87,12 @@ const EditableCell = ({ value, onChange, type = 'text', placeholder = '' }) => {
 
   return (
     <button
-      onClick={() => { setDraft(value ?? ''); setEditing(true); }}
-      title="Cliquer pour modifier"
-      className="w-full text-[11px] text-[#1E293B] hover:bg-blue-50 hover:text-blue-600 transition px-0.5 py-0.5 rounded min-h-[22px]"
+      onClick={() => { if (disabled) return; setDraft(value ?? ''); setEditing(true); }}
+      disabled={disabled}
+      title={disabled ? 'Verrouillé (jour passé)' : 'Cliquer pour modifier'}
+      className={`w-full text-[11px] text-[#1E293B] transition px-0.5 py-0.5 rounded min-h-[22px] ${
+        disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-blue-50 hover:text-blue-600'
+      }`}
     >
       {value || <span className="text-[#CBD5E1]">—</span>}
     </button>
@@ -195,38 +199,41 @@ const GroupAttendance = ({ groupId, group = {}, sessions = [], records = [], stu
   };
 
   // ── Set attendance cell ─────────────────────────────────────
-  const setCell = async (etudiantId, sessionId, nextStatut) => {
-    const key = `${etudiantId}-${sessionId}`;
-    setPendingCell(key); setSaveError(null);
-    const existing = localRecords.find((r) => r.etudiant_id === etudiantId && r.session_id === sessionId) ?? null;
-    try {
-      if (nextStatut === null) {
-        if (!existing) { setPendingCell(null); return; }
-        const res = await fetch(`${apiBase}/attendance/${existing.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
-        if (!res.ok) throw new Error();
-        setLocalRecords((prev) => prev.filter((r) => r.id !== existing.id));
-      } else if (existing) {
-        const res = await fetch(`${apiBase}/attendance/${existing.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-          body: JSON.stringify({ statut: nextStatut }),
-        });
-        if (!res.ok) throw new Error();
-        const u = await res.json();
-        setLocalRecords((prev) => prev.map((r) => r.id === existing.id ? { ...r, statut: u.statut } : r));
-      } else {
-        const res = await fetch(`${apiBase}/attendance`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-          body: JSON.stringify({ session_id: sessionId, etudiant_id: etudiantId, statut: nextStatut }),
-        });
-        if (!res.ok) throw new Error();
-        const created = await res.json();
-        setLocalRecords((prev) => [...prev, created]);
-      }
-    } catch { setSaveError('Erreur lors de la mise à jour du pointage.'); }
-    finally { setPendingCell(null); }
-  };
+const setCell = async (etudiantId, sessionId, nextStatut) => {
+  const key = `${etudiantId}-${sessionId}`;
+  setPendingCell(key); setSaveError(null);
+  const existing = localRecords.find((r) => r.etudiant_id === etudiantId && r.session_id === sessionId) ?? null;
+  try {
+    let updatedRecords;
+    if (nextStatut === null) {
+      if (!existing) { setPendingCell(null); return; }
+      const res = await fetch(`${apiBase}/attendance/${existing.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
+      if (!res.ok) throw new Error();
+      updatedRecords = localRecords.filter((r) => r.id !== existing.id);
+    } else if (existing) {
+      const res = await fetch(`${apiBase}/attendance/${existing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+        body: JSON.stringify({ statut: nextStatut }),
+      });
+      if (!res.ok) throw new Error();
+      const u = await res.json();
+      updatedRecords = localRecords.map((r) => r.id === existing.id ? { ...r, statut: u.statut } : r);
+    } else {
+      const res = await fetch(`${apiBase}/attendance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+        body: JSON.stringify({ session_id: sessionId, etudiant_id: etudiantId, statut: nextStatut }),
+      });
+      if (!res.ok) throw new Error();
+      const created = await res.json();
+      updatedRecords = [...localRecords, created];
+    }
+    setLocalRecords(updatedRecords);
+    onUpdate(groupId, { sessions: localSessions, records: updatedRecords });
+  } catch { setSaveError('Erreur lors de la mise à jour du pointage.'); }
+  finally { setPendingCell(null); }
+};
 
   // ── Render ──────────────────────────────────────────────────
   const TOTAL_ROWS     = Math.max(students.length, 10);
@@ -236,6 +243,13 @@ const GroupAttendance = ({ groupId, group = {}, sessions = [], records = [], stu
   const firstDate = localSessions[0]?.date ? new Date(localSessions[0].date).toLocaleDateString('fr-DZ', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
   const lastDate  = localSessions[localSessions.length-1]?.date ? new Date(localSessions[localSessions.length-1].date).toLocaleDateString('fr-DZ', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
 
+
+const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
+const isLocked = (s) => {
+  if (!s?.date) return true;
+  const sessionDate = new Date(s.date).toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
+  return sessionDate !== todayStr;
+};
   return (
     <div>
       {/* Error banner */}
@@ -339,13 +353,13 @@ const GroupAttendance = ({ groupId, group = {}, sessions = [], records = [], stu
               {localSessions.map((s, i) => (
                 <td key={s.id} className="border border-[#94A3B8] text-center font-bold text-[#1E293B] bg-[#F8FAFC] py-1 min-w-[58px] group relative">
                   {i + 1}
-                  <button
-                    onClick={() => deleteSession(s.id)}
-                    className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition"
-                    title="Supprimer"
-                  >
-                    <Trash2 size={10} />
-                  </button>
+<button
+  onClick={() => deleteSession(s.id)}
+  className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition"
+  title="Supprimer"
+>
+  <Trash2 size={10} />
+</button>
                 </td>
               ))}
             </tr>
@@ -357,12 +371,12 @@ const GroupAttendance = ({ groupId, group = {}, sessions = [], records = [], stu
               </td>
               {localSessions.map((s) => (
                 <td key={s.id} className="border border-[#94A3B8] text-center p-0.5 bg-white">
-                  <EditableCell
-                    type="date"
-                    value={getMeta(s.id).date}
-                    onChange={(v) => updateMeta(s.id, 'date', v)}
-                    placeholder="jj/mm/aa"
-                  />
+<EditableCell
+  type="date"
+  value={getMeta(s.id).date}
+  onChange={(v) => updateMeta(s.id, 'date', v)}
+  placeholder="jj/mm/aa"
+/>
                 </td>
               ))}
             </tr>
@@ -374,11 +388,11 @@ const GroupAttendance = ({ groupId, group = {}, sessions = [], records = [], stu
               </td>
               {localSessions.map((s) => (
                 <td key={s.id} className="border border-[#94A3B8] text-center p-0.5 bg-white">
-                  <EditableCell
-                    value={getMeta(s.id).duree}
-                    onChange={(v) => updateMeta(s.id, 'duree', v)}
-                    placeholder="1h30"
-                  />
+<EditableCell
+  value={getMeta(s.id).duree}
+  onChange={(v) => updateMeta(s.id, 'duree', v)}
+  placeholder="1h30"
+/>
                 </td>
               ))}
             </tr>
@@ -405,11 +419,11 @@ const GroupAttendance = ({ groupId, group = {}, sessions = [], records = [], stu
               </td>
               {localSessions.map((s) => (
                 <td key={s.id} className="border border-[#94A3B8] p-0.5 bg-white h-8">
-                  <EditableCell
-                    value={getMeta(s.id).emargEnseignant}
-                    onChange={(v) => updateMeta(s.id, 'emargEnseignant', v)}
-                    placeholder="…"
-                  />
+<EditableCell
+  value={getMeta(s.id).emargEnseignant}
+  onChange={(v) => updateMeta(s.id, 'emargEnseignant', v)}
+  placeholder="…"
+/>
                 </td>
               ))}
             </tr>
@@ -421,11 +435,11 @@ const GroupAttendance = ({ groupId, group = {}, sessions = [], records = [], stu
               </td>
               {localSessions.map((s) => (
                 <td key={s.id} className="border border-[#94A3B8] p-0.5 bg-white h-8">
-                  <EditableCell
-                    value={getMeta(s.id).emargStagiaires}
-                    onChange={(v) => updateMeta(s.id, 'emargStagiaires', v)}
-                    placeholder="…"
-                  />
+<EditableCell
+  value={getMeta(s.id).emargStagiaires}
+  onChange={(v) => updateMeta(s.id, 'emargStagiaires', v)}
+  placeholder="…"
+/>
                 </td>
               ))}
             </tr>
@@ -449,18 +463,19 @@ const GroupAttendance = ({ groupId, group = {}, sessions = [], records = [], stu
 
                   {/* Attendance cells */}
                   {localSessions.map((session) => {
-                    if (!s) return <td key={session.id} className="border border-[#94A3B8] bg-white" />;
-                    const record  = localRecords.find((r) => r.etudiant_id === s.etudiant_id && r.session_id === session.id) ?? null;
-                    const cellKey = `${s.etudiant_id}-${session.id}`;
-                    return (
-                      <td key={session.id} className="border border-[#94A3B8] p-0 bg-white">
-                        <AttendanceDropdown
-                          value={record?.statut ?? null}
-                          disabled={pendingCell === cellKey}
-                          onChange={(next) => setCell(s.etudiant_id, session.id, next)}
-                        />
-                      </td>
-                    );
+if (!s) return <td key={session.id} className="border border-[#94A3B8] bg-white" />;
+const record  = localRecords.find((r) => r.etudiant_id === s.etudiant_id && r.session_id === session.id) ?? null;
+const cellKey = `${s.etudiant_id}-${session.id}`;
+return (
+  <td key={session.id} className="border border-[#94A3B8] p-0 bg-white">
+    <AttendanceDropdown
+      value={record?.statut ?? null}
+      pending={pendingCell === cellKey}
+      locked={isLocked(session)}
+      onChange={(next) => setCell(s.etudiant_id, session.id, next)}
+    />
+  </td>
+);
                   })}
                 </tr>
               );

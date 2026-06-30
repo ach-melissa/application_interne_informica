@@ -3,6 +3,16 @@ const supabase = require('../supabaseClient');
 // Helper : capitalise "lundi" → "Lundi"
 const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
+// Helper : date du jour en Algérie, format YYYY-MM-DD
+const todayAlgeria = () =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
+
+// Helper : compare une date de séance (YYYY-MM-DD ou ISO) à aujourd'hui
+const isSessionToday = (sessionDate) => {
+  if (!sessionDate) return false;
+  return sessionDate.slice(0, 10) === todayAlgeria();
+};
+
 // ============================================================
 // ADMIN — liste tous les profs avec leurs groupes/formations
 // ============================================================
@@ -162,8 +172,6 @@ const updateProfGroupStudent = async (req, res) => {
 
 // ============================================================
 // PROF — modifier le planning d'un groupe
-// schedule body: { schedule: { "Lundi": ["09:00 - 11:00"], ... } }
-// Strategy: delete existing rows, insert new ones
 // ============================================================
 const updateProfGroupSchedule = async (req, res) => {
   try {
@@ -184,9 +192,8 @@ const updateProfGroupSchedule = async (req, res) => {
 
     if (!group) return res.status(403).json({ message: 'Accès refusé' });
 
-    const { schedule } = req.body; // { Lundi: ['09:00 - 11:00'], ... }
+    const { schedule } = req.body;
 
-    // Delete all existing schedules for this group
     const { error: delErr } = await supabase
       .from('schedules')
       .delete()
@@ -194,7 +201,6 @@ const updateProfGroupSchedule = async (req, res) => {
 
     if (delErr) return res.status(500).json({ message: 'Erreur suppression horaires' });
 
-    // Build rows to insert
     const rows = [];
     for (const [jour, slots] of Object.entries(schedule ?? {})) {
       for (const slot of slots) {
@@ -275,7 +281,7 @@ const getProfGroupAttendance = async (req, res) => {
 };
 
 // ============================================================
-// PROF — créer une séance pour un groupe
+// PROF — créer une séance
 // ============================================================
 const createProfGroupSession = async (req, res) => {
   try {
@@ -318,6 +324,7 @@ const createProfGroupSession = async (req, res) => {
 
 // ============================================================
 // PROF — modifier une séance (date, durée)
+// Verrouillé dès que la date de la séance n'est plus aujourd'hui
 // ============================================================
 const updateProfGroupSession = async (req, res) => {
   try {
@@ -329,10 +336,9 @@ const updateProfGroupSession = async (req, res) => {
 
     if (tErr || !teacher) return res.status(404).json({ message: 'Professeur introuvable' });
 
-    // Make sure session belongs to a group owned by this prof
     const { data: session } = await supabase
       .from('sessions')
-      .select('id, group_id, groups(teacher_id)')
+      .select('id, group_id, date, groups(teacher_id)')
       .eq('id', req.params.sessionId)
       .single();
 
@@ -366,6 +372,10 @@ const updateProfGroupSession = async (req, res) => {
   }
 };
 
+// ============================================================
+// PROF — supprimer une séance
+// Verrouillé dès que la date de la séance n'est plus aujourd'hui
+// ============================================================
 const deleteProfGroupSession = async (req, res) => {
   try {
     const { data: teacher, error: tErr } = await supabase
@@ -376,10 +386,9 @@ const deleteProfGroupSession = async (req, res) => {
 
     if (tErr || !teacher) return res.status(404).json({ message: 'Professeur introuvable' });
 
-    // Make sure session belongs to a group owned by this prof
     const { data: session } = await supabase
       .from('sessions')
-      .select('id, group_id, groups(teacher_id)')
+      .select('id, group_id, date, groups(teacher_id)')
       .eq('id', req.params.sessionId)
       .single();
 
@@ -387,7 +396,6 @@ const deleteProfGroupSession = async (req, res) => {
       return res.status(403).json({ message: 'Accès refusé' });
     }
 
-    // Delete attendance records first (if no cascade constraint)
     await supabase.from('attendance').delete().eq('session_id', req.params.sessionId);
 
     const { error } = await supabase.from('sessions').delete().eq('id', req.params.sessionId);
@@ -402,6 +410,7 @@ const deleteProfGroupSession = async (req, res) => {
 
 // ============================================================
 // PROF — créer un enregistrement d'attendance
+// Verrouillé dès que la date de la séance n'est plus aujourd'hui
 // ============================================================
 const createAttendanceRecord = async (req, res) => {
   try {
@@ -424,6 +433,19 @@ const createAttendanceRecord = async (req, res) => {
 
     const { session_id, etudiant_id, statut } = req.body;
 
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('id, date')
+      .eq('id', session_id)
+      .eq('group_id', req.params.groupId)
+      .single();
+
+    if (!session) return res.status(404).json({ message: 'Séance introuvable' });
+
+    if (!isSessionToday(session.date)) {
+      return res.status(403).json({ message: 'Cette séance ne peut plus être pointée (jour passé)' });
+    }
+
     const { data, error } = await supabase
       .from('attendance')
       .insert({ session_id, etudiant_id, statut })
@@ -440,6 +462,7 @@ const createAttendanceRecord = async (req, res) => {
 
 // ============================================================
 // PROF — modifier un enregistrement d'attendance
+// Verrouillé dès que la date de la séance n'est plus aujourd'hui
 // ============================================================
 const updateAttendanceRecord = async (req, res) => {
   try {
@@ -460,6 +483,20 @@ const updateAttendanceRecord = async (req, res) => {
 
     if (!group) return res.status(403).json({ message: 'Accès refusé' });
 
+    const { data: record } = await supabase
+      .from('attendance')
+      .select('id, session_id, sessions(date, group_id)')
+      .eq('id', req.params.recordId)
+      .single();
+
+    if (!record || record.sessions?.group_id !== req.params.groupId) {
+      return res.status(404).json({ message: 'Enregistrement introuvable' });
+    }
+
+    if (!isSessionToday(record.sessions?.date)) {
+      return res.status(403).json({ message: 'Ce pointage ne peut plus être modifié (jour passé)' });
+    }
+
     const { statut } = req.body;
 
     const { data, error } = await supabase
@@ -479,6 +516,7 @@ const updateAttendanceRecord = async (req, res) => {
 
 // ============================================================
 // PROF — supprimer un enregistrement d'attendance
+// Verrouillé dès que la date de la séance n'est plus aujourd'hui
 // ============================================================
 const deleteAttendanceRecord = async (req, res) => {
   try {
@@ -498,6 +536,20 @@ const deleteAttendanceRecord = async (req, res) => {
       .single();
 
     if (!group) return res.status(403).json({ message: 'Accès refusé' });
+
+    const { data: record } = await supabase
+      .from('attendance')
+      .select('id, session_id, sessions(date, group_id)')
+      .eq('id', req.params.recordId)
+      .single();
+
+    if (!record || record.sessions?.group_id !== req.params.groupId) {
+      return res.status(404).json({ message: 'Enregistrement introuvable' });
+    }
+
+    if (!isSessionToday(record.sessions?.date)) {
+      return res.status(403).json({ message: 'Ce pointage ne peut plus être supprimé (jour passé)' });
+    }
 
     const { error } = await supabase.from('attendance').delete().eq('id', req.params.recordId);
     if (error) return res.status(500).json({ message: 'Erreur serveur' });
@@ -523,3 +575,5 @@ module.exports = {
   updateAttendanceRecord,
   deleteAttendanceRecord,
 };
+
+

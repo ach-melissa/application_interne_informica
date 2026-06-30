@@ -29,11 +29,13 @@ const Avatar = ({ user, size = 7 }) => {
 };
 
 const COLS = [
-  { label: 'Utilisateur', width: 200 },
-  { label: 'Email',       width: 190 },
-  { label: 'Rôle',        width: 100 },
-  { label: 'Statut',      width: 95  },
-  { label: 'Créé le',     width: 90  },
+  { label: 'Utilisateur',     width: 180 },
+  { label: 'Email',           width: 170 },
+  { label: 'Téléphone',       width: 110 },
+  { label: 'Date naissance',  width: 110 },
+  { label: 'Rôle',            width: 95  },
+  { label: 'Statut',          width: 85  },
+  { label: 'Créé le',         width: 85  },
 ];
 
 const Utilisateurs = () => {
@@ -128,7 +130,7 @@ const Utilisateurs = () => {
       {loading && <div className="flex justify-center py-16"><div className="w-7 h-7 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}
       {error   && <p className="text-red-500 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
-      {!loading && !error && (
+{!loading && !error && (
         <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
@@ -146,7 +148,7 @@ const Utilisateurs = () => {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center py-10 text-slate-400">Aucun utilisateur trouvé.</td></tr>
+                  <tr><td colSpan={7} className="text-center py-10 text-slate-400">Aucun utilisateur trouvé.</td></tr>
                 ) : filtered.map(u => {
                   const statut = u.archived ? 'archived' : (u.statut ?? 'active');
                   return (
@@ -161,6 +163,10 @@ const Utilisateurs = () => {
                         </div>
                       </td>
                       <td className="px-3 py-2 text-slate-500 truncate">{u.email}</td>
+                      <td className="px-3 py-2 text-slate-500 truncate">{u.telephone || '—'}</td>
+                      <td className="px-3 py-2 text-slate-400 truncate">
+                        {u.date_naissance ? new Date(u.date_naissance).toLocaleDateString('fr-FR') : '—'}
+                      </td>
                       <td className="px-3 py-2 overflow-hidden">
                         <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${roleMeta[u.role]?.cls ?? 'bg-slate-100 text-slate-500'}`}>
                           {roleMeta[u.role]?.label ?? u.role}

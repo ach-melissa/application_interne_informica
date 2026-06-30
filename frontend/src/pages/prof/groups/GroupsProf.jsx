@@ -15,6 +15,7 @@ const GroupsProf = () => {
   const [error, setError] = useState(null);
 
   const [openGroup, setOpenGroup] = useState(null);
+  const [openFormation, setOpenFormation] = useState(null);
   const [activeTab, setActiveTab] = useState({});
 
   const [students, setStudents] = useState({});
@@ -51,6 +52,10 @@ const GroupsProf = () => {
       }
     }
   };
+
+  const toggleFormation = (formationId) => {
+  setOpenFormation(openFormation === formationId ? null : formationId);
+};
 
   const switchTab = (groupId, tab) => {
     setActiveTab((prev) => ({ ...prev, [groupId]: tab }));
@@ -103,6 +108,16 @@ const GroupsProf = () => {
     setAttendance((prev) => ({ ...prev, [groupId]: updated }));
   };
 
+  const groupedByFormation = groups.reduce((acc, g) => {
+  const fid = g.formation_id ?? g.formations?.id ?? 'sans-formation';
+  if (!acc[fid]) {
+    acc[fid] = { id: fid, nom: g.formations?.nom ?? 'Formation', groups: [] };
+  }
+  acc[fid].groups.push(g);
+  return acc;
+}, {});
+const formations = Object.values(groupedByFormation);
+
   return (
     <ProfLayout>
       <div className="mb-6">
@@ -122,40 +137,26 @@ const GroupsProf = () => {
         </p>
       )}
 
-      {!loading && !error && (
+{!loading && !error && (
         <div className="space-y-4">
-          {groups.length === 0 ? (
-            <p className="text-[#64748B] text-sm">Aucun groupe assigné.</p>
+          {formations.length === 0 ? (
+            <p className="text-[#64748B] text-sm">Aucune formation assignée.</p>
           ) : (
-            groups.map((g) => (
+            formations.map((f) => (
               <div
-                key={g.id}
+                key={f.id}
                 className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden"
               >
                 <button
-                  onClick={() => toggleGroup(g.id)}
+                  onClick={() => toggleFormation(f.id)}
                   className="w-full flex items-center justify-between px-6 py-4 hover:bg-[#F8FAFC] transition"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-[#EFF6FF] flex items-center justify-center">
-                      <Users size={18} className="text-[#2563EB]" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-[#1E293B]">{g.nom}</p>
-                      <p className="text-xs text-[#64748B]">{g.formations?.nom ?? '—'}</p>
-                    </div>
-                  </div>
+                  <p className="text-sm font-semibold text-[#1E293B]">{f.nom}</p>
                   <div className="flex items-center gap-3">
-                    <span
-                      className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                        g.statut === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {g.statut ?? '—'}
+                    <span className="text-xs text-[#64748B]">
+                      {f.groups.length} groupe(s)
                     </span>
-                    {openGroup === g.id ? (
+                    {openFormation === f.id ? (
                       <ChevronUp size={18} className="text-[#94A3B8]" />
                     ) : (
                       <ChevronDown size={18} className="text-[#94A3B8]" />
@@ -163,48 +164,90 @@ const GroupsProf = () => {
                   </div>
                 </button>
 
-                {openGroup === g.id && (
-                  <div className="border-t border-[#E2E8F0]">
-                    <div className="flex border-b border-[#E2E8F0] px-6 gap-1">
-                      {TABS.map(({ key, label, Icon }) => (
+                {openFormation === f.id && (
+                  <div className="border-t border-[#E2E8F0] p-4 space-y-4">
+                    {f.groups.map((g) => (
+                      <div
+                        key={g.id}
+                        className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden"
+                      >
                         <button
-                          key={key}
-                          onClick={() => switchTab(g.id, key)}
-                          className={`flex items-center gap-1.5 text-sm px-3 py-3 font-medium border-b-2 transition ${
-                            activeTab[g.id] === key
-                              ? 'border-[#2563EB] text-[#2563EB]'
-                              : 'border-transparent text-[#64748B] hover:text-[#1E293B]'
-                          }`}
+                          onClick={() => toggleGroup(g.id)}
+                          className="w-full flex items-center justify-between px-6 py-4 hover:bg-[#F8FAFC] transition"
                         >
-                          <Icon size={15} />
-                          {label}
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-[#EFF6FF] flex items-center justify-center">
+                              <Users size={18} className="text-[#2563EB]" />
+                            </div>
+                            <div className="text-left">
+                              <p className="text-sm font-semibold text-[#1E293B]">{g.nom}</p>
+                              <p className="text-xs text-[#64748B]">{g.formations?.nom ?? '—'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                                g.statut === 'active'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}
+                            >
+                              {g.statut ?? '—'}
+                            </span>
+                            {openGroup === g.id ? (
+                              <ChevronUp size={18} className="text-[#94A3B8]" />
+                            ) : (
+                              <ChevronDown size={18} className="text-[#94A3B8]" />
+                            )}
+                          </div>
                         </button>
-                      ))}
-                    </div>
 
-                    <div className="p-6">
-                      {loadingTab[g.id] ? (
-                        <div className="flex justify-center py-8">
-                          <div className="w-6 h-6 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
-                        </div>
-                      ) : (
-                        <>
-                          {activeTab[g.id] === 'students' && (
-                            <GroupStudents students={students[g.id] ?? []} />
-                          )}
-                          {activeTab[g.id] === 'attendance' && (
-                            <GroupAttendance
-                              groupId={g.id}
-                              group={g}
-                              sessions={attendance[g.id]?.sessions ?? []}
-                              records={attendance[g.id]?.records ?? []}
-                              students={students[g.id] ?? []}
-                              onUpdate={handleAttendanceUpdate}
-                            />
-                          )}
-                        </>
-                      )}
-                    </div>
+                        {openGroup === g.id && (
+                          <div className="border-t border-[#E2E8F0]">
+                            <div className="flex border-b border-[#E2E8F0] px-6 gap-1">
+                              {TABS.map(({ key, label, Icon }) => (
+                                <button
+                                  key={key}
+                                  onClick={() => switchTab(g.id, key)}
+                                  className={`flex items-center gap-1.5 text-sm px-3 py-3 font-medium border-b-2 transition ${
+                                    activeTab[g.id] === key
+                                      ? 'border-[#2563EB] text-[#2563EB]'
+                                      : 'border-transparent text-[#64748B] hover:text-[#1E293B]'
+                                  }`}
+                                >
+                                  <Icon size={15} />
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+
+                            <div className="p-6">
+                              {loadingTab[g.id] ? (
+                                <div className="flex justify-center py-8">
+                                  <div className="w-6 h-6 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+                                </div>
+                              ) : (
+                                <>
+                                  {activeTab[g.id] === 'students' && (
+                                    <GroupStudents students={students[g.id] ?? []} />
+                                  )}
+                                  {activeTab[g.id] === 'attendance' && (
+                                    <GroupAttendance
+                                      groupId={g.id}
+                                      group={g}
+                                      sessions={attendance[g.id]?.sessions ?? []}
+                                      records={attendance[g.id]?.records ?? []}
+                                      students={students[g.id] ?? []}
+                                      onUpdate={handleAttendanceUpdate}
+                                    />
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

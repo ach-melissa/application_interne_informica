@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Pencil, Check, Trash2, Ban, AlertTriangle,
-         User, Mail, Phone, Calendar, Shield, UserCheck } from 'lucide-react';
+         User, Mail, Phone, Calendar, Shield, UserCheck, Lock } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({
@@ -43,27 +43,27 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
   const [confirmSave, setConfirmSave] = useState(false);
   const [error, setError]             = useState(null);
 
-  const [form, setForm] = useState({
-    nom: user.nom ?? '', prenom: user.prenom ?? '',
-    email: user.email ?? '', telephone: user.telephone ?? '',
-    date_naissance: user.date_naissance?.slice(0,10) ?? '',
-    role: user.role ?? 'prof',
-  });
+const [form, setForm] = useState({
+  nom: user.nom ?? '', prenom: user.prenom ?? '',
+  email: user.email ?? '', telephone: user.telephone ?? '',
+  date_naissance: user.date_naissance?.slice(0,10) ?? '',
+  role: user.role ?? 'prof',
+});
 
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
   const cancelEdit = () => { setEditing(false); setConfirmSave(false); setError(null); };
 
-  const doSave = async () => {
-    setSubmit(true); setError(null); setConfirmSave(false);
-    try {
-      const res = await fetch(`${API}/api/users/${user.id}`, {
-        method: 'PATCH', headers: getHeaders(), body: JSON.stringify(form),
-      });
-      if (!res.ok) throw new Error('Erreur de mise à jour');
-      setEditing(false); onSuccess?.();
-    } catch (err) { setError(err.message); }
-    finally { setSubmit(false); }
-  };
+const doSave = async () => {
+  setSubmit(true); setError(null); setConfirmSave(false);
+  try {
+    const res = await fetch(`${API}/api/users/${user.id}`, {
+      method: 'PATCH', headers: getHeaders(), body: JSON.stringify(form),
+    });
+    if (!res.ok) throw new Error('Erreur de mise à jour');
+    setEditing(false); onSuccess?.();
+  } catch (err) { setError(err.message); }
+  finally { setSubmit(false); }
+};
 
   const doDelete = async () => {
     setSubmit(true); setError(null);
@@ -160,7 +160,7 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
             <Field icon={Mail}     label="Email"          field="email" type="email" />
             <Field icon={Phone}    label="Téléphone"      field="telephone" />
             <Field icon={Calendar} label="Date naissance" field="date_naissance" type="date" />
-            <Field icon={Shield}   label="Rôle"           field="role" select opts={ROLES} />
+<Field icon={Shield}   label="Rôle"           field="role" select opts={ROLES} />
           </div>
 
           <div className="bg-blue-50/40 rounded-xl border border-blue-100 p-4 grid grid-cols-2 gap-3">

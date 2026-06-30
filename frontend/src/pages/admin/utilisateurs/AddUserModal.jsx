@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { X, User, Mail, Phone, Calendar, Shield, Lock } from 'lucide-react';
-
+import { X, User, Mail, Phone, Calendar, Shield, Lock ,Camera} from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({
   'Content-Type': 'application/json',
@@ -17,30 +16,46 @@ const Label = ({ icon: Icon, text }) => (
 );
 
 const AddUserModal = ({ onClose, onSuccess }) => {
-  const [form, setForm] = useState({
-    nom: '', prenom: '', email: '', nom_utilisateur: '',
-    mot_de_passe: '', telephone: '', date_naissance: '', role: 'prof',
-  });
-  const [submitting, setSubmit] = useState(false);
-  const [error, setError]       = useState(null);
+const [form, setForm] = useState({
+  nom: '', prenom: '', email: '', nom_utilisateur: '',
+  mot_de_passe: '', telephone: '', date_naissance: '', role: 'prof',
+});
+const [photo, setPhoto] = useState(null);
+const [preview, setPreview] = useState(null);
+const [submitting, setSubmit] = useState(false);
+const [error, setError]       = useState(null);
 
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
 
-  const handleSubmit = async () => {
-    if (!form.nom || !form.prenom || !form.email || !form.nom_utilisateur || !form.mot_de_passe) {
-      setError("Nom, prénom, email, nom d'utilisateur et mot de passe sont obligatoires."); return;
-    }
-    setSubmit(true); setError(null);
-    try {
-      const res = await fetch(`${API}/api/users`, {
-        method: 'POST', headers: getHeaders(), body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? data.message);
-      onSuccess?.(); onClose();
-    } catch (err) { setError(err.message); }
-    finally { setSubmit(false); }
-  };
+const handleSubmit = async () => {
+  if (!form.nom || !form.prenom || !form.email || !form.nom_utilisateur || !form.mot_de_passe) {
+    setError("Nom, prénom, email, nom d'utilisateur et mot de passe sont obligatoires."); return;
+  }
+  setSubmit(true); setError(null);
+  try {
+    const fd = new FormData();
+    Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+    if (photo) fd.append('photo', photo);
+
+    const res = await fetch(`${API}/api/users`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, // pas de Content-Type, le navigateur le fixe pour multipart
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? data.message);
+    onSuccess?.(); onClose();
+  } catch (err) { setError(err.message); }
+  finally { setSubmit(false); }
+};
+
+
+const handlePhoto = ev => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  setPhoto(file);
+  setPreview(URL.createObjectURL(file));
+};
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
@@ -80,6 +95,16 @@ const AddUserModal = ({ onClose, onSuccess }) => {
               {submitting ? 'Ajout...' : 'Ajouter'}
             </button>
           </div>
+
+          <div className="col-span-2 flex items-center gap-3">
+  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+    {preview ? <img src={preview} alt="" className="w-full h-full object-cover" /> : <Camera size={16} className="text-blue-400" />}
+  </div>
+  <label className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer">
+    {photo ? 'Changer la photo' : 'Ajouter une photo'}
+    <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhoto} className="hidden" />
+  </label>
+</div>
         </div>
       </div>
     </div>

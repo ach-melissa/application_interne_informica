@@ -45,13 +45,37 @@ const deleteSchedule = async (req, res) => {
 const getProfSchedule = async (req, res) => {
   const userId = req.user.id;
 
+  // 1) Trouver le teacher_id lié à cet utilisateur connecté
+  const { data: teacher, error: tErr } = await supabase
+    .from('teachers')
+    .select('id')
+    .eq('user_id', userId)
+    .single();
+
+  if (tErr || !teacher) {
+    return res.status(404).json({ error: 'Professeur introuvable' });
+  }
+
+  // 2) Trouver les groupes assignés à ce prof
+  const { data: groups, error: gErr } = await supabase
+    .from('groups')
+    .select('id')
+    .eq('teacher_id', teacher.id)
+    .eq('archived', false);
+
+  if (gErr) return res.status(500).json({ error: gErr.message });
+
+  const groupIds = groups.map((g) => g.id);
+  if (groupIds.length === 0) return res.json([]);
+
+  // 3) Récupérer les schedules de ces groupes uniquement
   const { data, error } = await supabase
     .from('schedules')
     .select(`
       id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin,
       groups(id, nom)
     `)
-    .eq('prof_id', userId);
+    .in('group_id', groupIds);
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
