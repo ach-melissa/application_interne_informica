@@ -10,6 +10,9 @@ const statutMeta = {
 
 const AttestationsTab = ({ etudiants, formationId, groupId }) => {
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [periode, setPeriode] = useState('');
+  const [dateSignature, setDateSignature] = useState('');
 
   const toggle = (id) => {
     setSelectedIds(prev => {
@@ -25,13 +28,23 @@ const AttestationsTab = ({ etudiants, formationId, groupId }) => {
     );
   };
 
-  const handlePrint = () => {
+  const handlePrintClick = () => {
     if (selectedIds.size === 0) return;
+    setShowPrintModal(true);
+  };
+
+  const handleConfirmPrint = () => {
     const ids = Array.from(selectedIds).join(',');
+    const params = new URLSearchParams({
+      ids,
+      periode,
+      dateSignature,
+    });
     window.open(
-      `/admin/formations/${formationId}/groups/${groupId}/attestations/print?ids=${ids}`,
+      `/admin/formations/${formationId}/groups/${groupId}/attestations/print?${params.toString()}`,
       '_blank'
     );
+    setShowPrintModal(false);
   };
 
   return (
@@ -39,7 +52,7 @@ const AttestationsTab = ({ etudiants, formationId, groupId }) => {
       <div className="flex items-center justify-between mb-3">
         <p className="text-slate-400 text-xs">{selectedIds.size} / {etudiants.length} sélectionné(s)</p>
         <button
-          onClick={handlePrint}
+          onClick={handlePrintClick}
           disabled={selectedIds.size === 0}
           className="flex items-center gap-1.5 text-xs font-medium text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -114,6 +127,54 @@ const AttestationsTab = ({ etudiants, formationId, groupId }) => {
           </table>
         </div>
       </div>
+
+      {showPrintModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">
+              Informations de l'attestation
+            </h3>
+
+            <label className="block text-xs text-slate-500 mb-1">
+              Période (ex: du 01 Janvier 2026 au 30 Mars 2026)
+            </label>
+            <input
+              type="text"
+              value={periode}
+              onChange={(e) => setPeriode(e.target.value)}
+              placeholder="du 01 Janvier 2026 au 30 Mars 2026"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+
+            <label className="block text-xs text-slate-500 mb-1">
+              Date de signature
+            </label>
+            <input
+              type="text"
+              value={dateSignature}
+              onChange={(e) => setDateSignature(e.target.value)}
+              placeholder="15 Juin 2026"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowPrintModal(false)}
+                className="text-xs font-medium text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleConfirmPrint}
+                disabled={!periode || !dateSignature}
+                className="text-xs font-medium text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Confirmer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

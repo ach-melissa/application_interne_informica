@@ -17,6 +17,7 @@ import Students from './pages/admin/students/Students';
 import Archive from './pages/admin/archive/Archive';
 import ArchiveYear from './pages/admin/archive/ArchiveYear';
 import ProfDetail from './pages/admin/profs/ProfDetail';
+import AttestationPrintPage from './components/attestations/AttestationPrintPage';
 
 
 // ── Pages prof (nouvelles) ─────────────────────────────────
@@ -68,6 +69,11 @@ function App() {
               <GroupDetail />
             </PrivateRoute>
           } />
+          <Route path="/admin/formations/:id/groups/:groupId/attestations/print" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <AttestationPrintPage />
+  </PrivateRoute>
+} />
           <Route path="/admin/utilisateurs" element={
             <PrivateRoute allowedRoles={['admin']}>
               <Utilisateurs />
