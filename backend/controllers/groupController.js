@@ -68,9 +68,29 @@ const deleteGroup = async (req, res) => {
 
   if (unassignError) return res.status(500).json({ error: unassignError.message });
 
+  // Nettoyer les données liées avant la suppression réelle
+  const { error: schedErr } = await supabase.from('schedules').delete().eq('group_id', id);
+  if (schedErr) return res.status(500).json({ error: schedErr.message });
+
+  const { data: sessions, error: sessErr } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('group_id', id);
+  if (sessErr) return res.status(500).json({ error: sessErr.message });
+
+  if (sessions?.length) {
+    const sessionIds = sessions.map(s => s.id);
+    const { error: attErr } = await supabase.from('attendance').delete().in('session_id', sessionIds);
+    if (attErr) return res.status(500).json({ error: attErr.message });
+
+    const { error: sessDelErr } = await supabase.from('sessions').delete().eq('group_id', id);
+    if (sessDelErr) return res.status(500).json({ error: sessDelErr.message });
+  }
+
+  // Suppression réelle du groupe
   const { error } = await supabase
     .from('groups')
-    .update({ archived: true })
+    .delete()
     .eq('id', id);
 
   if (error) return res.status(500).json({ error: error.message });

@@ -162,15 +162,12 @@ const deleteEtudiant = async (req, res) => {
 
 const getGroupsByFormation = async (req, res) => {
   const { formation_id } = req.params;
-  
-  // Sans le join teacher pour tester
+
   const { data, error } = await supabase
     .from('groups')
     .select('id, nom, jours_formation, heure_formation')
-    .eq('formation_id', formation_id);
-
-  console.log('error:', error);
-  console.log('data:', data);
+    .eq('formation_id', formation_id)
+    .eq('archived', false);   // 👈 ajouté
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
