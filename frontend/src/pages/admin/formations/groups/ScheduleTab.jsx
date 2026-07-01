@@ -15,7 +15,7 @@ const PERIODE_LABEL = { matin: 'Matin', midi: 'A Midi' };
 // key = "JOUR|SALLE|PERIODE"
 const makeKey = (jour, salle, periode) => `${jour}|${salle}|${periode}`;
 
-const ScheduleTab = ({ groupId }) => {
+const ScheduleTab = ({ groupId, readOnly = false }) => {
   // Map of key → { id, contenu, heure_debut, heure_fin }
   const [cells, setCells] = useState({});
   const [loading, setLoading] = useState(true);
@@ -242,6 +242,22 @@ const ScheduleTab = ({ groupId }) => {
                                 </button>
                               </div>
                             </div>
+                          </div>
+                        ) : readOnly ? (
+                          /* ── Read-only display (no click handler) ── */
+                          <div className="w-full h-full min-h-[3.5rem] text-left px-2 py-1.5">
+                            {cell?.contenu ? (
+                              <div className="space-y-0.5">
+                                {(cell.heure_debut || cell.heure_fin) && (
+                                  <p className="text-[10px] text-[#b8995a] font-medium">
+                                    {cell.heure_debut?.slice(0, 5)}{cell.heure_fin ? ` → ${cell.heure_fin.slice(0, 5)}` : ''}
+                                  </p>
+                                )}
+                                <p className="text-xs text-[#1E293B] leading-snug">{cell.contenu}</p>
+                              </div>
+                            ) : (
+                              <span className="text-[#E2E8F0] text-lg leading-none">—</span>
+                            )}
                           </div>
                         ) : (
                           /* ── Display mode ── */

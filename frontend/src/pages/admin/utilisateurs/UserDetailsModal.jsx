@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, Pencil, Check, Trash2, Ban, AlertTriangle,
-         User, Mail, Phone, Calendar, Shield, UserCheck, Lock } from 'lucide-react';
-
+         User, Mail, Phone, Calendar, Shield, UserCheck, Lock,
+         Archive, RotateCcw } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({
   'Content-Type': 'application/json',
@@ -36,12 +36,26 @@ const Avatar = ({ user, size = 14 }) => {
       </div>;
 };
 
+const Field = ({ icon, label, field, form, editing, set, opts }) => (
+  <Row icon={icon} label={label}>
+    {editing
+      ? opts
+        ? <select value={form[field]} onChange={set(field)} className={inp}>
+            {opts.map(o => <option key={o} value={o}>{roleMeta[o]?.label ?? o}</option>)}
+          </select>
+        : <input type={field === 'date_naissance' ? 'date' : field === 'email' ? 'email' : 'text'}
+                 value={form[field]} onChange={set(field)} className={inp} />
+      : <p className="text-xs text-slate-700 font-medium">{form[field] || '—'}</p>}
+  </Row>
+);
 const UserDetailsModal = ({ user, onClose, onSuccess }) => {
   const [editing, setEditing]         = useState(false);
   const [submitting, setSubmit]       = useState(false);
-  const [confirmDel, setConfirmDel]   = useState(false);
-  const [confirmSave, setConfirmSave] = useState(false);
+const [confirmDel, setConfirmDel]       = useState(false);
+  const [confirmSave, setConfirmSave]     = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError]             = useState(null);
+  
 
 const [form, setForm] = useState({
   nom: user.nom ?? '', prenom: user.prenom ?? '',
@@ -56,8 +70,9 @@ const [form, setForm] = useState({
 const doSave = async () => {
   setSubmit(true); setError(null); setConfirmSave(false);
   try {
+    const payload = { ...form, date_naissance: form.date_naissance || null };
     const res = await fetch(`${API}/api/users/${user.id}`, {
-      method: 'PATCH', headers: getHeaders(), body: JSON.stringify(form),
+      method: 'PATCH', headers: getHeaders(), body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Erreur de mise à jour');
     setEditing(false); onSuccess?.();
@@ -65,7 +80,7 @@ const doSave = async () => {
   finally { setSubmit(false); }
 };
 
-  const doDelete = async () => {
+ const doDelete = async () => {
     setSubmit(true); setError(null);
     try {
       const res = await fetch(`${API}/api/users/${user.id}`, { method: 'DELETE', headers: getHeaders() });
@@ -74,17 +89,17 @@ const doSave = async () => {
     } catch (err) { setError(err.message); setSubmit(false); }
   };
 
-  const Field = ({ icon, label, field, type = 'text', select, opts }) => (
-    <Row icon={icon} label={label}>
-      {editing
-        ? select
-          ? <select value={form[field]} onChange={set(field)} className={inp}>
-              {opts.map(o => <option key={o} value={o}>{roleMeta[o]?.label ?? o}</option>)}
-            </select>
-          : <input type={type} value={form[field]} onChange={set(field)} className={inp} />
-        : <p className="text-xs text-slate-700 font-medium">{form[field] || '—'}</p>}
-    </Row>
-  );
+  const doArchiveToggle = async () => {
+    setSubmit(true); setError(null); setConfirmArchive(false);
+    try {
+      const action = user.archived ? 'restore' : 'archive';
+      const res = await fetch(`${API}/api/users/${user.id}/${action}`, { method: 'PATCH', headers: getHeaders() });
+      if (!res.ok) throw new Error(user.archived ? 'Restauration échouée' : 'Désactivation échouée');
+      onSuccess?.(); onClose();
+    } catch (err) { setError(err.message); setSubmit(false); }
+  };
+
+  
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
@@ -112,9 +127,19 @@ const doSave = async () => {
               </>
             ) : (
               <>
-                <button onClick={() => setEditing(true)}
-                  className="flex items-center gap-1 text-xs border border-blue-200 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-50">
-                  <Pencil size={12} /> Modifier
+                {!user.archived && (
+                  <button onClick={() => setEditing(true)}
+                    className="flex items-center gap-1 text-xs border border-blue-200 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-50">
+                    <Pencil size={12} /> Modifier
+                  </button>
+                )}
+                <button onClick={() => setConfirmArchive(true)}
+                  className={`flex items-center gap-1 text-xs border px-3 py-1.5 rounded-lg ${
+                    user.archived
+                      ? 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                      : 'border-amber-200 text-amber-600 hover:bg-amber-50'
+                  }`}>
+                  {user.archived ? <><RotateCcw size={12} /> Restaurer</> : <><Archive size={12} /> Désactiver</>}
                 </button>
                 <button onClick={() => setConfirmDel(true)}
                   className="flex items-center gap-1 text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50">
@@ -141,6 +166,25 @@ const doSave = async () => {
             </div>
           )}
 
+          {confirmArchive && (
+            <div className={`rounded-xl p-3 flex items-center justify-between gap-3 border ${
+              user.archived ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
+            }`}>
+              <p className={`text-xs flex items-center gap-1.5 ${user.archived ? 'text-emerald-700' : 'text-amber-700'}`}>
+                <AlertTriangle size={13} /> {user.archived ? 'Restaurer cet utilisateur ?' :  'Désactiver cet utilisateur ?'}
+              </p>
+              <div className="flex gap-2 flex-shrink-0">
+                <button onClick={() => setConfirmArchive(false)} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white">Non</button>
+                <button onClick={doArchiveToggle} disabled={submitting}
+                  className={`text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-40 ${
+                    user.archived ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-amber-500 hover:bg-amber-600'
+                  }`}>
+                  {submitting ? '...' : 'Oui'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {confirmDel && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center justify-between gap-3">
               <p className="text-xs text-red-600 flex items-center gap-1.5"><AlertTriangle size={13} /> Supprimer ? Action irréversible.</p>
@@ -155,12 +199,12 @@ const doSave = async () => {
 
           {/* Info */}
           <div className="bg-blue-50/40 rounded-xl border border-blue-100 p-4 grid grid-cols-2 gap-3">
-            <Field icon={User}     label="Nom"            field="nom" />
-            <Field icon={User}     label="Prénom"         field="prenom" />
-            <Field icon={Mail}     label="Email"          field="email" type="email" />
-            <Field icon={Phone}    label="Téléphone"      field="telephone" />
-            <Field icon={Calendar} label="Date naissance" field="date_naissance" type="date" />
-<Field icon={Shield}   label="Rôle"           field="role" select opts={ROLES} />
+          <Field icon={User}     label="Nom"            field="nom"            form={form} editing={editing} set={set} />
+            <Field icon={User}     label="Prénom"         field="prenom"         form={form} editing={editing} set={set} />
+            <Field icon={Mail}     label="Email"          field="email"          form={form} editing={editing} set={set} />
+            <Field icon={Phone}    label="Téléphone"      field="telephone"      form={form} editing={editing} set={set} />
+            <Field icon={Calendar} label="Date naissance" field="date_naissance" form={form} editing={editing} set={set} />
+            <Field icon={Shield}   label="Rôle"           field="role"           form={form} editing={editing} set={set} opts={ROLES} />
           </div>
 
           <div className="bg-blue-50/40 rounded-xl border border-blue-100 p-4 grid grid-cols-2 gap-3">
@@ -172,13 +216,11 @@ const doSave = async () => {
                 {user.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR') : '—'}
               </p>
             </Row>
-            <Row icon={Shield} label="Statut">
+           <Row icon={Shield} label="Statut">
               <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                user.archived ? 'bg-red-100 text-red-500' :
-                user.statut === 'inactive' ? 'bg-slate-100 text-slate-500' :
-                'bg-emerald-100 text-emerald-700'
+                user.archived ? 'bg-red-100 text-red-500' : 'bg-emerald-100 text-emerald-700'
               }`}>
-                {user.archived ? 'Archivé' : user.statut === 'inactive' ? 'Inactif' : 'Actif'}
+                {user.archived ? 'Inactif' : 'Actif'}
               </span>
             </Row>
           </div>

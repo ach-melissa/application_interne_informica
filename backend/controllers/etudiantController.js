@@ -5,15 +5,27 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 
 const getEtudiants = async (req, res) => {
-  const { data, error } = await supabase
+  const archived = req.query.archived === 'true';
+
+  let query = supabase
     .from('inscriptions')
-.select(`
-  *,
-  etudiant:etudiant_id(*),
-  formation:formation_id(nom),
-  groups(nom, jours_formation, heure_formation)
-`)
+    .select(`
+      *,
+      etudiant:etudiant_id(*),
+      formation:formation_id(nom),
+      groups(nom, jours_formation, heure_formation)
+    `)
+    .eq('archived', archived)
     .order('created_at', { ascending: false });
+
+  if (req.query.formation_id) {
+    query = query.eq('formation_id', req.query.formation_id);
+  }
+  if (req.query.annee_scolaire) {
+    query = query.eq('annee_scolaire', req.query.annee_scolaire);
+  }
+
+  const { data, error } = await query;
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -45,6 +57,37 @@ if ('statut' in req.body && req.body.statut !== 'confirmed') {
 
   console.log('supabase error:', error);
   console.log('supabase data:', data);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+const archiveInscription = async (req, res) => {
+  const { id } = req.params;
+const { annee_scolaire } = req.body || {};
+
+  const updates = { archived: true };
+  if (annee_scolaire?.trim()) updates.annee_scolaire = annee_scolaire.trim();
+
+  const { data, error } = await supabase
+    .from('inscriptions')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+const restoreInscription = async (req, res) => {
+  const { id } = req.params;
+
+  const { data, error } = await supabase
+    .from('inscriptions')
+    .update({ archived: false })
+    .eq('id', id)
+    .select()
+    .single();
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -187,5 +230,4 @@ const assignGroup = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-
-module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant, upload,getGroupsByFormation, assignGroup };
+module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant, upload, getGroupsByFormation, assignGroup, archiveInscription, restoreInscription };

@@ -69,20 +69,7 @@ if (!res.ok) throw new Error('Erreur serveur');
       setLoadingInscriptions(false);
     }
   };
-const handleArchive = async (formation) => {
-  if (!window.confirm(`Archiver "${formation.nom}" ?`)) return;
-  try {
-    const token = localStorage.getItem('token');
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/formations/${formation.id}/archive`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error('Erreur serveur');
-    setFormations((prev) => prev.filter((f) => f.id !== formation.id));
-  } catch (err) {
-    setError(err.message);
-  }
-};
+
 
 const handleDelete = async (formation) => {
   if (!window.confirm(`Supprimer définitivement "${formation.nom}" ? Cette action est irréversible.`)) return;
@@ -304,11 +291,7 @@ const handleDelete = async (formation) => {
   >
     Modifier
   </button>
-<button
-  className="text-xs font-medium text-[#64748B] border border-[#64748B] px-3 py-1.5 rounded-lg hover:bg-slate-50 transition"
->
-  Archiver
-</button>
+
   <button
     onClick={() => handleDelete(f)}
     className="text-xs font-medium text-red-500 border border-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"

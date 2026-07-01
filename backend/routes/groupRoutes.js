@@ -7,6 +7,8 @@ const {
   deleteGroup,
   getGroupEtudiants,
   getUnassignedStudents,
+  archiveGroup,
+  restoreGroup,
 } = require('../controllers/groupController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 
@@ -16,6 +18,8 @@ router.get('/', getGroupsByFormation);
 router.post('/', createGroup);
 router.patch('/:id', updateGroup);
 router.delete('/:id', deleteGroup);
+router.patch('/:id/archive', archiveGroup);
+router.patch('/:id/restore', restoreGroup);
 router.get('/:id/etudiants', getGroupEtudiants);
 router.get('/formation/:formation_id/unassigned', getUnassignedStudents);
 module.exports = router;

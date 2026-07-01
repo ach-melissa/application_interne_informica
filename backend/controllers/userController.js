@@ -208,12 +208,19 @@ const deleteMyPhoto = async (req, res) => {
 
 const getUsers = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('users')
       .select(SAFE_FIELDS)
       .order('created_at', { ascending: false });
 
+    if (req.query.archived !== undefined) {
+      query = query.eq('archived', req.query.archived === 'true');
+    }
+    if (req.query.role) query = query.eq('role', req.query.role);
+    
+    const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
+
     const withPhotos = await Promise.all(data.map(withPhotoUrl));
     res.json(withPhotos);
   } catch (err) {
@@ -223,12 +230,44 @@ const getUsers = async (req, res) => {
 };
 
 // ============================================================
-// POST /api/users — créer un utilisateur (admin)
+// PATCH /api/users/:id/archive — désactive un utilisateur
 // ============================================================
+const archiveUser = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ archived: true })
+      .eq('id', req.params.id)
+      .select(SAFE_FIELDS)
+      .single();
+
+    if (error) return res.status(500).json({ message: 'Erreur serveur' });
+    res.json(await withPhotoUrl(data));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
 // ============================================================
-// POST /api/users — créer un utilisateur (admin)
-// (multer fournit req.file en mémoire via upload.single('photo'))
+// PATCH /api/users/:id/restore — réactive un utilisateur
 // ============================================================
+const restoreUser = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ archived: false })
+      .eq('id', req.params.id)
+      .select(SAFE_FIELDS)
+      .single();
+
+    if (error) return res.status(500).json({ message: 'Erreur serveur' });
+    res.json(await withPhotoUrl(data));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
 const createUser = async (req, res) => {
   try {
     const { nom, prenom, email, nom_utilisateur, mot_de_passe, telephone, date_naissance, role } = req.body;
@@ -371,6 +410,7 @@ const deleteUser = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
-
-// update the exports line:
-module.exports = { getMe, updateMe, changeMyPassword, uploadMyPhoto, deleteMyPhoto, getUsers , createUser, updateUser, deleteUser };
+module.exports = {
+  getMe, updateMe, changeMyPassword, uploadMyPhoto, deleteMyPhoto,
+  getUsers, createUser, updateUser, deleteUser, archiveUser, restoreUser,
+};

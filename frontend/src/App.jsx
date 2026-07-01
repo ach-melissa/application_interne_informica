@@ -16,6 +16,8 @@ import Profs from './pages/admin/profs/Profs';
 import Students from './pages/admin/students/Students';
 import Archive from './pages/admin/archive/Archive';
 import ArchiveYear from './pages/admin/archive/ArchiveYear';
+import ArchiveFormation from './pages/admin/archive/ArchiveFormation';
+import ArchiveGroupDetail from './pages/admin/archive/ArchiveGroupDetail';
 import ProfDetail from './pages/admin/profs/ProfDetail';
 import AttestationPrintPage from './components/attestations/AttestationPrintPage';
 
@@ -94,7 +96,7 @@ function App() {
               <Students />
             </PrivateRoute>
           } />
-          <Route path="/admin/archive" element={
+        <Route path="/admin/archive" element={
   <PrivateRoute allowedRoles={['admin']}>
     <Archive />
   </PrivateRoute>
@@ -102,6 +104,16 @@ function App() {
 <Route path="/admin/archive/:year" element={
   <PrivateRoute allowedRoles={['admin']}>
     <ArchiveYear />
+  </PrivateRoute>
+} />
+<Route path="/admin/archive/:year/:formationId" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <ArchiveFormation />
+  </PrivateRoute>
+} />
+<Route path="/admin/archive/:year/:formationId/groups/:groupId" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <ArchiveGroupDetail />
   </PrivateRoute>
 } />
 

@@ -306,7 +306,28 @@ const handleDelete = async (id) => {
   });
   fetchGroups();
 };
+const [archivingGroup, setArchivingGroup] = useState(null);
+const [archiveYear, setArchiveYear] = useState('');
 
+const getAnneesScolaires = () => {
+  const now = new Date();
+  const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+  const years = [];
+  for (let y = startYear + 1; y >= startYear - 5; y--) years.push(`${y}-${y + 1}`);
+  return years;
+};
+
+const confirmArchiveGroup = async () => {
+  const token = localStorage.getItem('token');
+  await fetch(`${import.meta.env.VITE_API_URL}/api/groups/${archivingGroup}/archive`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ annee_scolaire: archiveYear || null }),
+  });
+  setArchivingGroup(null);
+  setArchiveYear('');
+  fetchGroups();
+};
   return (
     <AdminLayout>
       {/* Header */}
@@ -394,13 +415,14 @@ const handleDelete = async (id) => {
                     >
                       <Pencil size={12} /> Modifier
                     </button>
-                    <button
-                      onClick={() => handleDelete(g.id)}
-                      className="flex items-center gap-1 text-xs font-medium text-red-500 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
-                    >
-                      <Trash2 size={12} /> Supprimer
-                    </button>
-                    <button
+                  <button
+  onClick={() => handleDelete(g.id)}
+  className="flex items-center gap-1 text-xs font-medium text-red-500 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
+>
+  <Trash2 size={12} /> Supprimer
+</button>
+<button
+  onClick={() => setArchivingGroup(g.id)}
   className="text-xs font-medium text-[#64748B] border border-[#64748B] px-3 py-1.5 rounded-lg hover:bg-slate-50 transition"
 >
   Archiver
@@ -410,6 +432,24 @@ const handleDelete = async (id) => {
               ))}
             </div>
           )}
+          {archivingGroup && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-sm mx-4 space-y-3">
+      <p className="text-sm font-medium text-[#1E293B]">Archiver ce groupe ?</p>
+      <select value={archiveYear} onChange={e => setArchiveYear(e.target.value)}
+        className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm">
+        <option value="">— Année scolaire (optionnel) —</option>
+        {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
+      <div className="flex justify-end gap-2">
+        <button onClick={() => { setArchivingGroup(null); setArchiveYear(''); }}
+          className="text-xs px-3 py-1.5 rounded-lg border border-[#E2E8F0] text-[#64748B] hover:bg-slate-50">Annuler</button>
+        <button onClick={confirmArchiveGroup}
+          className="text-xs px-3 py-1.5 rounded-lg bg-[#64748B] text-white hover:bg-[#475569]">Archiver</button>
+      </div>
+    </div>
+  </div>
+)}
         </>
       )}
 

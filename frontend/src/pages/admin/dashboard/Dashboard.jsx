@@ -4,6 +4,7 @@ import { Users, BookOpen, CreditCard, UserX, Clock, UserPlus, Layers } from 'luc
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddEtudiantModal from '../students/AddEtudiantModal';
 import AddUserModal from '../utilisateurs/AddUserModal';
+import AddFormationModal from '../formations/AddFormationModal';
 
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
@@ -15,17 +16,19 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showAddEtudiant, setShowAddEtudiant] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
+  const [showAddFormation, setShowAddFormation] = useState(false);
+  const [formations, setFormations] = useState([]);
 
   const fetchAll = async () => {
     try {
-      const [statsRes, studentsRes] = await Promise.all([
+      const [statsRes, studentsRes, formationsRes] = await Promise.all([
         fetch(`${API}/api/dashboard/stats`, { headers: getHeaders() }),
         fetch(`${API}/api/etudiants`, { headers: getHeaders() }),
+        fetch(`${API}/api/formations`, { headers: getHeaders() }),
       ]);
-      const statsData = await statsRes.json();
-      const studentsData = await studentsRes.json();
-      setStats(statsData);
-      setRecentStudents(studentsData.slice(0, 5));
+      setStats(await statsRes.json());
+      setRecentStudents((await studentsRes.json()).slice(0, 5));
+      setFormations(await formationsRes.json());
     } catch (err) {
       console.error(err);
     } finally {
@@ -46,8 +49,7 @@ const Dashboard = () => {
   const quickActions = [
     { label: 'Ajouter étudiant', icon: UserPlus, color: 'bg-[#b8995a] hover:bg-[#a0854d]', onClick: () => setShowAddEtudiant(true) },
     { label: 'Ajouter utilisateur', icon: Users, color: 'bg-slate-600 hover:bg-slate-700', onClick: () => setShowAddUser(true) },
-    { label: 'Voir paiements', icon: CreditCard, color: 'bg-orange-500 hover:bg-orange-600', onClick: () => navigate('/admin/formations') },
-    { label: 'Créer groupe', icon: Layers, color: 'bg-green-600 hover:bg-green-700', onClick: () => navigate('/admin/formations') },
+    { label: 'Ajouter formation', icon: BookOpen, color: 'bg-green-600 hover:bg-green-700', onClick: () => setShowAddFormation(true) },
   ];
 
   if (loading) return (
@@ -153,6 +155,9 @@ const Dashboard = () => {
         <AddEtudiantModal onClose={() => setShowAddEtudiant(false)} onSuccess={() => { fetchAll(); setShowAddEtudiant(false); }} />
       )}
       {showAddUser && <AddUserModal onClose={() => setShowAddUser(false)} />}
+      {showAddFormation && (
+        <AddFormationModal onClose={() => setShowAddFormation(false)} onSuccess={() => { fetchAll(); setShowAddFormation(false); }} />
+      )}
     </AdminLayout>
   );
 };

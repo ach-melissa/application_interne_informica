@@ -96,6 +96,37 @@ const deleteGroup = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 };
+const archiveGroup = async (req, res) => {
+  const { id } = req.params;
+  const { annee_scolaire } = req.body || {};
+
+  const updates = { archived: true };
+  if (annee_scolaire?.trim()) updates.annee_scolaire = annee_scolaire.trim();
+
+  const { data, error } = await supabase
+    .from('groups')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+const restoreGroup = async (req, res) => {
+  const { id } = req.params;
+
+  const { data, error } = await supabase
+    .from('groups')
+    .update({ archived: false })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
 
 const getGroupEtudiants = async (req, res) => {
   const { id } = req.params;
@@ -126,4 +157,4 @@ const getUnassignedStudents = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-module.exports = { getGroupsByFormation, createGroup, updateGroup, deleteGroup, getGroupEtudiants , getUnassignedStudents };
+module.exports = { getGroupsByFormation, createGroup, updateGroup, deleteGroup, getGroupEtudiants, getUnassignedStudents, archiveGroup, restoreGroup };

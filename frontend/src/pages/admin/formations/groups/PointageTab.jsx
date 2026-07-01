@@ -14,7 +14,7 @@ const STATUT_STYLE = {
   retard:  'bg-orange-100 text-orange-600',
 };
 
-const PointageTab = ({ groupId, etudiants, group }) => {
+const PointageTab = ({ groupId, etudiants, group, readOnly = false }) => {
   const [sessions, setSessions] = useState([]);
   const [attendance, setAttendance] = useState({});
   const [loading, setLoading] = useState(true);
@@ -161,16 +161,18 @@ const PointageTab = ({ groupId, etudiants, group }) => {
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-[#64748B]">{sessions.length} séance(s)</p>
-        <button
-          onClick={() => setAddingSession(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2563EB] text-white text-xs font-medium rounded-lg hover:bg-[#1D4ED8] transition"
-        >
-          <Plus size={14} /> Ajouter séance
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => setAddingSession(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2563EB] text-white text-xs font-medium rounded-lg hover:bg-[#1D4ED8] transition"
+          >
+            <Plus size={14} /> Ajouter séance
+          </button>
+        )}
       </div>
 
       {/* ── Add session form ── */}
-      {addingSession && (
+      {!readOnly && addingSession && (
         <div className="flex items-center gap-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-4 py-3">
           <input
             type="date" value={newDate}
@@ -202,27 +204,35 @@ const PointageTab = ({ groupId, etudiants, group }) => {
           </span>
           <label className="flex items-center gap-1.5">
             <strong>Jour(s) :</strong>
-            <input
-              type="text"
-              value={ficheInfo.jours_formation}
-              onChange={e => setFicheInfo(f => ({ ...f, jours_formation: e.target.value }))}
-              onBlur={saveInfo}
-              placeholder="ex: Lundi, Mercredi"
-              className="border-b border-[#CBD5E1] bg-transparent focus:outline-none focus:border-[#2563EB] px-1 w-36"
-            />
+            {readOnly ? (
+              <span className="px-1">{ficheInfo.jours_formation || '—'}</span>
+            ) : (
+              <input
+                type="text"
+                value={ficheInfo.jours_formation}
+                onChange={e => setFicheInfo(f => ({ ...f, jours_formation: e.target.value }))}
+                onBlur={saveInfo}
+                placeholder="ex: Lundi, Mercredi"
+                className="border-b border-[#CBD5E1] bg-transparent focus:outline-none focus:border-[#2563EB] px-1 w-36"
+              />
+            )}
           </label>
           <label className="flex items-center gap-1.5">
             <strong>Heure :</strong>
-            <input
-              type="text"
-              value={ficheInfo.heure_formation}
-              onChange={e => setFicheInfo(f => ({ ...f, heure_formation: e.target.value }))}
-              onBlur={saveInfo}
-              placeholder="ex: 09:00 - 11:00"
-              className="border-b border-[#CBD5E1] bg-transparent focus:outline-none focus:border-[#2563EB] px-1 w-28"
-            />
+            {readOnly ? (
+              <span className="px-1">{ficheInfo.heure_formation || '—'}</span>
+            ) : (
+              <input
+                type="text"
+                value={ficheInfo.heure_formation}
+                onChange={e => setFicheInfo(f => ({ ...f, heure_formation: e.target.value }))}
+                onBlur={saveInfo}
+                placeholder="ex: 09:00 - 11:00"
+                className="border-b border-[#CBD5E1] bg-transparent focus:outline-none focus:border-[#2563EB] px-1 w-28"
+              />
+            )}
           </label>
-          {savingInfo && <span className="text-[#94A3B8] italic">Sauvegarde…</span>}
+          {!readOnly && savingInfo && <span className="text-[#94A3B8] italic">Sauvegarde…</span>}
         </div>
       </div>
 
@@ -264,13 +274,17 @@ const PointageTab = ({ groupId, etudiants, group }) => {
                 </td>
                 {sessions.map(s => (
                   <td key={s.id} className="border border-[#E2E8F0] px-1 py-1 text-center">
-                    <input
-                      type="text"
-                      defaultValue={s.duree ?? ''}
-                      onBlur={e => updateDuree(s.id, e.target.value)}
-                      placeholder="—"
-                      className="w-full text-center text-xs border-b border-transparent hover:border-[#CBD5E1] focus:border-[#2563EB] bg-transparent focus:outline-none px-1 py-1"
-                    />
+                    {readOnly ? (
+                      <span className="text-xs">{s.duree || '—'}</span>
+                    ) : (
+                      <input
+                        type="text"
+                        defaultValue={s.duree ?? ''}
+                        onBlur={e => updateDuree(s.id, e.target.value)}
+                        placeholder="—"
+                        className="w-full text-center text-xs border-b border-transparent hover:border-[#CBD5E1] focus:border-[#2563EB] bg-transparent focus:outline-none px-1 py-1"
+                      />
+                    )}
                   </td>
                 ))}
               </tr>
@@ -296,7 +310,7 @@ const PointageTab = ({ groupId, etudiants, group }) => {
                   Emargement de l'enseignant
                 </td>
                 {sessions.map(s => (
-                  <td key={s.id} className="border border-[#E2E8F0] px-2 py-5" key={s.id} />
+                  <td key={s.id} className="border border-[#E2E8F0] px-2 py-5" />
                 ))}
               </tr>
 
@@ -330,14 +344,20 @@ const PointageTab = ({ groupId, etudiants, group }) => {
                     const isEditing = editingCell === key;
                     return (
                       <td key={s.id} className="border border-[#E2E8F0] p-0 text-center relative">
-                        <button
-                          onClick={(ev) => { ev.stopPropagation(); setEditingCell(isEditing ? null : key); }}
-                          className={`w-full py-2 px-1 text-xs font-bold transition hover:opacity-80
-                            ${statut ? STATUT_STYLE[statut] : 'text-gray-300 hover:bg-gray-50'}`}
-                        >
-                          {statut ? STATUT_LABEL[statut] : '—'}
-                        </button>
-                        {isEditing && (
+                        {readOnly ? (
+                          <div className={`w-full py-2 px-1 text-xs font-bold ${statut ? STATUT_STYLE[statut] : 'text-gray-300'}`}>
+                            {statut ? STATUT_LABEL[statut] : '—'}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(ev) => { ev.stopPropagation(); setEditingCell(isEditing ? null : key); }}
+                            className={`w-full py-2 px-1 text-xs font-bold transition hover:opacity-80
+                              ${statut ? STATUT_STYLE[statut] : 'text-gray-300 hover:bg-gray-50'}`}
+                          >
+                            {statut ? STATUT_LABEL[statut] : '—'}
+                          </button>
+                        )}
+                        {!readOnly && isEditing && (
                           <div
                             ref={dropdownRef}
                             className="absolute z-30 top-full left-1/2 -translate-x-1/2 mt-0.5 bg-white border border-[#E2E8F0] rounded-xl shadow-lg p-1 flex flex-col gap-0.5 min-w-[60px]"
@@ -364,18 +384,20 @@ const PointageTab = ({ groupId, etudiants, group }) => {
               ))}
 
               {/* ── Supprimer séance ── */}
-              <tr className="bg-[#FEF2F2]">
-                <td className="border border-[#E2E8F0] px-3 py-1.5 text-[#94A3B8] sticky left-0 bg-[#FEF2F2] z-10 text-[10px]">
-                  Supprimer
-                </td>
-                {sessions.map(s => (
-                  <td key={s.id} className="border border-[#E2E8F0] px-2 py-1.5 text-center">
-                    <button onClick={() => deleteSession(s.id)} className="text-red-300 hover:text-red-500 transition">
-                      <Trash2 size={12} />
-                    </button>
+              {!readOnly && (
+                <tr className="bg-[#FEF2F2]">
+                  <td className="border border-[#E2E8F0] px-3 py-1.5 text-[#94A3B8] sticky left-0 bg-[#FEF2F2] z-10 text-[10px]">
+                    Supprimer
                   </td>
-                ))}
-              </tr>
+                  {sessions.map(s => (
+                    <td key={s.id} className="border border-[#E2E8F0] px-2 py-1.5 text-center">
+                      <button onClick={() => deleteSession(s.id)} className="text-red-300 hover:text-red-500 transition">
+                        <Trash2 size={12} />
+                      </button>
+                    </td>
+                  ))}
+                </tr>
+              )}
 
             </tbody>
           </table>

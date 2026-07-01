@@ -15,10 +15,8 @@ const roleMeta = {
 };
 const statutMeta = {
   active:   { cls: 'bg-emerald-100 text-emerald-700', label: 'Actif' },
-  inactive: { cls: 'bg-slate-100 text-slate-500',     label: 'Inactif' },
-  archived: { cls: 'bg-red-100 text-red-500',         label: 'Archivé' },
+  inactive: { cls: 'bg-red-100 text-red-500', label: 'Inactif' },
 };
-
 const Avatar = ({ user, size = 7 }) => {
   const s = `w-${size} h-${size}`;
   return user.photo_url
@@ -62,7 +60,7 @@ const Utilisateurs = () => {
     const txt = `${u.nom} ${u.prenom} ${u.email}`.toLowerCase();
     if (search       && !txt.includes(search.toLowerCase())) return false;
     if (roleFilter   && u.role   !== roleFilter)             return false;
-    if (statutFilter && (u.archived ? 'archived' : u.statut ?? 'active') !== statutFilter) return false;
+   if (statutFilter && (u.archived ? 'inactive' : 'active') !== statutFilter) return false;
     if (dateFrom && u.created_at && new Date(u.created_at) < new Date(dateFrom)) return false;
     if (dateTo   && u.created_at && new Date(u.created_at) > new Date(dateTo))   return false;
     return true;
@@ -108,8 +106,7 @@ const Utilisateurs = () => {
         </div>
         <div className="w-px h-5 bg-blue-100" />
         <FilterSel icon={Shield}       label="Rôle"   value={roleFilter}   onChange={setRole}   opts={ROLES}                          display={o => roleMeta[o]?.label ?? o} />
-        <FilterSel icon={CheckCircle2} label="Statut" value={statutFilter} onChange={setStatut} opts={['active','inactive','archived']} display={o => statutMeta[o]?.label ?? o} />
-
+        <FilterSel icon={CheckCircle2} label="Statut" value={statutFilter} onChange={setStatut} opts={['active', 'inactive']} display={o => statutMeta[o]?.label ?? o} />
         <div className="w-px h-5 bg-blue-100" />
 
         <div className="flex items-center gap-1.5 bg-blue-50/60 border border-blue-200 rounded-lg px-2 py-1">
@@ -150,7 +147,7 @@ const Utilisateurs = () => {
                 {filtered.length === 0 ? (
                   <tr><td colSpan={7} className="text-center py-10 text-slate-400">Aucun utilisateur trouvé.</td></tr>
                 ) : filtered.map(u => {
-                  const statut = u.archived ? 'archived' : (u.statut ?? 'active');
+               const statut = u.archived ? 'inactive' : 'active';
                   return (
                     <tr key={u.id} onClick={() => setSelected(u)} className="hover:bg-blue-50/40 transition cursor-pointer">
                       <td className="px-3 py-2 overflow-hidden">

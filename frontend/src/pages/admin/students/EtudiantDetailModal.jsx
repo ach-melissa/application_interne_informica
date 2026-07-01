@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  X, Pencil, Check, Trash2, AlertTriangle, Ban, Printer,
+  X, Pencil, Check, Trash2, AlertTriangle, Ban, Printer, Archive,
   User, Phone, Mail, MapPin, GraduationCap, Calendar,
   Radio, UserCheck, ClipboardList, PhoneCall,
 } from 'lucide-react';
@@ -45,7 +45,13 @@ const printRows = [
 { fr: 'Durée de formation',   ar: 'مدة التكوين',        key: 'duree' },
 { fr: 'Groupe',               ar: 'الفوج',              key: 'groupe' },
 ];
-
+const getAnneesScolaires = () => {
+  const now = new Date();
+  const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+  const years = [];
+  for (let y = startYear + 1; y >= startYear - 5; y--) years.push(`${y}-${y + 1}`);
+  return years;
+};
 const FICHE_HEADER = {
   address: 'Cité Alliliguia, Groupement PR. N°1224, N°01 -2ème étage – Boumerdès',
   phone: 'Tél./Fax : 024 79 97 67 — Mobile : 0561 148 563 - 0561 678 654',
@@ -175,7 +181,7 @@ const Row = ({ icon: Icon, label, children }) => (
   </div>
 );
 
-const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
+const EtudiantDetailModal = ({ inscription, onClose, onSuccess, readOnly = false }) => {
   const e = inscription?.etudiant;
   const [files, setFiles] = useState({ photo: null, piece_identite: null });
   const [showAssign, setShowAssign] = useState(false);
@@ -183,6 +189,8 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
   const [editing, setEditing]       = useState(false);
   const [submitting, setSubmit]     = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+const [confirmArchive, setConfirmArchive] = useState(false);
+const [archiveYear, setArchiveYear] = useState('');
   const [confirmSave, setConfirmSave] = useState(false);
   const [error, setError]           = useState(null);
 
@@ -233,7 +241,17 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
     } catch (err) { setError(err.message); }
     finally { setSubmit(false); }
   };
-
+const doArchive = async () => {
+  setSubmit(true); setError(null);
+  try {
+    const res = await fetch(`${API}/api/etudiants/${inscription.id}/archive`, {
+      method: 'PATCH', headers: getHeaders(),
+      body: JSON.stringify({ annee_scolaire: archiveYear || null }),
+    });
+    if (!res.ok) throw new Error('Archivage échoué');
+    onSuccess?.(); onClose();
+  } catch (err) { setError(err.message); setSubmit(false); }
+};
   const doDelete = async () => {
     setSubmit(true); setError(null);
     try {
@@ -349,7 +367,12 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
               <p className="text-[11px] text-[#64748B] uppercase tracking-wide">{inscription.formation?.nom ?? '—'}</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              {editing ? (
+              {readOnly ? (
+                <button onClick={openFichePreview}
+                  className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-[#1E293B] px-3 py-1.5 rounded-lg hover:bg-slate-50">
+                  <Printer size={12} /> Aperçu / Imprimer / PDF
+                </button>
+              ) : editing ? (
                 <>
                   <button onClick={cancelEdit} className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-[#64748B] px-3 py-1.5 rounded-lg hover:bg-slate-50">
                     <Ban size={12} /> Annuler
@@ -369,6 +392,10 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
                     className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50">
                     <Trash2 size={12} /> Supprimer
                   </button>
+                  <button onClick={() => setConfirmArchive(true)}
+  className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-[#64748B] px-3 py-1.5 rounded-lg hover:bg-slate-50">
+  <Archive size={12} /> Archiver
+</button>
                   <button onClick={openFichePreview}
                     className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-[#1E293B] px-3 py-1.5 rounded-lg hover:bg-slate-50">
                     <Printer size={12} /> Aperçu / Imprimer / PDF
@@ -390,7 +417,7 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
           {error && <p className="text-red-600 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
 
           {/* Confirm save */}
-          {confirmSave && (
+          {!readOnly && confirmSave && (
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between gap-3">
               <p className="text-xs text-[#1E293B] flex items-center gap-1.5 font-medium"><AlertTriangle size={13} className="text-[#2563EB]" /> Confirmer les modifications ?</p>
               <div className="flex gap-2 flex-shrink-0">
@@ -403,7 +430,7 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
           )}
 
           {/* Confirm delete */}
-          {confirmDel && (
+          {!readOnly && confirmDel && (
             <div className="bg-red-50 border border-red-100 rounded-xl p-3 flex items-center justify-between gap-3">
               <p className="text-xs text-red-600 flex items-center gap-1.5 font-medium"><AlertTriangle size={13} /> Supprimer ? Action irréversible.</p>
               <div className="flex gap-2 flex-shrink-0">
@@ -415,6 +442,22 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
             </div>
           )}
 
+{/* Confirm archive */}
+{!readOnly && confirmArchive && (
+  <div className="bg-slate-100 border border-slate-200 rounded-xl p-3 space-y-2">
+    <p className="text-xs text-[#1E293B] flex items-center gap-1.5 font-medium"><AlertTriangle size={13} className="text-[#64748B]" /> Archiver cette inscription ?</p>
+    <select value={archiveYear} onChange={e => setArchiveYear(e.target.value)} className={inp}>
+      <option value="">— Année scolaire (optionnel) —</option>
+      {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
+    </select>
+    <div className="flex justify-end gap-2">
+      <button onClick={() => setConfirmArchive(false)} className="text-xs px-3 py-1.5 rounded-lg border border-[#E2E8F0] text-[#64748B] hover:bg-white">Non</button>
+      <button onClick={doArchive} disabled={submitting} className="text-xs px-3 py-1.5 rounded-lg bg-[#64748B] text-white hover:bg-[#475569] disabled:opacity-40">
+        {submitting ? '...' : 'Oui, archiver'}
+      </button>
+    </div>
+  </div>
+)}
           {/* Étudiant */}
           <div className={sectionCls}>
             <p className={sectionTitleCls}>Informations personnelles</p>
@@ -505,7 +548,7 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess }) => {
         </div>
       </div>
 
-      {showAssign && (
+      {!readOnly && showAssign && (
         <AssignGroupModal
           inscription={inscription}
           onClose={() => setShowAssign(false)}

@@ -10,7 +10,7 @@ const getAuthHeader = () => ({
   Authorization: `Bearer ${localStorage.getItem('token')}`,
 });
 
-const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh }) => {
+const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnly = false }) => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -219,15 +219,19 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh }) => {
                               <span className="text-xs font-medium text-slate-700">
                                 {Number(p.montant).toLocaleString('fr-FR')} DA
                               </span>
-                              <button
-                                onClick={() => { setEditingId(p.id); setEditMontant(p.montant); }}
-                                className="text-slate-400 hover:text-blue-500 transition"
-                              >
-                                <Pencil size={13} />
-                              </button>
-                              <button onClick={() => handleDelete(p.id)} className="text-slate-400 hover:text-red-400 transition">
-                                <Trash2 size={13} />
-                              </button>
+                              {!readOnly && (
+                                <>
+                                  <button
+                                    onClick={() => { setEditingId(p.id); setEditMontant(p.montant); }}
+                                    className="text-slate-400 hover:text-blue-500 transition"
+                                  >
+                                    <Pencil size={13} />
+                                  </button>
+                                  <button onClick={() => handleDelete(p.id)} className="text-slate-400 hover:text-red-400 transition">
+                                    <Trash2 size={13} />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
 
@@ -245,28 +249,32 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh }) => {
                                     <ZoomIn size={14} className="text-white drop-shadow" />
                                   </div>
                                 </button>
+                                {!readOnly && (
+                                  <button
+                                    onClick={() => triggerUpload(p.id)}
+                                    disabled={uploadingId === p.id}
+                                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-blue-500 transition disabled:opacity-40"
+                                  >
+                                    {uploadingId === p.id
+                                      ? <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                      : <Camera size={12} />}
+                                    <span>Remplacer</span>
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              !readOnly && (
                                 <button
                                   onClick={() => triggerUpload(p.id)}
                                   disabled={uploadingId === p.id}
-                                  className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-blue-500 transition disabled:opacity-40"
+                                  className="flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-blue-500 border border-dashed border-blue-200 hover:border-blue-400 rounded-lg px-2 py-1 transition disabled:opacity-40"
                                 >
                                   {uploadingId === p.id
                                     ? <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin" />
                                     : <Camera size={12} />}
-                                  <span>Remplacer</span>
+                                  <span>Ajouter bon</span>
                                 </button>
-                              </>
-                            ) : (
-                              <button
-                                onClick={() => triggerUpload(p.id)}
-                                disabled={uploadingId === p.id}
-                                className="flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-blue-500 border border-dashed border-blue-200 hover:border-blue-400 rounded-lg px-2 py-1 transition disabled:opacity-40"
-                              >
-                                {uploadingId === p.id
-                                  ? <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin" />
-                                  : <Camera size={12} />}
-                                <span>Ajouter bon</span>
-                              </button>
+                              )
                             )}
                           </div>
                         </div>
@@ -278,23 +286,25 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh }) => {
             )}
 
             {/* Add payment */}
-            <div className="flex gap-2">
-              <input
-                type="number"
-                className="border border-blue-200 rounded-xl px-3 py-2 text-xs flex-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                placeholder="Montant (DA)"
-                value={montant}
-                onChange={e => setMontant(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAdd()}
-              />
-              <button
-                onClick={handleAdd}
-                disabled={submitting || !montant}
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 transition disabled:opacity-40"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  className="border border-blue-200 rounded-xl px-3 py-2 text-xs flex-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Montant (DA)"
+                  value={montant}
+                  onChange={e => setMontant(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                />
+                <button
+                  onClick={handleAdd}
+                  disabled={submitting || !montant}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 transition disabled:opacity-40"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

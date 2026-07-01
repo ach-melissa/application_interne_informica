@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { X, BookOpen, DollarSign, Clock, FileText } from 'lucide-react';
-
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
 
@@ -10,6 +9,8 @@ const Label = ({ icon: Icon, text }) => (
     {Icon && <Icon size={10} />}{text}
   </p>
 );
+
+
 
 const AddFormationModal = ({ onClose, onSuccess, formation = null }) => {
 const isEdit = !!formation;
@@ -77,6 +78,7 @@ const res = await fetch(
               <Label icon={Clock} text="Heures *" />
               <input type="number" min="1" value={form.heures} onChange={set('heures')} className={inp} placeholder="0" />
             </div>
+          
             <div className="col-span-2">
               <Label icon={FileText} text="Description" />
               <textarea value={form.description} onChange={set('description')} rows={3} className={`${inp} resize-none`} placeholder="Optionnel" />
