@@ -9,7 +9,6 @@ import PointageTab from './PointageTab';
 import AttestationsTab from './AttestationsTab';
 
 const API = import.meta.env.VITE_API_URL;
-
 const STATUT_OPTS = ['confirmed', 'pending', 'non_confirmed'];
 const statutMeta = {
   confirmed:     { label: 'Confirmé',     cls: 'bg-emerald-100 text-emerald-700' },
@@ -24,6 +23,7 @@ const GroupDetail = () => {
   const navigate = useNavigate();
   const [etudiants, setEtudiants] = useState([]);
   const [group, setGroup]         = useState(null);
+    const [formation, setFormation] = useState(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
   const [activeTab, setActiveTab] = useState('etudiants');
@@ -34,16 +34,21 @@ const GroupDetail = () => {
   const [statut, setStatut]   = useState('');
   const [niveau, setNiveau]   = useState('');
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    Promise.all([
-      fetch(`${API}/api/groups?formation_id=${formation_id}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${API}/api/groups/${groupId}/etudiants`,         { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-    ])
-      .then(([groups, etudiantsData]) => { setGroup(groups.find(g => g.id === groupId)); setEtudiants(etudiantsData); })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [groupId]);
+useEffect(() => {
+  const token = localStorage.getItem('token');
+  Promise.all([
+    fetch(`${API}/api/groups?formation_id=${formation_id}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    fetch(`${API}/api/groups/${groupId}/etudiants`,         { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    fetch(`${API}/api/formations/${formation_id}`,          { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+  ])
+    .then(([groups, etudiantsData, formationData]) => {
+      setGroup(groups.find(g => g.id === groupId));
+      setEtudiants(etudiantsData);
+      setFormation(formationData);
+    })
+    .catch(err => setError(err.message))
+    .finally(() => setLoading(false));
+}, [groupId]);
 
   const filtered = etudiants.filter(i => {
     const name = `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase();
@@ -189,7 +194,7 @@ const GroupDetail = () => {
 {activeTab === 'paiements'    && <PaymentsTab groupId={groupId} onSelectStudent={setSelectedStudent} />}
 {activeTab === 'emploi'       && <ScheduleTab groupId={groupId} />}
 {activeTab === 'pointage'     && <PointageTab groupId={groupId} etudiants={etudiants.map(i => i.etudiant)} group={group} />}
-{activeTab === 'attestations' && <AttestationsTab etudiants={etudiants} formationId={formation_id} groupId={groupId} />}
+{activeTab === 'attestations' && <AttestationsTab etudiants={etudiants} formationId={formation_id} formationNom={formation?.nom} groupId={groupId} />}  
       <PaymentHistoryModal student={selectedStudent} formationId={group?.formation_id} onClose={() => setSelectedStudent(null)} />
     </AdminLayout>
   );

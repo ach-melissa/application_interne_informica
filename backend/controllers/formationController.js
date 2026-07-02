@@ -9,7 +9,17 @@ const getFormations = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
+const getFormationById = async (req, res) => {
+  const { id } = req.params;
+  const { data, error } = await supabase
+    .from('formations')
+    .select('*')
+    .eq('id', id)
+    .single();
 
+  if (error) return res.status(404).json({ error: 'Formation introuvable.' });
+  res.json(data);
+};
 const createFormation = async (req, res) => {
  const { nom, prix, heures, description } = req.body;
 
@@ -111,4 +121,4 @@ const deleteFormation = async (req, res) => {
   res.json({ success: true });
 };
 
-module.exports = { getFormations, createFormation, updateFormation, deleteFormation };
+module.exports = { getFormations, getFormationById, createFormation, updateFormation, archiveFormation, restoreFormation, deleteFormation };

@@ -1,14 +1,14 @@
 // AttestationsTab.jsx
 import { useState } from 'react';
-import { Printer } from 'lucide-react';
-
+import { Printer, FileDown } from 'lucide-react';
+import * as XLSX from 'xlsx';
 const statutMeta = {
   confirmed:     { label: 'Confirmé',     cls: 'bg-emerald-100 text-emerald-700' },
   pending:       { label: 'En attente',   cls: 'bg-amber-100 text-amber-700' },
   non_confirmed: { label: 'Non confirmé', cls: 'bg-red-100 text-red-600' },
 };
 
-const AttestationsTab = ({ etudiants, formationId, groupId }) => {
+const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [periode, setPeriode] = useState('');
@@ -46,19 +46,44 @@ const AttestationsTab = ({ etudiants, formationId, groupId }) => {
     );
     setShowPrintModal(false);
   };
+const handleExportExcel = () => {
+  const rows = etudiants
+    .filter(i => selectedIds.has(i.id))
+    .map(i => ({
+      Nom: i.etudiant?.nom ?? '',
+      Prénom: i.etudiant?.prenom ?? '',
+      'Date de naissance': i.etudiant?.date_naissance
+        ? new Date(i.etudiant.date_naissance).toLocaleDateString('fr-FR')
+        : '',
+      Formation: formationNom ?? '',
+    }));
 
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Attestations');
+  XLSX.writeFile(wb, `attestations_${new Date().toISOString().slice(0, 10)}.xlsx`);
+};
   return (
     <>
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-slate-400 text-xs">{selectedIds.size} / {etudiants.length} sélectionné(s)</p>
-        <button
-          onClick={handlePrintClick}
-          disabled={selectedIds.size === 0}
-          className="flex items-center gap-1.5 text-xs font-medium text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <Printer size={13} /> Imprimer ({selectedIds.size})
-        </button>
-      </div>
+<div className="flex items-center justify-between mb-3">
+  <p className="text-slate-400 text-xs">{selectedIds.size} / {etudiants.length} sélectionné(s)</p>
+  <div className="flex items-center gap-2">
+    <button
+      onClick={handleExportExcel}
+      disabled={selectedIds.size === 0}
+      className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      <FileDown size={13} /> Exporter Excel ({selectedIds.size})
+    </button>
+    <button
+      onClick={handlePrintClick}
+      disabled={selectedIds.size === 0}
+      className="flex items-center gap-1.5 text-xs font-medium text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      <Printer size={13} /> Imprimer ({selectedIds.size})
+    </button>
+  </div>
+</div>
 
       <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
