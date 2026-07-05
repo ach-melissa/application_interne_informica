@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
-  Search, Plus, X, CheckCircle2, Clock, XCircle, Ban,
-  Phone, PhoneOff, PhoneMissed, PhoneCall, Building2, Lock,
-  Users, Radio, UserCheck, CalendarDays, Megaphone,
+  Search, Plus, X, CheckCircle2, Phone, PhoneCall, Users,
+  Radio, UserCheck, CalendarDays, Megaphone,
 } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddEtudiantModal from './AddEtudiantModal';
@@ -16,19 +15,19 @@ const REGISTERED_OPTS = ['hanane','yasmine','page_facebook','amira'];
 const STATUT_OPTS     = ['pending','confirmed','non_confirmed','rejected'];
 
 const statutMeta = {
-  confirmed:     { label: 'Confirmé',     cls: 'bg-blue-100 text-blue-700' },
-  pending:       { label: 'En attente',   cls: 'bg-amber-100 text-amber-700' },
-  non_confirmed: { label: 'Non confirmé', cls: 'bg-red-100 text-red-600' },
+  confirmed:     { label: 'Confirmé',     cls: 'bg-[#DCEBFA] text-[#0369A1]' },
+  pending:       { label: 'En attente',   cls: 'bg-amber-50 text-amber-700' },
+  non_confirmed: { label: 'Non confirmé', cls: 'bg-red-50 text-red-500' },
   rejected:      { label: 'Rejeté',       cls: 'bg-slate-100 text-slate-500' },
 };
 
 const tryMeta = {
-  repondu:     'bg-emerald-100 text-emerald-700',
-  non_repondu: 'bg-red-100 text-red-600',
-  occupe:      'bg-orange-100 text-orange-600',
+  repondu:     'bg-emerald-50 text-emerald-700',
+  non_repondu: 'bg-red-50 text-red-500',
+  occupe:      'bg-orange-50 text-orange-600',
   injoignable: 'bg-slate-100 text-slate-500',
-  P_bureau:    'bg-blue-100 text-blue-600',
-  ferme:       'bg-violet-100 text-violet-600',
+  P_bureau:    'bg-[#DCEBFA] text-[#0369A1]',
+  ferme:       'bg-violet-50 text-violet-700',
 };
 
 const TrySelect = ({ value, onChange, disabled }) => (
@@ -37,7 +36,7 @@ const TrySelect = ({ value, onChange, disabled }) => (
     onChange={e => onChange(e.target.value || null)}
     onClick={e => e.stopPropagation()}
     disabled={disabled}
-    className={`text-[11px] font-medium px-2 py-0.5 rounded-full border-0 focus:outline-none focus:ring-1 focus:ring-blue-400 w-full
+    className={`text-[11px] font-medium px-2 py-0.5 rounded-full border-0 focus:outline-none focus:ring-1 focus:ring-[#0369A1]/40 w-full
       ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
       ${tryMeta[value] ?? 'bg-slate-100 text-slate-400'}`}
   >
@@ -48,13 +47,12 @@ const TrySelect = ({ value, onChange, disabled }) => (
 
 const FilterSelect = ({ icon: Icon, label, value, onChange, opts, display }) => (
   <div className="relative flex items-center">
-    {Icon && <Icon size={13} className="absolute left-2 text-blue-400 pointer-events-none" />}
+    {Icon && <Icon size={13} className="absolute left-2 text-[#0369A1] pointer-events-none" />}
     <select
       value={value || ''}
       onChange={e => onChange(e.target.value)}
-      className={`text-xs border rounded-lg py-1.5 pr-6 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer transition
-        ${value ? 'border-blue-400 text-blue-700 font-medium' : 'border-blue-200 text-slate-500'}
-        ${Icon ? 'pl-7' : 'pl-2'}`}
+      className={`text-xs rounded-full py-1.5 pr-6 pl-7 bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer transition
+        ${value ? 'text-[#0369A1] font-medium' : 'text-slate-500'}`}
     >
       <option value="">{label}</option>
       {opts.map(o => <option key={o} value={o}>{display ? display(o) : o}</option>)}
@@ -142,35 +140,36 @@ const Students = () => {
           <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {etudiants.length} inscriptions</p>
         </div>
         <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition">
+          className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-lg text-xs font-medium
+            shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
           <Plus size={14} /> Ajouter
         </button>
       </div>
 
       {/* Filter bar */}
-      <div className="bg-white border border-blue-100 rounded-xl px-3 py-2.5 mb-4 flex flex-wrap gap-2 items-center shadow-sm">
+      <div className="mb-4 flex flex-wrap gap-2 items-center">
         <div className="relative min-w-[160px] flex-1 max-w-[220px]">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
           <input placeholder="Nom, téléphone…" value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 border border-blue-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+            className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40" />
         </div>
 
-        <div className="w-px h-5 bg-blue-100" />
+        <div className="w-px h-5 bg-[#E2E8F0]" />
 
         <FilterSelect icon={CheckCircle2} label="Statut"         value={filters.statut || ''}        onChange={v => setFilter('statut', v)}        opts={STATUT_OPTS}               display={o => statutMeta[o]?.label ?? o} />
         <FilterSelect icon={Radio}        label="Source"          value={filters.source || ''}        onChange={v => setFilter('source', v)}        opts={SOURCE_OPTS} />
         <FilterSelect icon={UserCheck}    label="Enregistré par"  value={filters.registered_by || ''} onChange={v => setFilter('registered_by', v)} opts={REGISTERED_OPTS} />
         <FilterSelect icon={Users}        label="Formation"       value={filters.formation || ''}     onChange={v => setFilter('formation', v)}     opts={formations.map(f => f.nom)} />
 
-        <div className="w-px h-5 bg-blue-100" />
+        <div className="w-px h-5 bg-[#E2E8F0]" />
 
-        <div className="flex items-center gap-1.5 bg-blue-50/60 border border-blue-200 rounded-lg px-2 py-1">
-          <CalendarDays size={12} className="text-blue-400 flex-shrink-0" />
+        <div className="flex items-center gap-1.5 bg-white rounded-full px-3 py-1 border border-[#E2E8F0]">
+          <CalendarDays size={12} className="text-[#0369A1] flex-shrink-0" />
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            className={`text-xs bg-transparent focus:outline-none transition ${dateFrom ? 'text-blue-700 font-medium' : 'text-slate-400'}`} />
-          <span className="text-blue-300 text-[10px] font-bold px-0.5">–</span>
+            className={`text-xs bg-transparent focus:outline-none transition ${dateFrom ? 'text-[#0369A1] font-medium' : 'text-slate-400'}`} />
+          <span className="text-[#0369A1]/40 text-[10px] font-bold px-0.5">–</span>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            className={`text-xs bg-transparent focus:outline-none transition ${dateTo ? 'text-blue-700 font-medium' : 'text-slate-400'}`} />
+            className={`text-xs bg-transparent focus:outline-none transition ${dateTo ? 'text-[#0369A1] font-medium' : 'text-slate-400'}`} />
         </div>
 
         {(activeCount > 0 || search) && (
@@ -182,52 +181,53 @@ const Students = () => {
 
       {loading && (
         <div className="flex justify-center py-16">
-          <div className="w-7 h-7 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-7 h-7 border-4 border-[#0F2A4A] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
       {error && <p className="text-red-500 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">Erreur : {error}</p>}
 
       {!loading && !error && (
-        <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
           <div className="overflow-x-auto">
             <table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
               <colgroup>
                 {COLS.map(c => <col key={c.label} style={{ width: `${c.width}px` }} />)}
               </colgroup>
-              <thead className="bg-blue-50 border-b border-blue-100">
+              <thead className="bg-[#DCEBFA]">
                 <tr>
-                  {COLS.map(({ label, Icon }) => (
-                    <th key={label} className="text-left px-3 py-2.5 text-blue-500 font-semibold text-[10px] tracking-wide uppercase overflow-hidden">
+                  {COLS.map(({ label, Icon }, i) => (
+                    <th key={label} className={`text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] overflow-hidden ${i === 0 ? 'border-l border-[#E2E8F0]' : ''}`}>
                       <div className="flex items-center gap-1">
-                        {Icon && <Icon size={11} className="text-blue-400 flex-shrink-0" />}
+                        {Icon && <Icon size={11} className="text-[#0369A1] flex-shrink-0" />}
                         <span className="truncate">{label}</span>
                       </div>
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={10} className="text-center py-10 text-slate-400">Aucun étudiant trouvé.</td></tr>
-                ) : filtered.map(i => {
+                  <tr><td colSpan={10} className="text-center py-10 text-slate-400 bg-white">Aucun étudiant trouvé.</td></tr>
+                ) : filtered.map((i, idx) => {
                   const sm = statutMeta[i.statut];
                   return (
-                    <tr key={i.id} onClick={() => setSelected(i)} className="hover:bg-blue-50/40 transition cursor-pointer">
-                      <td className="px-3 py-2 overflow-hidden">
+                    <tr key={i.id} onClick={() => setSelected(i)}
+                      className={`hover:bg-[#DCEBFA]/30 transition cursor-pointer ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
+                      <td className="px-3 py-2 overflow-hidden border-b border-l border-[#E2E8F0]">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600 flex-shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
                             {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}
                           </div>
                           <span className="font-medium text-slate-700 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-slate-500 truncate">{i.etudiant?.telephone ?? '—'}</td>
-                      <td className="px-3 py-2 overflow-hidden">
+                      <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.telephone ?? '—'}</td>
+                      <td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
                         {i.formation?.nom
-                          ? <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[11px] font-medium truncate block max-w-full">{i.formation.nom}</span>
+                          ? <span className="bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium truncate block max-w-full">{i.formation.nom}</span>
                           : <span className="text-slate-300">—</span>}
                       </td>
-                      <td className="px-3 py-2 text-slate-400 truncate">
+                      <td className="px-3 py-2 text-slate-400 truncate border-b border-[#E2E8F0]">
                         {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
                       </td>
 
@@ -236,32 +236,32 @@ const Students = () => {
                         { f: 'second_try', disabled: !i.first_try },
                         { f: 'third_try',  disabled: !i.second_try },
                       ].map(({ f, disabled }) => (
-                        <td key={f} className="px-2 py-2 overflow-hidden">
+                        <td key={f} className="px-2 py-2 overflow-hidden border-b border-[#E2E8F0]">
                           <TrySelect value={i[f]} onChange={val => updateField(i.id, f, val)} disabled={disabled} />
                         </td>
                       ))}
 
-<td className="px-2 py-2 overflow-hidden" onClick={e => e.stopPropagation()}>
-  <select
-    value={i.source ?? ''}
-    onChange={e => updateField(i.id, 'source', e.target.value || null)}
-    className="text-[11px] font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none w-full bg-slate-100 text-slate-500"
-  >
-    <option value="">— aucun —</option>
-    {SOURCE_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
-  </select>
-</td>
-<td className="px-2 py-2 overflow-hidden" onClick={e => e.stopPropagation()}>
-  <select
-    value={i.registered_by ?? ''}
-    onChange={e => updateField(i.id, 'registered_by', e.target.value || null)}
-    className="text-[11px] font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none w-full bg-slate-100 text-slate-500"
-  >
-    <option value="">— aucun —</option>
-    {REGISTERED_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
-  </select>
-</td>
-                      <td className="px-2 py-2 overflow-hidden" onClick={e => e.stopPropagation()}>
+                      <td className="px-2 py-2 overflow-hidden border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
+                        <select
+                          value={i.source ?? ''}
+                          onChange={e => updateField(i.id, 'source', e.target.value || null)}
+                          className="text-[11px] font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none w-full bg-slate-100 text-slate-500"
+                        >
+                          <option value="">— aucun —</option>
+                          {SOURCE_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-2 py-2 overflow-hidden border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
+                        <select
+                          value={i.registered_by ?? ''}
+                          onChange={e => updateField(i.id, 'registered_by', e.target.value || null)}
+                          className="text-[11px] font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none w-full bg-slate-100 text-slate-500"
+                        >
+                          <option value="">— aucun —</option>
+                          {REGISTERED_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-2 py-2 overflow-hidden border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
                         <select
                           value={i.statut ?? 'pending'}
                           onChange={e => updateField(i.id, 'statut', e.target.value)}

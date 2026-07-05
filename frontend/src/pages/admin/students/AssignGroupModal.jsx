@@ -38,24 +38,30 @@ const AssignGroupModal = ({ inscription, onClose, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
-        <div className="flex items-center justify-between px-5 py-4 border-b border-blue-50">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-800">Affecter au groupe</h2>
-            <p className="text-[11px] text-slate-400">
-              {inscription.etudiant?.nom} {inscription.etudiant?.prenom} · {inscription.formation?.nom}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9] sticky top-0 bg-white z-10">
+          <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
+            <span className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center flex-shrink-0">
+              <Users size={14} />
+            </span>
+            <span>
+              Affecter au groupe
+              <span className="block text-[11px] font-normal text-slate-400">
+                {inscription.etudiant?.nom} {inscription.etudiant?.prenom} · {inscription.formation?.nom}
+              </span>
+            </span>
+          </h2>
+          <button onClick={onClose} className="text-slate-300 hover:text-slate-600 flex-shrink-0"><X size={16} /></button>
         </div>
 
         <div className="p-5 space-y-3">
-          {error && <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-red-500 text-xs bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
           {loading ? (
             <div className="flex justify-center py-6">
-              <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : groups.length === 0 ? (
             <div className="text-center py-6">
@@ -65,41 +71,41 @@ const AssignGroupModal = ({ inscription, onClose, onSuccess }) => {
           ) : (
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition
-                ${selected === '' ? 'border-slate-300 bg-slate-50' : 'border-slate-100 hover:border-slate-200'}`}>
+                ${selected === '' ? 'border-[#0369A1] bg-[#DCEBFA]/40' : 'border-[#F1F5F9] hover:border-[#DCEBFA]'}`}>
                 <input type="radio" name="group" value=""
                   checked={selected === ''} onChange={() => setSelected('')}
-                  className="accent-slate-400" />
+                  className="accent-[#0369A1]" />
                 <span className="text-xs text-slate-400 italic">— Aucun groupe —</span>
               </label>
 
               {groups.map(g => (
                 <label key={g.id} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition
-                  ${selected === g.id ? 'border-blue-400 bg-blue-50/60' : 'border-blue-100 hover:border-blue-200'}`}>
+                  ${selected === g.id ? 'border-[#0369A1] bg-[#DCEBFA]/40' : 'border-[#F1F5F9] hover:border-[#DCEBFA]'}`}>
                   <input type="radio" name="group" value={g.id}
                     checked={selected === g.id} onChange={() => setSelected(g.id)}
-                    className="accent-blue-600 mt-0.5" />
+                    className="accent-[#0369A1] mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-700">{g.nom}</p>
+                    <p className="text-xs font-semibold text-[#1E293B]">{g.nom}</p>
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
                       {g.jours_formation && (
                         <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                          <Calendar size={9} />{g.jours_formation}
+                          <Calendar size={9} className="text-[#0369A1]" />{g.jours_formation}
                         </span>
                       )}
                       {g.heure_formation && (
                         <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                          <Clock size={9} />{g.heure_formation}
+                          <Clock size={9} className="text-[#0369A1]" />{g.heure_formation}
                         </span>
                       )}
                       {g.teacher && (
                         <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                          <UserCheck size={9} />{g.teacher.nom} {g.teacher.prenom}
+                          <UserCheck size={9} className="text-[#0369A1]" />{g.teacher.nom} {g.teacher.prenom}
                         </span>
                       )}
                     </div>
                   </div>
                   {selected === g.id && (
-                    <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 self-center">✓</span>
+                    <span className="text-[10px] bg-[#0369A1] text-white px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 self-center">✓</span>
                   )}
                 </label>
               ))}
@@ -108,11 +114,11 @@ const AssignGroupModal = ({ inscription, onClose, onSuccess }) => {
 
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose}
-              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
+              className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">
               Annuler
             </button>
             <button onClick={handleSave} disabled={submitting || loading || groups.length === 0}
-              className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 font-medium">
+              className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium">
               {submitting ? 'Enregistrement...' : 'Confirmer'}
             </button>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Trash2, Pencil, Plus, Check, Camera, Image, ZoomIn } from 'lucide-react';
+import { X, Trash2, Pencil, Plus, Check, Camera, ZoomIn, Wallet } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({
@@ -140,35 +140,37 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
       />
 
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-        <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="bg-white rounded-2xl w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto shadow-xl" onClick={e => e.stopPropagation()}>
 
-          {/* Header — matches EtudiantDetailModal sticky header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-blue-50 sticky top-0 bg-white z-10 rounded-t-2xl">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-800">{student.nom}</h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">Historique des paiements</p>
-            </div>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9] sticky top-0 bg-white z-10">
+            <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
+              <span className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center">
+                <Wallet size={14} />
+              </span>
+              {student.nom}
+            </h2>
             <button onClick={onClose} className="text-slate-300 hover:text-slate-600 transition">
-              <X size={18} />
+              <X size={16} />
             </button>
           </div>
 
           <div className="p-5 space-y-4">
             {error && (
-              <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-red-500 text-xs bg-red-50 rounded-lg px-3 py-2">{error}</p>
             )}
 
-            {/* Summary pills — matches EtudiantDetailModal card style */}
+            {/* Summary pills */}
             <div className="flex gap-2">
-              <div className="flex-1 bg-blue-50/40 rounded-xl border border-blue-100 px-3 py-2 text-center">
+              <div className="flex-1 bg-[#DCEBFA]/40 rounded-xl border border-[#F1F5F9] px-3 py-2 text-center">
                 <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Payé</p>
                 <p className="text-sm font-semibold text-slate-800">{totalPaid.toLocaleString('fr-FR')} DA</p>
               </div>
               <div className={`flex-1 rounded-xl border px-3 py-2 text-center ${
-                remaining <= 0 ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'
+                remaining <= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'
               }`}>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Restant</p>
-                <p className={`text-sm font-semibold ${remaining <= 0 ? 'text-green-700' : 'text-amber-700'}`}>
+                <p className={`text-sm font-semibold ${remaining <= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
                   {remaining.toLocaleString('fr-FR')} DA
                 </p>
               </div>
@@ -177,7 +179,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
             {/* History list */}
             {loading ? (
               <div className="flex justify-center py-6">
-                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
               <ul className="space-y-1 max-h-52 overflow-y-auto">
@@ -185,18 +187,18 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                   <li className="text-center text-slate-400 text-xs py-6">Aucun paiement enregistré.</li>
                 ) : (
                   history.map((p) => (
-                    <li key={p.id} className="bg-blue-50/40 rounded-xl border border-blue-100 px-3 py-2">
+                    <li key={p.id} className="bg-[#DCEBFA]/40 rounded-xl border border-[#F1F5F9] px-3 py-2">
                       {editingId === p.id ? (
                         <div className="flex gap-2 items-center">
                           <input
                             type="number"
-                            className="border border-blue-200 rounded-lg px-2 py-1 text-xs flex-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            className="border border-transparent bg-[#F8FAFC] rounded-lg px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA]"
                             value={editMontant}
                             onChange={e => setEditMontant(e.target.value)}
                             placeholder="Montant"
                             autoFocus
                           />
-                          <button onClick={() => handleEdit(p.id)} className="text-green-500 hover:text-green-700">
+                          <button onClick={() => handleEdit(p.id)} className="text-emerald-600 hover:text-emerald-700">
                             <Check size={15} />
                           </button>
                           <button onClick={() => setEditingId(null)} className="text-slate-400 hover:text-slate-600">
@@ -208,7 +210,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                           {/* Row 1 */}
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-2">
-                              <span className="text-[11px] bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">
+                              <span className="text-[11px] bg-[#DCEBFA] text-[#0369A1] font-medium px-2 py-0.5 rounded-full">
                                 T{p.tranche}
                               </span>
                               <span className="text-xs text-slate-400">
@@ -223,7 +225,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                                 <>
                                   <button
                                     onClick={() => { setEditingId(p.id); setEditMontant(p.montant); }}
-                                    className="text-slate-400 hover:text-blue-500 transition"
+                                    className="text-slate-400 hover:text-[#0369A1] transition"
                                   >
                                     <Pencil size={13} />
                                   </button>
@@ -243,7 +245,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                                   <img
                                     src={p.bon_photo}
                                     alt="bon"
-                                    className="w-10 h-10 rounded-lg object-cover border border-blue-100 group-hover:opacity-80 transition"
+                                    className="w-10 h-10 rounded-lg object-cover border border-[#DCEBFA] group-hover:opacity-80 transition"
                                   />
                                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                                     <ZoomIn size={14} className="text-white drop-shadow" />
@@ -253,10 +255,10 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                                   <button
                                     onClick={() => triggerUpload(p.id)}
                                     disabled={uploadingId === p.id}
-                                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-blue-500 transition disabled:opacity-40"
+                                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-[#0369A1] transition disabled:opacity-40"
                                   >
                                     {uploadingId === p.id
-                                      ? <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                      ? <div className="w-3 h-3 border border-[#0369A1] border-t-transparent rounded-full animate-spin" />
                                       : <Camera size={12} />}
                                     <span>Remplacer</span>
                                   </button>
@@ -267,10 +269,10 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                                 <button
                                   onClick={() => triggerUpload(p.id)}
                                   disabled={uploadingId === p.id}
-                                  className="flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-blue-500 border border-dashed border-blue-200 hover:border-blue-400 rounded-lg px-2 py-1 transition disabled:opacity-40"
+                                  className="flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-[#0369A1] border border-dashed border-[#DCEBFA] hover:border-[#0369A1]/40 rounded-lg px-2 py-1 transition disabled:opacity-40"
                                 >
                                   {uploadingId === p.id
-                                    ? <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                    ? <div className="w-3 h-3 border border-[#0369A1] border-t-transparent rounded-full animate-spin" />
                                     : <Camera size={12} />}
                                   <span>Ajouter bon</span>
                                 </button>
@@ -287,10 +289,10 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
 
             {/* Add payment */}
             {!readOnly && (
-              <div className="flex gap-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <input
                   type="number"
-                  className="border border-blue-200 rounded-xl px-3 py-2 text-xs flex-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors"
                   placeholder="Montant (DA)"
                   value={montant}
                   onChange={e => setMontant(e.target.value)}
@@ -299,9 +301,9 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                 <button
                   onClick={handleAdd}
                   disabled={submitting || !montant}
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 transition disabled:opacity-40"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium flex items-center gap-1"
                 >
-                  <Plus size={16} />
+                  <Plus size={14} /> Ajouter
                 </button>
               </div>
             )}

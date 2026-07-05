@@ -24,10 +24,13 @@ import AttestationPrintPage from './components/attestations/AttestationPrintPage
 
 // ── Pages prof (nouvelles) ─────────────────────────────────
 import DashboardProf from './pages/prof/dashboard/DashboardProf';
-import GroupsProf from './pages/prof/groups/GroupsProf';
+
 import EmploiDuTemps from './pages/prof/EmploiDuTemps';
 import ProfLayout from './layouts/ProfLayout';
 
+import ProfFormations from './pages/prof/formations/ProfFormations';
+import ProfGroups from './pages/prof/formations/ProfGroups';
+import ProfGroupDetail from './pages/prof/formations/ProfGroupDetail';
 // ── Pages comptable (nouvelles) ─────────────────────────────
 import DashboardComptable from './pages/comptable/dashboard/DashboardComptable';
 import Paiements from './pages/comptable/paiements/Paiements';
@@ -123,11 +126,27 @@ function App() {
               <DashboardProf />
             </PrivateRoute>
           } />
-          <Route path="/prof/groups" element={
-            <PrivateRoute allowedRoles={['prof']}>
-              <GroupsProf />
-            </PrivateRoute>
-          } />
+         <Route path="/prof/formations" element={
+  <PrivateRoute allowedRoles={['prof']}>
+    <ProfLayout>
+      <ProfFormations />
+    </ProfLayout>
+  </PrivateRoute>
+} />
+<Route path="/prof/formations/:formationId/groups" element={
+  <PrivateRoute allowedRoles={['prof']}>
+    <ProfLayout>
+      <ProfGroups />
+    </ProfLayout>
+  </PrivateRoute>
+} />
+<Route path="/prof/formations/:formationId/groups/:groupId" element={
+  <PrivateRoute allowedRoles={['prof']}>
+    <ProfLayout>
+      <ProfGroupDetail />
+    </ProfLayout>
+  </PrivateRoute>
+} />
 <Route path="/prof/emploi-du-temps" element={
   <PrivateRoute allowedRoles={['prof']}>
     <ProfLayout>

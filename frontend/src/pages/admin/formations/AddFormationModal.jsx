@@ -3,14 +3,15 @@ import { X, BookOpen, DollarSign, Clock, FileText } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
 
-const inp = 'w-full border border-blue-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white';
+const inp = 'w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors';
 const Label = ({ icon: Icon, text }) => (
   <p className="flex items-center gap-1 text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">
-    {Icon && <Icon size={10} />}{text}
+    {Icon && <Icon size={10} className="text-[#0369A1]" />}{text}
   </p>
 );
-
-
+const Section = ({ children }) => (
+  <div className="p-2 grid grid-cols-2 gap-3">{children}</div>
+);
 
 const AddFormationModal = ({ onClose, onSuccess, formation = null }) => {
 const isEdit = !!formation;
@@ -56,16 +57,21 @@ const res = await fetch(
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-blue-50 sticky top-0 bg-white z-10">
-<h2 className="text-sm font-semibold text-slate-800">{isEdit ? 'Modifier la formation' : 'Ajouter une formation'}</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9] sticky top-0 bg-white z-10">
+          <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
+            <span className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center">
+              <BookOpen size={14} />
+            </span>
+            {isEdit ? 'Modifier la formation' : 'Ajouter une formation'}
+          </h2>
           <button onClick={onClose} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
         </div>
 
         <div className="p-5 space-y-3">
-          {error && <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-red-500 text-xs bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
           {/* Formation info */}
-          <div className="bg-blue-50/40 rounded-xl border border-blue-100 p-4 grid grid-cols-2 gap-3">
+          <Section>
             <div className="col-span-2">
               <Label icon={BookOpen} text="Nom de la formation *" />
               <input value={form.nom} onChange={set('nom')} className={inp} placeholder="Ex: Anglais débutant" />
@@ -78,17 +84,16 @@ const res = await fetch(
               <Label icon={Clock} text="Heures *" />
               <input type="number" min="1" value={form.heures} onChange={set('heures')} className={inp} placeholder="0" />
             </div>
-          
             <div className="col-span-2">
               <Label icon={FileText} text="Description" />
               <textarea value={form.description} onChange={set('description')} rows={3} className={`${inp} resize-none`} placeholder="Optionnel" />
             </div>
-          </div>
+          </Section>
 
           <div className="flex justify-end gap-2 pt-1">
-            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">Annuler</button>
+            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
             <button onClick={handleSubmit} disabled={submitting}
-              className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 font-medium">
+              className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium">
               {submitting ? 'Enregistrement...' : isEdit ? 'Modifier' : 'Ajouter'}
             </button>
           </div>

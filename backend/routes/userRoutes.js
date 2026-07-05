@@ -20,7 +20,7 @@ router.delete('/me/photo', verifyToken, deleteMyPhoto);
 // Routes admin — gestion des autres utilisateurs
 router.get('/', verifyToken, requireRole('admin'), getUsers);
 router.post('/', verifyToken, requireRole('admin'), upload.single('photo'), createUser);
-router.patch('/:id', verifyToken, requireRole('admin'), updateUser);
+router.patch('/:id', verifyToken, requireRole('admin'), upload.single('photo'), updateUser);
 router.patch('/:id/archive', verifyToken, requireRole('admin'), archiveUser);
 router.patch('/:id/restore', verifyToken, requireRole('admin'), restoreUser);
 router.delete('/:id', verifyToken, requireRole('admin'), deleteUser);

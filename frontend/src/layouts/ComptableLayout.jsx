@@ -13,10 +13,10 @@ const ComptableLayout = ({ children }) => {
   };
 
   return (
-    <div className="flex h-screen bg-[#f6faff] overflow-hidden">
-      <SidebarComptable collapsed={collapsed} setCollapsed={handleCollapse} />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <Topbar />
+    <div className="flex flex-col h-screen bg-[#f5f7fc] overflow-hidden">
+      <Topbar />
+      <div className="flex flex-1 overflow-hidden">
+        <SidebarComptable collapsed={collapsed} setCollapsed={handleCollapse} />
         <main className="flex-1 overflow-y-auto p-8">
           {children}
         </main>
@@ -24,5 +24,6 @@ const ComptableLayout = ({ children }) => {
     </div>
   );
 };
+
 
 export default ComptableLayout;

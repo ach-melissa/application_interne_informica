@@ -12,12 +12,13 @@ const ProfLayout = ({ children }) => {
     localStorage.setItem('prof_sidebar_collapsed', value);
   };
 
-  return (
-    <div className="flex h-screen bg-[#f6faff] overflow-hidden">
-      <SidebarProf collapsed={collapsed} setCollapsed={handleSetCollapsed} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-6">
+
+   return (
+    <div className="flex flex-col h-screen bg-[#f5f7fc] overflow-hidden">
+      <Topbar />
+      <div className="flex flex-1 overflow-hidden">
+         <SidebarProf collapsed={collapsed} setCollapsed={handleSetCollapsed} />
+        <main className="flex-1 overflow-y-auto p-8">
           {children}
         </main>
       </div>

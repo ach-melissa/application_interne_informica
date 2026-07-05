@@ -1,19 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, X, CalendarDays } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
+
 // ─────────────────────────────────────────────────────────────
 // Attendance dropdown  (P / A / R / —)
 // ─────────────────────────────────────────────────────────────
 const OPTIONS = [
-  { value: 'present', label: 'P', color: 'text-green-600' },
+  { value: 'present', label: 'P', color: 'text-emerald-600' },
   { value: 'absent',  label: 'A', color: 'text-red-500'   },
-  { value: 'retard',  label: 'R', color: 'text-orange-500' },
-  { value: null,      label: '—', color: 'text-[#CBD5E1]'  },
+  { value: 'retard',  label: 'R', color: 'text-amber-600' },
+  { value: null,      label: '—', color: 'text-slate-300'  },
 ];
 
-const COLOR = { present: 'text-green-600', absent: 'text-red-500', retard: 'text-orange-500' };
+const COLOR = { present: 'text-emerald-600', absent: 'text-red-500', retard: 'text-amber-600' };
 const LABEL = { present: 'P', absent: 'A', retard: 'R' };
-
-import { createPortal } from 'react-dom';
 
 const AttendanceDropdown = ({ value, onChange, pending, locked }) => {
   const [open, setOpen] = useState(false);
@@ -32,8 +32,8 @@ const AttendanceDropdown = ({ value, onChange, pending, locked }) => {
         onClick={(e) => { e.stopPropagation(); if (pending || locked) return; setOpen((o) => !o); }}
         disabled={pending || locked}
         className={`font-bold text-sm w-full h-full flex items-center justify-center transition
-          ${pending ? 'opacity-40 cursor-wait' : locked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-blue-50'}
-          ${value ? COLOR[value] : 'text-[#CBD5E1]'}
+          ${pending ? 'opacity-40 cursor-wait' : locked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-[#DCEBFA]/40'}
+          ${value ? COLOR[value] : 'text-slate-300'}
         `}
       >
         {pending
@@ -42,7 +42,7 @@ const AttendanceDropdown = ({ value, onChange, pending, locked }) => {
       </button>
 
       {open && (
-        <div className="absolute z-30 top-full left-1/2 -translate-x-1/2 mt-0.5 bg-white border border-[#E2E8F0] rounded-xl shadow-lg p-1 flex flex-col gap-0.5 min-w-[52px]">
+        <div className="absolute z-30 top-full left-1/2 -translate-x-1/2 mt-0.5 bg-white border border-[#F1F5F9] rounded-xl shadow-lg p-1 flex flex-col gap-0.5 min-w-[52px]">
           {OPTIONS.map((opt) => (
             <button
               key={String(opt.value)}
@@ -79,7 +79,7 @@ const EditableCell = ({ value, onChange, type = 'text', placeholder = '', disabl
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }}
-        className="w-full border-0 bg-blue-50 text-[11px] text-center focus:outline-none rounded px-0.5 py-0.5"
+        className="w-full border-0 bg-[#DCEBFA]/40 text-[11px] text-center focus:outline-none rounded px-0.5 py-0.5"
         style={{ minWidth: 0 }}
       />
     );
@@ -90,11 +90,11 @@ const EditableCell = ({ value, onChange, type = 'text', placeholder = '', disabl
       onClick={() => { if (disabled) return; setDraft(value ?? ''); setEditing(true); }}
       disabled={disabled}
       title={disabled ? 'Verrouillé (jour passé)' : 'Cliquer pour modifier'}
-      className={`w-full text-[11px] text-[#1E293B] transition px-0.5 py-0.5 rounded min-h-[22px] ${
-        disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-blue-50 hover:text-blue-600'
+      className={`w-full text-[11px] text-slate-800 transition px-0.5 py-0.5 rounded min-h-[22px] ${
+        disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[#DCEBFA]/40 hover:text-[#0369A1]'
       }`}
     >
-      {value || <span className="text-[#CBD5E1]">—</span>}
+      {value || <span className="text-slate-300">—</span>}
     </button>
   );
 };
@@ -109,12 +109,6 @@ const emptyMeta = (s) => ({
   emargStagiaires: s?.emarg_stagiaires  ?? '',
 });
 
-const fmt = (dateStr) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-};
-
 // ─────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────
@@ -123,6 +117,7 @@ const fmt = (dateStr) => {
  *  groupId, group, sessions, records, students, onUpdate
  */
 const GroupAttendance = ({ groupId, group = {}, sessions = [], records = [], students = [], onUpdate }) => {
+  const { user } = useAuth();
   const [localSessions, setLocalSessions] = useState(sessions);
   const [localRecords,  setLocalRecords]  = useState(records);
   const [sessionMeta,   setSessionMeta]   = useState(() => {
@@ -243,6 +238,7 @@ const setCell = async (etudiantId, sessionId, nextStatut) => {
   const firstDate = localSessions[0]?.date ? new Date(localSessions[0].date).toLocaleDateString('fr-DZ', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
   const lastDate  = localSessions[localSessions.length-1]?.date ? new Date(localSessions[localSessions.length-1].date).toLocaleDateString('fr-DZ', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
 
+  const teacherName = user ? `${user.prenom ?? ''} ${user.nom ?? ''}`.trim() : '';
 
 const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
 const isLocked = (s) => {
@@ -254,7 +250,7 @@ const isLocked = (s) => {
     <div>
       {/* Error banner */}
       {saveError && (
-        <div className="mb-3 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+        <div className="mb-3 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
           <span className="flex-1">{saveError}</span>
           <button onClick={() => setSaveError(null)} className="font-bold text-red-400 hover:text-red-600">✕</button>
         </div>
@@ -262,38 +258,51 @@ const isLocked = (s) => {
 
       {/* Add session button */}
       <div className="flex items-center gap-3 mb-5">
-        {addingSession ? (
-          <div className="flex flex-wrap items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-            <label className="text-sm font-medium text-[#1E293B]">Date :</label>
-            <input
-              type="date"
-              value={newSessionDate}
-              onChange={(e) => setNewSessionDate(e.target.value)}
-              className="border border-[#CBD5E1] rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={confirmAddSession}
-              disabled={!newSessionDate || pendingSession}
-              className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
-            >
-              {pendingSession ? 'Ajout…' : 'Confirmer'}
-            </button>
-            <button
-              onClick={() => { setAddingSession(false); setNewSessionDate(''); setSaveError(null); }}
-              className="text-sm border border-[#E2E8F0] text-[#64748B] px-3 py-1.5 rounded-lg hover:bg-[#F1F5F9] transition"
-            >
-              Annuler
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setAddingSession(true)}
-            className="flex items-center gap-1.5 text-sm text-blue-600 border border-blue-200 bg-blue-50 px-3 py-2 rounded-lg hover:bg-blue-100 transition font-medium"
-          >
-            <Plus size={15} /> Nouvelle séance
-          </button>
-        )}
+        <button
+          onClick={() => setAddingSession(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0F2A4A] text-white text-xs font-medium rounded-lg hover:bg-[#065e8f] transition"
+        >
+          <Plus size={14} /> Nouvelle séance
+        </button>
       </div>
+
+      {/* Add session modal */}
+      {addingSession && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => { setAddingSession(false); setNewSessionDate(''); setSaveError(null); }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9]">
+              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center">
+                  <CalendarDays size={14} />
+                </span>
+                Nouvelle séance
+              </h2>
+              <button onClick={() => { setAddingSession(false); setNewSessionDate(''); setSaveError(null); }}>
+                <X size={16} className="text-slate-300 hover:text-slate-600" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Date de la séance</p>
+                <input
+                  type="date" value={newSessionDate} autoFocus
+                  onChange={(e) => setNewSessionDate(e.target.value)}
+                  className="w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button onClick={() => { setAddingSession(false); setNewSessionDate(''); setSaveError(null); }} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">
+                  Annuler
+                </button>
+                <button onClick={confirmAddSession} disabled={!newSessionDate || pendingSession}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium">
+                  {pendingSession ? 'Ajout…' : 'Confirmer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════
           FICHE DE POINTAGE — matching the admin print layout
@@ -301,40 +310,40 @@ const isLocked = (s) => {
       <div className="overflow-x-auto">
         {/* ── Print-style header ── */}
         <div className="mb-4 text-center">
-          <h2 className="text-base font-bold underline text-[#1E293B]">Fiche de pointage</h2>
+          <h2 className="text-base font-bold underline text-slate-800">Fiche de pointage</h2>
         </div>
 
-        <div className="mb-3 text-sm text-[#1E293B] space-y-1.5">
+        <div className="mb-3 text-sm text-slate-800 space-y-1.5">
           <div className="flex flex-wrap gap-x-10 gap-y-1">
             <span>
               <span className="font-semibold">Formation :</span>{' '}
-              <span className="border-b border-[#1E293B] px-2 min-w-[140px] inline-block">
+              <span className="border-b border-slate-800 px-2 min-w-[140px] inline-block">
                 {group?.formations?.nom ?? ''}
               </span>
             </span>
             <span>
               <span className="font-semibold">Date de début :</span>{' '}
-              <span className="border-b border-[#1E293B] px-2 min-w-[100px] inline-block">{firstDate}</span>
+              <span className="border-b border-slate-800 px-2 min-w-[100px] inline-block">{firstDate}</span>
             </span>
             <span>
               <span className="font-semibold">Date de fin :</span>{' '}
-              <span className="border-b border-[#1E293B] px-2 min-w-[100px] inline-block">{lastDate}</span>
+              <span className="border-b border-slate-800 px-2 min-w-[100px] inline-block">{lastDate}</span>
             </span>
           </div>
           <div className="flex flex-wrap gap-x-10 gap-y-1">
             <span>
               <span className="font-semibold">Enseignant :</span>{' '}
-              <span className="border-b border-[#1E293B] px-2 min-w-[160px] inline-block">&nbsp;</span>
+              <span className="border-b border-slate-800 px-2 min-w-[160px] inline-block">{teacherName || '\u00A0'}</span>
             </span>
             <span>
               <span className="font-semibold">Jour(s) de formation :</span>{' '}
-              <span className="border-b border-[#1E293B] px-2 min-w-[120px] inline-block">
+              <span className="border-b border-slate-800 px-2 min-w-[120px] inline-block">
                 {group?.schedule ? Object.keys(group.schedule).join(', ') : ''}
               </span>
             </span>
             <span>
               <span className="font-semibold">Heure :</span>{' '}
-              <span className="border-b border-[#1E293B] px-2 min-w-[80px] inline-block">&nbsp;</span>
+              <span className="border-b border-slate-800 px-2 min-w-[80px] inline-block">&nbsp;</span>
             </span>
           </div>
         </div>
@@ -347,11 +356,11 @@ const isLocked = (s) => {
           <thead>
             {/* Session numbers */}
             <tr>
-              <td className="border border-[#94A3B8] px-2 py-1 text-[#475569] font-semibold bg-[#F8FAFC] w-[180px]">
+              <td className="border border-[#F1F5F9] px-2 py-1 text-[#0369A1] font-semibold bg-[#DCEBFA] w-[180px]">
                 Séance №
               </td>
               {localSessions.map((s, i) => (
-                <td key={s.id} className="border border-[#94A3B8] text-center font-bold text-[#1E293B] bg-[#F8FAFC] py-1 min-w-[58px] group relative">
+                <td key={s.id} className="border border-[#F1F5F9] text-center font-bold text-[#0369A1] bg-[#DCEBFA] py-1 min-w-[58px] group relative">
                   {i + 1}
 <button
   onClick={() => deleteSession(s.id)}
@@ -366,11 +375,11 @@ const isLocked = (s) => {
 
             {/* Date de la Séance — editable */}
             <tr>
-              <td className="border border-[#94A3B8] px-2 py-1 text-[#475569] bg-[#F8FAFC]">
+              <td className="border border-[#F1F5F9] px-2 py-1 text-slate-500 bg-[#DCEBFA]/40">
                 Date de la Séance
               </td>
               {localSessions.map((s) => (
-                <td key={s.id} className="border border-[#94A3B8] text-center p-0.5 bg-white">
+                <td key={s.id} className="border border-[#F1F5F9] text-center p-0.5 bg-white">
 <EditableCell
   type="date"
   value={getMeta(s.id).date}
@@ -383,11 +392,11 @@ const isLocked = (s) => {
 
             {/* Durée de la Séance — editable */}
             <tr>
-              <td className="border border-[#94A3B8] px-2 py-1 text-[#475569] bg-[#F8FAFC]">
+              <td className="border border-[#F1F5F9] px-2 py-1 text-slate-500 bg-[#DCEBFA]/40">
                 Durée de la Séance
               </td>
               {localSessions.map((s) => (
-                <td key={s.id} className="border border-[#94A3B8] text-center p-0.5 bg-white">
+                <td key={s.id} className="border border-[#F1F5F9] text-center p-0.5 bg-white">
 <EditableCell
   value={getMeta(s.id).duree}
   onChange={(v) => updateMeta(s.id, 'duree', v)}
@@ -399,13 +408,13 @@ const isLocked = (s) => {
 
             {/* Nombre des stagiaires — auto */}
             <tr>
-              <td className="border border-[#94A3B8] px-2 py-1 text-[#475569] bg-[#F8FAFC]">
+              <td className="border border-[#F1F5F9] px-2 py-1 text-slate-500 bg-[#DCEBFA]/40">
                 Nombre des stagiaires
               </td>
               {localSessions.map((s) => {
                 const count = countPresents(s.id);
                 return (
-                  <td key={s.id} className="border border-[#94A3B8] text-center font-bold text-[#1E293B] py-1 bg-white">
+                  <td key={s.id} className="border border-[#F1F5F9] text-center font-bold text-slate-800 py-1 bg-white">
                     {count || ''}
                   </td>
                 );
@@ -414,11 +423,11 @@ const isLocked = (s) => {
 
             {/* Émargement enseignant — editable */}
             <tr>
-              <td className="border border-[#94A3B8] px-2 py-1 text-[#475569] bg-[#F8FAFC]">
+              <td className="border border-[#F1F5F9] px-2 py-1 text-slate-500 bg-[#DCEBFA]/40">
                 Emargement de l'enseignant
               </td>
               {localSessions.map((s) => (
-                <td key={s.id} className="border border-[#94A3B8] p-0.5 bg-white h-8">
+                <td key={s.id} className="border border-[#F1F5F9] p-0.5 bg-white h-8">
 <EditableCell
   value={getMeta(s.id).emargEnseignant}
   onChange={(v) => updateMeta(s.id, 'emargEnseignant', v)}
@@ -430,11 +439,11 @@ const isLocked = (s) => {
 
             {/* Émargement stagiaires — editable */}
             <tr>
-              <td className="border border-[#94A3B8] px-2 py-1 text-[#475569] bg-[#F8FAFC]">
+              <td className="border border-[#F1F5F9] px-2 py-1 text-slate-500 bg-[#DCEBFA]/40">
                 Emargement des stagiaires
               </td>
               {localSessions.map((s) => (
-                <td key={s.id} className="border border-[#94A3B8] p-0.5 bg-white h-8">
+                <td key={s.id} className="border border-[#F1F5F9] p-0.5 bg-white h-8">
 <EditableCell
   value={getMeta(s.id).emargStagiaires}
   onChange={(v) => updateMeta(s.id, 'emargStagiaires', v)}
@@ -449,25 +458,22 @@ const isLocked = (s) => {
           <tbody>
             {paddedStudents.map((s, idx) => {
               const recs  = s ? localRecords.filter((r) => r.etudiant_id === s.etudiant_id) : [];
-              const totalP = recs.filter((r) => r.statut === 'present').length;
-              const totalA = recs.filter((r) => r.statut === 'absent').length;
-              const totalR = recs.filter((r) => r.statut === 'retard').length;
 
               return (
                 <tr key={s ? s.id : `empty-${idx}`}>
                   {/* Row label: "1) Nom Prénom" */}
-                  <td className="border border-[#94A3B8] px-2 py-1 text-[#1E293B] whitespace-nowrap">
-                    <span className="text-[#94A3B8] mr-1">{idx + 1})</span>
+                  <td className="border border-[#F1F5F9] px-2 py-1 text-slate-800 whitespace-nowrap">
+                    <span className="text-slate-300 mr-1">{idx + 1})</span>
                     {s ? `${s.etudiants?.nom ?? ''} ${s.etudiants?.prenom ?? ''}` : ''}
                   </td>
 
                   {/* Attendance cells */}
                   {localSessions.map((session) => {
-if (!s) return <td key={session.id} className="border border-[#94A3B8] bg-white" />;
+if (!s) return <td key={session.id} className="border border-[#F1F5F9] bg-white" />;
 const record  = localRecords.find((r) => r.etudiant_id === s.etudiant_id && r.session_id === session.id) ?? null;
 const cellKey = `${s.etudiant_id}-${session.id}`;
 return (
-  <td key={session.id} className="border border-[#94A3B8] p-0 bg-white">
+  <td key={session.id} className="border border-[#F1F5F9] p-0 bg-white">
     <AttendanceDropdown
       value={record?.statut ?? null}
       pending={pendingCell === cellKey}
@@ -484,7 +490,7 @@ return (
         </table>
 
         {localSessions.length === 0 && (
-          <p className="text-center text-[#94A3B8] text-sm mt-8">
+          <p className="text-center text-slate-300 text-sm mt-8">
             Aucune séance — cliquez sur « Nouvelle séance » pour commencer.
           </p>
         )}

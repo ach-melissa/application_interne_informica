@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   X, Pencil, Check, Trash2, AlertTriangle, Ban, Printer, Archive,
   User, Phone, Mail, MapPin, GraduationCap, Calendar,
-  Radio, UserCheck, ClipboardList, PhoneCall,
+  Radio, UserCheck, ClipboardList, PhoneCall, UserPlus,
 } from 'lucide-react';
-import { UserPlus } from 'lucide-react';
 import AssignGroupModal from './AssignGroupModal';
 import logo from '../../../assets/images/logo_informica.png';
 
@@ -20,16 +19,15 @@ const STATUT_OPTS     = ['pending','confirmed','non_confirmed','rejected'];
 const TRY_OPTS        = ['repondu','non_repondu','occupe','injoignable','P_bureau','ferme'];
 
 const statutLabel = { confirmed:'Confirmé', pending:'En attente', non_confirmed:'Non confirmé', rejected:'Rejeté' };
-const statutCls   = { confirmed:'bg-blue-50 text-[#2563EB]', pending:'bg-amber-50 text-amber-600', non_confirmed:'bg-red-50 text-red-600', rejected:'bg-slate-100 text-[#64748B]' };
-const tryMeta     = { repondu:'bg-emerald-50 text-emerald-600', non_repondu:'bg-red-50 text-red-600', occupe:'bg-orange-50 text-orange-600', injoignable:'bg-slate-100 text-[#64748B]', P_bureau:'bg-blue-50 text-[#2563EB]', ferme:'bg-violet-50 text-violet-600' };
+const statutCls   = { confirmed:'bg-[#DCEBFA] text-[#0369A1]', pending:'bg-amber-50 text-amber-600', non_confirmed:'bg-red-50 text-red-600', rejected:'bg-slate-100 text-slate-500' };
+const tryMeta     = { repondu:'bg-emerald-50 text-emerald-600', non_repondu:'bg-red-50 text-red-600', occupe:'bg-orange-50 text-orange-600', injoignable:'bg-slate-100 text-slate-500', P_bureau:'bg-[#DCEBFA] text-[#0369A1]', ferme:'bg-violet-50 text-violet-600' };
 
-/* ── Shared design tokens (matches InscriptionForm) ─────────────────────── */
-const inp = 'w-full border border-[#E2E8F0] rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white text-[#1E293B]';
-const labelCls = 'flex items-center gap-1 text-[10px] font-semibold text-[#64748B] uppercase tracking-wide mb-1';
-const sectionCls = 'bg-white rounded-xl border border-[#E2E8F0] p-4 grid grid-cols-2 gap-4';
-const sectionTitleCls = 'text-xs font-bold text-[#1E293B] uppercase tracking-wide mb-3 col-span-2 pb-2 border-b border-[#E2E8F0]';
+/* ── Shared design tokens (aligned with UserDetailsModal) ───────────────── */
+const inp = 'w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors';
+const labelCls = 'flex items-center gap-1 text-[10px] text-slate-400 uppercase tracking-wide mb-0.5';
+const sectionTitleCls = 'text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2 col-span-2 pb-2 border-b border-[#F1F5F9]';
 
-/* ── Fiche d'inscription (print/PDF preview) ───────────────────────────── */
+/* ── Fiche d'inscription (print/PDF preview) — unchanged, keeps letterhead ── */
 
 const printRows = [
   { fr: 'Nom',                  ar: 'اللقب',             key: 'nom' },
@@ -41,9 +39,8 @@ const printRows = [
   { fr: 'Adresse électronique', ar: 'البريد الإلكتروني', key: 'email' },
   { fr: 'Numéro de téléphone',  ar: 'رقم الهاتف',        key: 'tel' },
   { fr: 'Formation choisie',    ar: 'التكوين المختار',    key: 'formation_label' },
- 
-{ fr: 'Durée de formation',   ar: 'مدة التكوين',        key: 'duree' },
-{ fr: 'Groupe',               ar: 'الفوج',              key: 'groupe' },
+  { fr: 'Durée de formation',   ar: 'مدة التكوين',        key: 'duree' },
+  { fr: 'Groupe',               ar: 'الفوج',              key: 'groupe' },
 ];
 const getAnneesScolaires = () => {
   const now = new Date();
@@ -54,7 +51,7 @@ const getAnneesScolaires = () => {
 };
 const FICHE_HEADER = {
   address: 'Cité Alliliguia, Groupement PR. N°1224, N°01 -2ème étage – Boumerdès',
-  phone: 'Tél./Fax : 024 79 97 67 — Mobile : 0561 148 563 - 0561 678 654',
+  phone: 'Tél./Fax : 028 65 80 73 — Mobile : 0561 148 563 - 0560 606 896',
   email: 'informicadz@gmail.com',
   site: 'informica.dz',
   rc: 'RC 353671752-00/A16',
@@ -89,21 +86,19 @@ function buildFicheInner(logoHtml, rows) {
     </div>
     <div class="bottom-line"></div>`;
 }
-/* Matches InscriptionForm's printed "fiche" look: dotted underlines,
-   black/white, serif-free, same header/title structure as the digital form. */
+
 const FICHE_CSS = `
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{font-family:'Helvetica Neue',Arial,sans-serif;color:#000;font-size:13px;background:#f1f5f9}
-  .toolbar{position:sticky;top:0;background:#1E293B;padding:10px 16px;display:flex;gap:10px;justify-content:flex-end;z-index:10}
+  .toolbar{position:sticky;top:0;background:#0F2A4A;padding:10px 16px;display:flex;gap:10px;justify-content:flex-end;z-index:10}
   .toolbar button{font-size:13px;font-weight:600;padding:7px 16px;border-radius:8px;border:none;cursor:pointer}
-  .btn-print{background:#2563EB;color:#fff}
+  .btn-print{background:#0369A1;color:#fff}
   .btn-download{background:#16a34a;color:#fff}
   .btn-close{background:transparent;color:#fff;border:1px solid #475569 !important}
-.top-line{border-top:2px solid #000;margin-bottom:1.25rem;width:100%}
-  .bottom-line{position:absolute;left:16mm;right:16mm;bottom:18mm;border-top:2px solid #000}/* the actual A4 page: fixed height so content stretches edge to edge,
-     no leftover gap at the bottom */
-    .row-line-tall{
+  .top-line{border-top:2px solid #000;margin-bottom:1.25rem;width:100%}
+  .bottom-line{position:absolute;left:16mm;right:16mm;bottom:18mm;border-top:2px solid #000}
+  .row-line-tall{
     height:2.8rem;
     border-bottom:none;
     align-items:flex-start;
@@ -124,7 +119,7 @@ const FICHE_CSS = `
   display:flex;flex-direction:column;
   box-shadow:0 1px 4px rgba(0,0,0,.15);
   position:relative;
-  overflow:hidden;   /* <-- hard clip, guarantees no bleed onto page 2 */
+  overflow:hidden;
 }
   .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:1rem;margin-bottom:1rem}
   .logo-text{font-size:1.8rem;font-weight:900;letter-spacing:.1em}
@@ -132,20 +127,18 @@ const FICHE_CSS = `
   .title{text-align:center;margin-bottom:2.25rem}
   .title p{font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:#6b7280;margin-bottom:.25rem}
   .title h1{font-size:2.2rem;font-weight:900;letter-spacing:.08em;color:#000}
-
-  /* body grows to fill remaining vertical space, rows space themselves out */
   .fields{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:2rem}
-
- .row{display:flex;align-items:flex-end;gap:8px}
+  .row{display:flex;align-items:flex-end;gap:8px}
   .row-fr{font-size:16px;font-weight:600;white-space:nowrap;width:180px;flex-shrink:0}
   .row-line{flex:1;min-width:0;border-bottom:1px dotted #000;height:1.3rem;display:flex;align-items:flex-end}
-.row-value{display:block;width:100%;white-space:normal;word-break:break-word;font-size:16px;line-height:1;padding-bottom:2px}.row-ar{font-size:16px;font-weight:600;white-space:nowrap;width:150px;flex-shrink:0;text-align:right;direction:rtl}
-.row-line.filled{border-bottom:none}
+  .row-value{display:block;width:100%;white-space:normal;word-break:break-word;font-size:16px;line-height:1;padding-bottom:2px}
+  .row-ar{font-size:16px;font-weight:600;white-space:nowrap;width:150px;flex-shrink:0;text-align:right;direction:rtl}
+  .row-line.filled{border-bottom:none}
   .footer{margin-top:2.5rem;padding-top:1.5rem;display:flex;justify-content:space-between;align-items:flex-start}
   .sig-label{font-size:13px;margin-bottom:.5rem;font-weight:600;direction:rtl}
   .sig-box{width:180px;height:72px;border-radius:6px}
   .date-line{font-size:13px;direction:rtl}
- 
+
   @media print {
     .toolbar{display:none}
     body{background:#fff}
@@ -171,11 +164,11 @@ function imgToBase64(src) {
   });
 }
 
-/* label + icon above value/input */
+/* label + icon above value/input — aligned with UserDetailsModal's Row */
 const Row = ({ icon: Icon, label, children }) => (
   <div>
     <p className={labelCls}>
-      {Icon && <Icon size={11} />}{label}
+      {Icon && <Icon size={10} className="text-[#0369A1]" />}{label}
     </p>
     {children}
   </div>
@@ -189,10 +182,11 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess, readOnly = false
   const [editing, setEditing]       = useState(false);
   const [submitting, setSubmit]     = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
-const [confirmArchive, setConfirmArchive] = useState(false);
-const [archiveYear, setArchiveYear] = useState('');
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [archiveYear, setArchiveYear] = useState('');
   const [confirmSave, setConfirmSave] = useState(false);
   const [error, setError]           = useState(null);
+  const [formations, setFormations] = useState([]);
 
   const [form, setForm] = useState({
     nom: e?.nom ?? '', prenom: e?.prenom ?? '', telephone: e?.telephone ?? '',
@@ -206,7 +200,15 @@ const [archiveYear, setArchiveYear] = useState('');
     first_try: inscription?.first_try ?? '',
     second_try: inscription?.second_try ?? '',
     third_try: inscription?.third_try ?? '',
+    formation_id: inscription?.formation_id ?? '',
   });
+
+  useEffect(() => {
+    fetch(`${API}/api/formations`, { headers: getHeaders() })
+      .then(r => r.json())
+      .then(data => setFormations(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   if (!inscription) return null;
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
@@ -221,6 +223,7 @@ const [archiveYear, setArchiveYear] = useState('');
           source: form.source, registered_by: form.registered_by,
           statut: form.statut, first_try: form.first_try || null,
           second_try: form.second_try || null, third_try: form.third_try || null,
+          formation_id: form.formation_id || null,
         }),
       });
 
@@ -241,17 +244,19 @@ const [archiveYear, setArchiveYear] = useState('');
     } catch (err) { setError(err.message); }
     finally { setSubmit(false); }
   };
-const doArchive = async () => {
-  setSubmit(true); setError(null);
-  try {
-    const res = await fetch(`${API}/api/etudiants/${inscription.id}/archive`, {
-      method: 'PATCH', headers: getHeaders(),
-      body: JSON.stringify({ annee_scolaire: archiveYear || null }),
-    });
-    if (!res.ok) throw new Error('Archivage échoué');
-    onSuccess?.(); onClose();
-  } catch (err) { setError(err.message); setSubmit(false); }
-};
+
+  const doArchive = async () => {
+    setSubmit(true); setError(null);
+    try {
+      const res = await fetch(`${API}/api/etudiants/${inscription.id}/archive`, {
+        method: 'PATCH', headers: getHeaders(),
+        body: JSON.stringify({ annee_scolaire: archiveYear || null }),
+      });
+      if (!res.ok) throw new Error('Archivage échoué');
+      onSuccess?.(); onClose();
+    } catch (err) { setError(err.message); setSubmit(false); }
+  };
+
   const doDelete = async () => {
     setSubmit(true); setError(null);
     try {
@@ -261,7 +266,7 @@ const doArchive = async () => {
     } catch (err) { setError(err.message); setSubmit(false); }
   };
 
-  /* ── open preview window with Imprimer/Télécharger inside ───────────── */
+  /* ── open preview window with Imprimer/Télécharger inside (letterhead kept) ── */
   const openFichePreview = async () => {
     const logoBase64 = await imgToBase64(logo);
     const logoHtml = logoBase64
@@ -298,7 +303,7 @@ const doArchive = async () => {
   btn.disabled = true;
   var prevLabel = btn.textContent;
   btn.textContent = 'Génération...';
-  window.scrollTo(0, 0);   // reset scroll before capture
+  window.scrollTo(0, 0);
   html2pdf()
     .set({
       margin: 0,
@@ -331,7 +336,7 @@ const doArchive = async () => {
             {TRY_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
         ) : (
-          <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${tryMeta[val] ?? 'bg-slate-100 text-[#94A3B8]'}`}>
+          <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${tryMeta[val] ?? 'bg-slate-100 text-slate-400'}`}>
             {val || '—'}
           </span>
         )}
@@ -347,206 +352,219 @@ const doArchive = async () => {
               {opts.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           : <input type={type} value={form[field]} onChange={set(field)} className={inp} />
-        : <p className="text-sm text-[#1E293B] font-medium">{form[field] || '—'}</p>}
+        : <p className="text-xs text-slate-700 font-medium">{form[field] || '—'}</p>}
     </Row>
   );
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-[#F8FAFC] rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={ev => ev.stopPropagation()}>
-
-        {/* Header — mirrors InscriptionForm's brand header, condensed */}
-        <div className="bg-white px-5 pt-5 pb-4 border-b border-[#E2E8F0] sticky top-0 z-10">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <img src={logo} alt="INFORMICA" className="h-12 w-auto object-contain" />
-            <button onClick={onClose} className="text-[#94A3B8] hover:text-[#1E293B]"><X size={18} /></button>
-          </div>
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <h2 className="text-base font-bold text-[#1E293B]">{e?.nom} {e?.prenom}</h2>
-              <p className="text-[11px] text-[#64748B] uppercase tracking-wide">{inscription.formation?.nom ?? '—'}</p>
+  
+       {!showAssign && (
+<div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={ev => ev.stopPropagation()}>
+        <div className="sticky top-0 z-10 bg-white">
+        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[#F1F5F9]">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-14 h-14 rounded-full bg-[#DCEBFA] flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-[#DCEBFA]">
+              {e?.photo
+                ? <img src={e.photo} alt="" className="w-full h-full object-cover" />
+                : <span className="text-lg font-bold text-[#0369A1]">{e?.prenom?.[0]}{e?.nom?.[0]}</span>}
             </div>
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              {readOnly ? (
-                <button onClick={openFichePreview}
-                  className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-[#1E293B] px-3 py-1.5 rounded-lg hover:bg-slate-50">
-                  <Printer size={12} /> Aperçu / Imprimer / PDF
-                </button>
-              ) : editing ? (
-                <>
-                  <button onClick={cancelEdit} className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-[#64748B] px-3 py-1.5 rounded-lg hover:bg-slate-50">
-                    <Ban size={12} /> Annuler
-                  </button>
-                  <button onClick={() => setConfirmSave(true)} disabled={submitting}
-                    className="flex items-center gap-1 text-xs bg-[#2563EB] text-white px-3 py-1.5 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-40">
-                    <Check size={12} /> Enregistrer
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button onClick={() => setEditing(true)}
-                    className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-blue-50">
-                    <Pencil size={12} /> Modifier
-                  </button>
-                  <button onClick={() => setConfirmDel(true)}
-                    className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50">
-                    <Trash2 size={12} /> Supprimer
-                  </button>
-                  <button onClick={() => setConfirmArchive(true)}
-  className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-[#64748B] px-3 py-1.5 rounded-lg hover:bg-slate-50">
-  <Archive size={12} /> Archiver
-</button>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-slate-800 truncate">{e?.nom} {e?.prenom}</h2>
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                {readOnly ? (
                   <button onClick={openFichePreview}
-                    className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-[#1E293B] px-3 py-1.5 rounded-lg hover:bg-slate-50">
-                    <Printer size={12} /> Aperçu / Imprimer / PDF
+                    className="flex items-center gap-1 text-xs bg-[#DCEBFA] text-[#0369A1] px-2.5 py-1 rounded-lg hover:bg-[#c7e3f7]">
+                    <Printer size={11} /> Aperçu / PDF
                   </button>
-                  {!editing && form.statut === 'confirmed' && (
-                    <button onClick={() => setShowAssign(true)}
-                      className="flex items-center gap-1 text-xs border border-[#E2E8F0] text-emerald-600 px-3 py-1.5 rounded-lg hover:bg-emerald-50">
-                      <UserPlus size={12} />
-                      {inscription.group_id ? 'Changer groupe' : 'Affecter groupe'}
+                ) : editing ? (
+                  <>
+                    <button onClick={cancelEdit} className="flex items-center gap-1 text-xs bg-slate-500 text-white px-2.5 py-1 rounded-lg hover:bg-slate-600">
+                      <Ban size={11} /> Annuler
                     </button>
-                  )}
-                </>
-              )}
+                    <button onClick={() => setConfirmSave(true)} disabled={submitting}
+                      className="flex items-center gap-1 text-xs bg-[#0F2A4A] text-white px-2.5 py-1 rounded-lg hover:bg-[#16385f] disabled:opacity-40">
+                      <Check size={11} /> Enregistrer
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => setEditing(true)}
+                      className="flex items-center gap-1 text-xs bg-[#0369A1] text-white px-2.5 py-1 rounded-lg hover:bg-[#0284C7]">
+                      <Pencil size={11} /> Modifier
+                    </button>
+                    <button onClick={() => setConfirmArchive(true)}
+                      className="flex items-center gap-1 text-xs bg-amber-500 text-white px-2.5 py-1 rounded-lg hover:bg-amber-600">
+                      <Archive size={11} /> Archiver
+                    </button>
+                    <button onClick={() => setConfirmDel(true)}
+                      className="flex items-center gap-1 text-xs bg-red-500 text-white px-2.5 py-1 rounded-lg hover:bg-red-600">
+                      <Trash2 size={11} /> Supprimer
+                    </button>
+                    <button onClick={openFichePreview}
+                      className="flex items-center gap-1 text-xs bg-[#DCEBFA] text-[#0369A1] px-2.5 py-1 rounded-lg hover:bg-[#c7e3f7]">
+                      <Printer size={11} /> Aperçu / PDF
+                    </button>
+                    {form.statut === 'confirmed' && (
+                      <button onClick={() => setShowAssign(true)}
+                        className="flex items-center gap-1 text-xs bg-emerald-500 text-white px-2.5 py-1 rounded-lg hover:bg-emerald-600">
+                        <UserPlus size={11} />
+                        {inscription.group_id ? 'Changer groupe' : 'Affecter groupe'}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
+          <button onClick={onClose} className="text-slate-300 hover:text-slate-600 flex-shrink-0"><X size={16} /></button>
+        </div>
+
+        {(error || (!readOnly && (confirmSave || confirmDel || confirmArchive))) && (
+          <div className="px-5 pb-3 pt-2 border-b border-[#F1F5F9] space-y-2">
+            {error && <p className="text-red-500 text-xs bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+
+            {!readOnly && confirmSave && (
+              <div className="bg-[#DCEBFA]/50 rounded-xl p-3 flex items-center justify-between gap-3">
+                <p className="text-xs text-[#0369A1] flex items-center gap-1.5"><AlertTriangle size={13} /> Confirmer les modifications ?</p>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button onClick={() => setConfirmSave(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-white">Non</button>
+                  <button onClick={doSave} disabled={submitting} className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40">
+                    {submitting ? '...' : 'Oui'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!readOnly && confirmDel && (
+              <div className="bg-red-50 rounded-xl p-3 flex items-center justify-between gap-3">
+                <p className="text-xs text-red-600 flex items-center gap-1.5"><AlertTriangle size={13} /> Supprimer ? Action irréversible.</p>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button onClick={() => setConfirmDel(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-white">Non</button>
+                  <button onClick={doDelete} disabled={submitting} className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
+                    {submitting ? '...' : 'Oui'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!readOnly && confirmArchive && (
+              <div className="bg-amber-50 rounded-xl p-3 space-y-2">
+                <p className="text-xs text-amber-700 flex items-center gap-1.5"><AlertTriangle size={13} /> Archiver cette inscription ?</p>
+                <select value={archiveYear} onChange={ev => setArchiveYear(ev.target.value)} className={inp}>
+                  <option value="">— Année scolaire (optionnel) —</option>
+                  {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setConfirmArchive(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-white">Non</button>
+                  <button onClick={doArchive} disabled={submitting} className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
+                    {submitting ? '...' : 'Oui'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         </div>
 
         <div className="p-5 space-y-4">
-          {error && <p className="text-red-600 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
-
-          {/* Confirm save */}
-          {!readOnly && confirmSave && (
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between gap-3">
-              <p className="text-xs text-[#1E293B] flex items-center gap-1.5 font-medium"><AlertTriangle size={13} className="text-[#2563EB]" /> Confirmer les modifications ?</p>
-              <div className="flex gap-2 flex-shrink-0">
-                <button onClick={() => setConfirmSave(false)} className="text-xs px-3 py-1.5 rounded-lg border border-[#E2E8F0] text-[#64748B] hover:bg-white">Non</button>
-                <button onClick={doSave} disabled={submitting} className="text-xs px-3 py-1.5 rounded-lg bg-[#2563EB] text-white hover:bg-[#1d4ed8] disabled:opacity-40">
-                  {submitting ? '...' : 'Oui, enregistrer'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Confirm delete */}
-          {!readOnly && confirmDel && (
-            <div className="bg-red-50 border border-red-100 rounded-xl p-3 flex items-center justify-between gap-3">
-              <p className="text-xs text-red-600 flex items-center gap-1.5 font-medium"><AlertTriangle size={13} /> Supprimer ? Action irréversible.</p>
-              <div className="flex gap-2 flex-shrink-0">
-                <button onClick={() => setConfirmDel(false)} className="text-xs px-3 py-1.5 rounded-lg border border-[#E2E8F0] text-[#64748B] hover:bg-white">Non</button>
-                <button onClick={doDelete} disabled={submitting} className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
-                  {submitting ? '...' : 'Oui, supprimer'}
-                </button>
-              </div>
-            </div>
-          )}
-
-{/* Confirm archive */}
-{!readOnly && confirmArchive && (
-  <div className="bg-slate-100 border border-slate-200 rounded-xl p-3 space-y-2">
-    <p className="text-xs text-[#1E293B] flex items-center gap-1.5 font-medium"><AlertTriangle size={13} className="text-[#64748B]" /> Archiver cette inscription ?</p>
-    <select value={archiveYear} onChange={e => setArchiveYear(e.target.value)} className={inp}>
-      <option value="">— Année scolaire (optionnel) —</option>
-      {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
-    </select>
-    <div className="flex justify-end gap-2">
-      <button onClick={() => setConfirmArchive(false)} className="text-xs px-3 py-1.5 rounded-lg border border-[#E2E8F0] text-[#64748B] hover:bg-white">Non</button>
-      <button onClick={doArchive} disabled={submitting} className="text-xs px-3 py-1.5 rounded-lg bg-[#64748B] text-white hover:bg-[#475569] disabled:opacity-40">
-        {submitting ? '...' : 'Oui, archiver'}
-      </button>
-    </div>
-  </div>
-)}
-          {/* Étudiant */}
-          <div className={sectionCls}>
+          <div className="grid grid-cols-2 gap-3">
             <p className={sectionTitleCls}>Informations personnelles</p>
-            <Field icon={User}           label="Nom"             field="nom" />
-            <Field icon={User}           label="Prénom"          field="prenom" />
-            <Field icon={Phone}          label="Téléphone"       field="telephone" />
-            <Field icon={Mail}           label="Email"           field="email" />
-            <Field icon={Calendar}       label="Date naissance"  field="date_naissance" type="date" />
-            <Field icon={MapPin}         label="Lieu naissance"  field="lieu_naissance" />
-            <Field icon={GraduationCap}  label="Niveau scolaire" field="niveau_scolaire" />
+            <Field icon={User}          label="Nom"             field="nom" />
+            <Field icon={User}          label="Prénom"          field="prenom" />
+            <Field icon={Phone}         label="Téléphone"       field="telephone" />
+            <Field icon={Mail}          label="Email"           field="email" />
+            <Field icon={Calendar}      label="Date naissance"  field="date_naissance" type="date" />
+            <Field icon={MapPin}        label="Lieu naissance"  field="lieu_naissance" />
+            <Field icon={GraduationCap} label="Niveau scolaire" field="niveau_scolaire" />
             <div className="col-span-2">
               <Field icon={MapPin} label="Adresse" field="adresse" />
             </div>
 
-            <div className="col-span-2 grid grid-cols-2 gap-4 pt-3 mt-1 border-t border-[#E2E8F0]">
-              {/* Photo */}
+            <div className="col-span-2 grid grid-cols-2 gap-3 pt-3 mt-1 border-t border-[#F1F5F9]">
               <div>
                 <Row icon={User} label="Photo">
                   {editing ? (
                     <div>
                       <input type="file" accept="image/*" onChange={handleFile('photo')}
-                        className="w-full text-xs text-[#64748B] file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-blue-50 file:text-[#2563EB] hover:file:bg-blue-100 cursor-pointer" />
+                        className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-[#DCEBFA] file:text-[#0369A1] hover:file:bg-[#c7e3f7] cursor-pointer" />
                       {(files.photo || e?.photo) && (
                         <img src={files.photo ? URL.createObjectURL(files.photo) : e.photo}
-                          className="mt-1.5 h-20 w-20 rounded-lg object-cover border border-[#E2E8F0]" />
+                          className="mt-1.5 h-20 w-20 rounded-lg object-cover border border-[#F1F5F9]" />
                       )}
                     </div>
                   ) : e?.photo ? (
-                    <img src={e.photo} className="h-20 w-20 rounded-lg object-cover border border-[#E2E8F0] mt-0.5" />
-                  ) : <p className="text-xs text-[#94A3B8]">—</p>}
+                    <img src={e.photo} className="h-20 w-20 rounded-lg object-cover border border-[#F1F5F9] mt-0.5" />
+                  ) : <p className="text-xs text-slate-400">—</p>}
                 </Row>
               </div>
 
-              {/* Pièce d'identité */}
               <div>
                 <Row icon={User} label="Pièce d'identité">
                   {editing ? (
                     <div>
                       <input type="file" accept="image/*,application/pdf" onChange={handleFile('piece_identite')}
-                        className="w-full text-xs text-[#64748B] file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-blue-50 file:text-[#2563EB] hover:file:bg-blue-100 cursor-pointer" />
-                      {files.piece_identite && <p className="text-[10px] text-[#94A3B8] mt-1 truncate">{files.piece_identite.name}</p>}
+                        className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-[#DCEBFA] file:text-[#0369A1] hover:file:bg-[#c7e3f7] cursor-pointer" />
+                      {files.piece_identite && <p className="text-[10px] text-slate-400 mt-1 truncate">{files.piece_identite.name}</p>}
                       {!files.piece_identite && e?.piece_identite && (
-                        <a href={e.piece_identite} target="_blank" rel="noreferrer" className="text-[11px] text-[#2563EB] underline mt-1 block">Voir actuelle</a>
+                        <a href={e.piece_identite} target="_blank" rel="noreferrer" className="text-[11px] text-[#0369A1] underline mt-1 block">Voir actuelle</a>
                       )}
                     </div>
                   ) : e?.piece_identite ? (
-                    <a href={e.piece_identite} target="_blank" rel="noreferrer" className="text-[11px] text-[#2563EB] underline">Voir le document</a>
-                  ) : <p className="text-xs text-[#94A3B8]">—</p>}
+                    <a href={e.piece_identite} target="_blank" rel="noreferrer" className="text-[11px] text-[#0369A1] underline">Voir le document</a>
+                  ) : <p className="text-xs text-slate-400">—</p>}
                 </Row>
               </div>
             </div>
           </div>
 
-          {/* Inscription */}
-          <div className={sectionCls}>
+          <div className="grid grid-cols-2 gap-3 border-t border-[#F1F5F9] pt-4">
             <p className={sectionTitleCls}>Inscription</p>
+            <Row icon={GraduationCap} label="Formation">
+              {editing ? (
+                <select value={form.formation_id} onChange={set('formation_id')} className={inp}>
+                  <option value="">— aucune —</option>
+                  {formations.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
+                </select>
+              ) : (
+                <p className="text-xs text-slate-700 font-medium">{inscription.formation?.nom || '—'}</p>
+              )}
+            </Row>
             <Row icon={ClipboardList} label="Statut">
               {editing
                 ? <select value={form.statut} onChange={set('statut')} className={inp}>
                     {STATUT_OPTS.map(o => <option key={o} value={o}>{statutLabel[o]}</option>)}
                   </select>
-                : <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${statutCls[form.statut] ?? 'bg-slate-100 text-[#64748B]'}`}>
+                : <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${statutCls[form.statut] ?? 'bg-slate-100 text-slate-500'}`}>
                     {statutLabel[form.statut] ?? form.statut}
                   </span>}
             </Row>
             <Row icon={Calendar} label="Date d'inscription">
-              <p className="text-sm text-[#1E293B] font-medium">
+              <p className="text-xs text-slate-700 font-medium">
                 {inscription.date_inscription ? new Date(inscription.date_inscription).toLocaleDateString('fr-FR') : '—'}
               </p>
             </Row>
             <Field icon={Radio}     label="Source"         field="source"        select opts={SOURCE_OPTS} />
             <Field icon={UserCheck} label="Enregistré par" field="registered_by" select opts={REGISTERED_OPTS} />
 
-            <div className="col-span-2 grid grid-cols-3 gap-4 pt-3 border-t border-[#E2E8F0] mt-1">
+            <div className="col-span-2 grid grid-cols-3 gap-3 pt-3 border-t border-[#F1F5F9] mt-1">
               <TryField label="1er appel"  field="first_try"  />
               <TryField label="2ème appel" field="second_try" prev="first_try" />
               <TryField label="3ème appel" field="third_try"  prev="second_try" />
             </div>
 
-            <div className="col-span-2 pt-3 border-t border-[#E2E8F0] mt-1">
+            <div className="col-span-2 pt-3 border-t border-[#F1F5F9] mt-1">
               <Row icon={UserCheck} label="Groupe">
-                <p className="text-sm text-[#1E293B] font-medium">
-                  {inscription.groups?.nom ?? <span className="text-[#94A3B8] font-normal">—</span>}
+                <p className="text-xs text-slate-700 font-medium">
+                  {inscription.groups?.nom ?? <span className="text-slate-400 font-normal">—</span>}
                 </p>
               </Row>
             </div>
           </div>
         </div>
       </div>
+      )}
+
 
       {!readOnly && showAssign && (
         <AssignGroupModal

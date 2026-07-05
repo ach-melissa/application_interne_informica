@@ -141,7 +141,7 @@ export default function InscriptionForm() {
           <img src={logo} alt="INFORMICA" className="h-20 w-auto object-contain" />
           <div className="text-left sm:text-right text-[11px] text-slate-500 leading-relaxed space-y-1">
             <p>Cité Alliliguia, Groupement PR. N°1224, N°01 -2ème étage – Boumerdès</p>
-            <p>Tél./Fax : 024 79 97 67   Mobile : 0561 148 563 - 0561 678 654</p>
+            <p>Tél./Fax : 028 65 80 73   Mobile : 0561 148 563 - 0560 606 896</p>
             <p className="flex items-center gap-3 sm:justify-end flex-wrap">
               <span className="flex items-center gap-1">
                 <Mail size={12} className="text-orange-400 shrink-0" /> informicadz@gmail.com
@@ -197,14 +197,14 @@ export default function InscriptionForm() {
               <Field icon={User} label="Nom" ar="اللقب" field="nom" required placeholder="Nom de famille" form={form} errors={errors} set={set} />
               <Field icon={User} label="Prénom" ar="الاسم" field="prenom" required placeholder="Prénom" form={form} errors={errors} set={set} />
               <Field icon={Calendar} label="Date de naissance" ar="تاريخ الميلاد" field="ddn" type="date" required form={form} errors={errors} set={set} />
-              <Field icon={MapPin} label="Lieu de naissance" ar="مكان الميلاد" field="lieu" placeholder="Ville" form={form} errors={errors} set={set} />
+              <Field icon={MapPin} label="Lieu de naissance" ar="مكان الميلاد" required field="lieu" placeholder="Ville" form={form} errors={errors} set={set} />
             </Section>
 
             <Section icon={Phone} title="Contact" ar="الاتصال">
               <Field icon={Phone} label="Téléphone" ar="رقم الهاتف" field="tel" required placeholder="05XXXXXXXX" inputMode="numeric" maxLength={10} form={form} errors={errors} set={set} />
               <Field icon={Mail} label="Adresse électronique " ar="البريد الإلكتروني" field="email" type="email" placeholder="email@exemple.com" form={form} errors={errors} set={set} />
               <div className="sm:col-span-2">
-                <Field icon={MapPin} label="Adresse personnelle" ar="العنوان الشخصي" field="adresse" placeholder="Adresse complète" form={form} errors={errors} set={set} />
+                <Field icon={MapPin} label="Adresse personnelle" ar="العنوان الشخصي" field="adresse" required placeholder="Adresse complète" form={form} errors={errors} set={set} />
               </div>
             </Section>
 

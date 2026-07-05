@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 
 const JOURS = ['samedi', 'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi'];
@@ -10,6 +11,7 @@ const EmploisGlobal = () => {
   const { id } = useParams(); // formation_id
   const navigate = useNavigate();
   const [schedules, setSchedules] = useState([]);
+  const [formation, setFormation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -17,12 +19,13 @@ const EmploisGlobal = () => {
     const fetch_ = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/formation/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error('Erreur serveur');
-        const data = await res.json();
-        setSchedules(data);
+        const [schedRes, formRes] = await Promise.all([
+          fetch(`${import.meta.env.VITE_API_URL}/api/schedules/formation/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${import.meta.env.VITE_API_URL}/api/formations/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        if (!schedRes.ok) throw new Error('Erreur serveur');
+        setSchedules(await schedRes.json());
+        if (formRes.ok) setFormation(await formRes.json());
       } catch (err) {
         setError(err.message);
       } finally {
@@ -40,42 +43,51 @@ const EmploisGlobal = () => {
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">Emploi Global</h1>
-          <p className="text-[#64748B] text-sm mt-1">Vue globale des salles</p>
-        </div>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-xs mb-3">
+        <button onClick={() => navigate('/admin/formations')} className="text-slate-400 hover:text-[#0369A1] transition">
+          Formations
+        </button>
+        <ChevronRight size={12} className="text-slate-300" />
+        <span className="text-[#0369A1] font-medium">{formation?.nom ?? 'Emploi global'}</span>
+      </div>
+
+      <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="text-xs text-[#2563EB] hover:underline"
+          className="w-8 h-8 flex items-center justify-center rounded-full border border-[#F1F5F9] hover:bg-[#DCEBFA] transition"
         >
-          ← Retour
+          <ArrowLeft size={16} className="text-[#0369A1]" />
         </button>
+        <div>
+          <h1 className="text-xl font-bold text-slate-800">Emploi Global</h1>
+          <p className="text-slate-400 text-xs mt-0.5">{formation?.nom ?? `Formation #${id}`} — vue globale des salles</p>
+        </div>
       </div>
 
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
       {error && (
-        <p className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+        <p className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-lg px-4 py-3">
           Erreur : {error}
         </p>
       )}
 
       {!loading && !error && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs border-collapse bg-white rounded-2xl shadow-sm">
+        <div className="overflow-x-auto rounded-2xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] bg-white">
+          <table className="w-full text-xs border-collapse">
             <thead>
               <tr>
-                <th className="border border-[#E2E8F0] px-3 py-2 bg-[#F8FAFC]" rowSpan={2}></th>
+                <th className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA]" rowSpan={2}></th>
                 {JOURS.map((jour) => (
                   <th
                     key={jour}
                     colSpan={2}
-                    className="border border-[#E2E8F0] px-3 py-2 bg-[#F8FAFC] text-[#1E293B] font-semibold capitalize"
+                    className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA] text-[#0369A1] font-semibold capitalize"
                   >
                     {jour}
                   </th>
@@ -86,7 +98,7 @@ const EmploisGlobal = () => {
                   PERIODES.map((p) => (
                     <th
                       key={`${jour}-${p}`}
-                      className="border border-[#E2E8F0] px-3 py-2 bg-[#F8FAFC] text-[#94A3B8] font-medium"
+                      className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA] text-[#0369A1]/70 font-medium"
                     >
                       {p === 'matin' ? 'Matin' : 'A Midi'}
                     </th>
@@ -97,7 +109,7 @@ const EmploisGlobal = () => {
             <tbody>
               {SALLES.map((salle) => (
                 <tr key={salle}>
-                  <td className="border border-[#E2E8F0] px-3 py-3 font-semibold text-[#1E293B] bg-[#F8FAFC] whitespace-nowrap">
+                  <td className="border border-[#F1F5F9] px-3 py-3 font-semibold text-slate-800 bg-[#DCEBFA]/40 whitespace-nowrap">
                     {salle}
                   </td>
                   {JOURS.map((jour) =>
@@ -106,15 +118,15 @@ const EmploisGlobal = () => {
                       return (
                         <td
                           key={`${jour}-${periode}`}
-                          className="border border-[#E2E8F0] px-2 py-2 text-center text-[#64748B] min-w-[90px]"
+                          className="border border-[#F1F5F9] px-2 py-2 text-center text-slate-500 min-w-[90px]"
                         >
                           {cell ? (
-                            <div className="bg-[#EFF6FF] rounded-lg px-2 py-1 text-[#2563EB] font-medium text-[10px]">
+                            <div className="bg-[#DCEBFA] rounded-lg px-2 py-1 text-[#0369A1] font-medium text-[10px]">
                               <div>{cell.groups?.nom ?? '—'}</div>
-                              <div className="text-[#94A3B8]">{cell.heure_debut?.slice(0,5)} - {cell.heure_fin?.slice(0,5)}</div>
+                              <div className="text-[#0369A1]/60">{cell.heure_debut?.slice(0,5)} - {cell.heure_fin?.slice(0,5)}</div>
                             </div>
                           ) : (
-                            <span className="text-[#E2E8F0]">+</span>
+                            <span className="text-slate-300">+</span>
                           )}
                         </td>
                       );

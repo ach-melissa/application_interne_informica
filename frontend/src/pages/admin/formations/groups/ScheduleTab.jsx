@@ -132,7 +132,7 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
@@ -142,29 +142,29 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
         <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-[#E2E8F0] shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-[#F1F5F9] shadow-sm">
         <table className="w-full text-xs border-collapse">
           <thead>
             {/* Row 1: empty + jour headers (each spanning 2 periodes) */}
-            <tr className="bg-[#F8FAFC]">
-              <th className="border border-[#E2E8F0] px-3 py-2.5 text-[#64748B] font-medium w-24 min-w-[6rem]" rowSpan={2} />
+            <tr className="bg-[#DCEBFA]">
+              <th className="border border-[#F1F5F9] px-3 py-2.5 text-[#0369A1] font-medium w-24 min-w-[6rem]" rowSpan={2} />
               {JOURS.map((jour) => (
                 <th
                   key={jour}
                   colSpan={2}
-                  className="border border-[#E2E8F0] px-3 py-2.5 text-center text-[#1E293B] font-semibold whitespace-nowrap"
+                  className="border border-[#F1F5F9] px-3 py-2.5 text-center text-[#0369A1] font-semibold whitespace-nowrap capitalize"
                 >
                   {jour}
                 </th>
               ))}
             </tr>
             {/* Row 2: Matin / A Midi per jour */}
-            <tr className="bg-[#F8FAFC]">
+            <tr className="bg-[#DCEBFA]">
               {JOURS.map((jour) =>
                 PERIODES.map((p) => (
                   <th
                     key={`${jour}-${p}`}
-                    className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#94A3B8] font-normal whitespace-nowrap"
+                    className="border border-[#F1F5F9] px-2 py-1.5 text-center text-[#0369A1]/70 font-normal whitespace-nowrap"
                   >
                     {PERIODE_LABEL[p]}
                   </th>
@@ -175,9 +175,9 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
 
           <tbody>
             {SALLES.map((salle, si) => (
-              <tr key={salle} className={si % 2 === 0 ? 'bg-white' : 'bg-[#FAFBFC]'}>
+              <tr key={salle} className={si % 2 === 0 ? 'bg-white' : 'bg-[#F8FCFF]'}>
                 {/* Salle label */}
-                <td className="border border-[#E2E8F0] px-3 py-2 font-medium text-[#1E293B] whitespace-nowrap bg-[#F8FAFC]">
+                <td className="border border-[#F1F5F9] px-3 py-2 font-medium text-slate-800 whitespace-nowrap bg-[#DCEBFA]/40">
                   {salle}
                 </td>
 
@@ -190,7 +190,7 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
                     return (
                       <td
                         key={k}
-                        className="border border-[#E2E8F0] p-0 align-top min-w-[7rem] w-[7rem]"
+                        className="border border-[#F1F5F9] p-0 align-top min-w-[7rem] w-[7rem]"
                       >
                         {isEditing ? (
                           /* ── Edit mode ── */
@@ -201,7 +201,7 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
                               value={editValues.contenu}
                               onChange={(e) => setEditValues((v) => ({ ...v, contenu: e.target.value }))}
                               placeholder="Contenu..."
-                              className="w-full border border-[#b8995a] rounded-md px-1.5 py-1 text-xs bg-white outline-none"
+                              className="w-full border border-[#0369A1]/40 rounded-md px-1.5 py-1 text-xs bg-white outline-none"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') saveEdit(jour, salle, periode);
                                 if (e.key === 'Escape') cancelEdit();
@@ -212,14 +212,14 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
                                 type="time"
                                 value={editValues.heure_debut}
                                 onChange={(e) => setEditValues((v) => ({ ...v, heure_debut: e.target.value }))}
-                                className="flex-1 border border-[#E2E8F0] rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
+                                className="flex-1 border border-[#F1F5F9] rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
                               />
-                              <span className="text-[#94A3B8] self-center">→</span>
+                              <span className="text-slate-400 self-center">→</span>
                               <input
                                 type="time"
                                 value={editValues.heure_fin}
                                 onChange={(e) => setEditValues((v) => ({ ...v, heure_fin: e.target.value }))}
-                                className="flex-1 border border-[#E2E8F0] rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
+                                className="flex-1 border border-[#F1F5F9] rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
                               />
                             </div>
                             <div className="flex justify-between items-center pt-0.5">
@@ -230,13 +230,13 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
                                 Effacer
                               </button>
                               <div className="flex gap-1">
-                                <button onClick={cancelEdit} className="text-[#94A3B8] hover:text-[#1E293B] transition">
+                                <button onClick={cancelEdit} className="text-slate-400 hover:text-slate-700 transition">
                                   <X size={13} />
                                 </button>
                                 <button
                                   onClick={() => saveEdit(jour, salle, periode)}
                                   disabled={saving}
-                                  className="text-[#b8995a] hover:text-[#a0854d] transition disabled:opacity-40"
+                                  className="text-[#0369A1] hover:text-[#065e8f] transition disabled:opacity-40"
                                 >
                                   {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                                 </button>
@@ -249,33 +249,33 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
                             {cell?.contenu ? (
                               <div className="space-y-0.5">
                                 {(cell.heure_debut || cell.heure_fin) && (
-                                  <p className="text-[10px] text-[#b8995a] font-medium">
+                                  <p className="text-[10px] text-[#0369A1] font-medium">
                                     {cell.heure_debut?.slice(0, 5)}{cell.heure_fin ? ` → ${cell.heure_fin.slice(0, 5)}` : ''}
                                   </p>
                                 )}
-                                <p className="text-xs text-[#1E293B] leading-snug">{cell.contenu}</p>
+                                <p className="text-xs text-slate-800 leading-snug">{cell.contenu}</p>
                               </div>
                             ) : (
-                              <span className="text-[#E2E8F0] text-lg leading-none">—</span>
+                              <span className="text-[#F1F5F9] text-lg leading-none">—</span>
                             )}
                           </div>
                         ) : (
                           /* ── Display mode ── */
                           <button
                             onClick={() => startEdit(jour, salle, periode)}
-                            className="w-full h-full min-h-[3.5rem] text-left px-2 py-1.5 hover:bg-[#fdf9f2] transition group"
+                            className="w-full h-full min-h-[3.5rem] text-left px-2 py-1.5 hover:bg-[#DCEBFA]/40 transition group"
                           >
                             {cell?.contenu ? (
                               <div className="space-y-0.5">
                                 {(cell.heure_debut || cell.heure_fin) && (
-                                  <p className="text-[10px] text-[#b8995a] font-medium">
+                                  <p className="text-[10px] text-[#0369A1] font-medium">
                                     {cell.heure_debut?.slice(0, 5)}{cell.heure_fin ? ` → ${cell.heure_fin.slice(0, 5)}` : ''}
                                   </p>
                                 )}
-                                <p className="text-xs text-[#1E293B] leading-snug">{cell.contenu}</p>
+                                <p className="text-xs text-slate-800 leading-snug">{cell.contenu}</p>
                               </div>
                             ) : (
-                              <span className="text-[#E2E8F0] group-hover:text-[#CBD5E1] transition text-lg leading-none">+</span>
+                              <span className="text-[#F1F5F9] group-hover:text-slate-300 transition text-lg leading-none">+</span>
                             )}
                           </button>
                         )}

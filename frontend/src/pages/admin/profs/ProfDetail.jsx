@@ -1,7 +1,28 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, GraduationCap, BookOpen, Users } from 'lucide-react';
+import { ChevronRight, BookOpen, Users, Layers, Mail, Phone } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
+
+const STAT_COLORS = {
+  blue:    { bg: 'bg-[#DCEBFA]', text: 'text-[#0369A1]' },
+  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+  violet:  { bg: 'bg-violet-50',  text: 'text-violet-600'  },
+};
+
+const StatTile = ({ icon: Icon, label, value, color = 'blue' }) => {
+  const c = STAT_COLORS[color] ?? STAT_COLORS.blue;
+  return (
+    <div className="flex items-center gap-3 bg-white rounded-xl border border-[#F1F5F9] px-4 py-3">
+      <div className={`w-9 h-9 rounded-full ${c.bg} flex items-center justify-center flex-shrink-0`}>
+        <Icon size={16} className={c.text} />
+      </div>
+      <div>
+        <p className="text-lg font-bold text-slate-800 leading-none">{value}</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">{label}</p>
+      </div>
+    </div>
+  );
+};
 
 const ProfDetail = () => {
   const { id } = useParams();
@@ -9,6 +30,7 @@ const ProfDetail = () => {
   const [prof, setProf] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
     const fetchProf = async () => {
@@ -31,67 +53,133 @@ const ProfDetail = () => {
     fetchProf();
   }, [id]);
 
-  // group g.groups by formation
   const groupsByFormation = (prof?.groups ?? []).reduce((acc, g) => {
     const key = g.formation?.id ?? 'inconnue';
     if (!acc[key]) acc[key] = { formation: g.formation, groups: [] };
     acc[key].groups.push(g);
     return acc;
   }, {});
+  const formationCount = Object.keys(groupsByFormation).length;
+  const groupCount = prof?.groups?.length ?? 0;
+  const initials = `${prof?.prenom?.[0] ?? ''}${prof?.nom?.[0] ?? ''}`;
+
+  const tabs = [
+    { id: 'all', label: 'Tous', count: groupCount },
+    ...Object.values(groupsByFormation).map(({ formation, groups }) => ({
+      id: String(formation?.id ?? 'inconnue'),
+      label: formation?.nom ?? 'Inconnue',
+      count: groups.length,
+    })),
+  ];
+
+  const visibleGroups = activeTab === 'all'
+    ? prof?.groups ?? []
+    : groupsByFormation[activeTab]?.groups ?? [];
 
   return (
     <AdminLayout>
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate('/admin/profs')}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E2E8F0] hover:bg-gray-100 transition">
-          <ArrowLeft size={16} className="text-[#64748B]" />
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-xs mb-4">
+        <button onClick={() => navigate('/admin/profs')} className="text-slate-400 hover:text-[#0369A1] transition">
+          Professeurs
         </button>
-        {prof && (
-          <div>
-            <h1 className="text-2xl font-bold text-[#1E293B]">{prof.nom} {prof.prenom}</h1>
-            <p className="text-[#64748B] text-sm mt-0.5">{Object.keys(groupsByFormation).length} formation(s)</p>
-          </div>
-        )}
+        <ChevronRight size={12} className="text-slate-300" />
+        <span className="text-[#0369A1] font-medium">{prof ? `${prof.nom} ${prof.prenom}` : '...'}</span>
       </div>
 
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
       {error && (
-        <p className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+        <p className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-lg px-4 py-3">
           Erreur : {error}
         </p>
       )}
 
       {!loading && !error && prof && (
         <>
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-14 h-14 rounded-full bg-[#DCEBFA] flex items-center justify-center flex-shrink-0 ring-2 ring-[#DCEBFA]">
+              <span className="text-lg font-bold text-[#0369A1]">{initials}</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">{prof.nom} {prof.prenom}</h1>
+              <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+                {prof.email && <span className="flex items-center gap-1"><Mail size={11} /> {prof.email}</span>}
+                {prof.telephone && <span className="flex items-center gap-1"><Phone size={11} /> {prof.telephone}</span>}
+              </div>
+            </div>
+          </div>
 
-          {Object.values(groupsByFormation).length === 0 ? (
-            <p className="text-[#64748B] text-sm">Aucune formation assignée.</p>
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <StatTile icon={Layers} label="Formations" value={formationCount} color="violet" />
+            <StatTile icon={Users}  label="Groupes"    value={groupCount}     color="emerald" />
+          </div>
+
+          {formationCount === 0 ? (
+            <p className="text-slate-400 text-sm">Aucune formation assignée.</p>
           ) : (
-            Object.values(groupsByFormation).map(({ formation, groups }) => (
-              <div key={formation?.id ?? formation?.nom} className="mb-6">
-                <h2 className="flex items-center gap-2 text-[#1E293B] font-semibold text-sm mb-3">
-                  <BookOpen size={15} className="text-[#2563EB]" /> {formation?.nom ?? 'Formation inconnue'}
-                </h2>
+            <>
+              {/* Tabs */}
+              <div className="flex items-center gap-2 mb-6 w-fit max-w-full overflow-x-auto">
+                {tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveTab(t.id)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition
+                      ${activeTab === t.id
+                        ? 'bg-[#0F2A4A] text-white'
+                        : 'bg-[#DCEBFA] text-[#0369A1] hover:bg-[#c9e2f7]'}`}
+                  >
+                    <BookOpen size={14} />
+                    {t.label}
+                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full
+                      ${activeTab === t.id ? ' text-white' : ' text-[#0369A1]'}`}>
+                      {t.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Cards */}
+              {visibleGroups.length === 0 ? (
+                <p className="text-slate-400 text-sm">Aucun groupe dans cet onglet.</p>
+              ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {groups.map((g) => (
-                    <div key={g.id}
-                      onClick={() => navigate(`/admin/formations/${formation?.id}/groups/${g.id}`)}
-                      className="bg-white rounded-xl border border-[#E2E8F0] p-4 shadow-sm hover:shadow-md transition cursor-pointer">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Users size={14} className="text-[#F97316]" />
-                        <span className="font-medium text-sm text-[#1E293B]">{g.nom}</span>
+                  {visibleGroups.map((g, i) => (
+                    <div
+                      key={g.id}
+                      onClick={() => navigate(`/admin/formations/${g.formation?.id ?? activeTab}/groups/${g.id}`)}
+                      className="relative bg-white rounded-2xl border border-[#F1F5F9] p-4 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition cursor-pointer"
+                    >
+                      <span className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-[#0369A1] text-white text-[11px] font-bold flex items-center justify-center shadow">
+                        {i + 1}
+                      </span>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Users size={14} className="text-emerald-500" />
+                          <span className="font-medium text-sm text-slate-800">{g.nom}</span>
+                        </div>
+                        {activeTab === 'all' && g.formation?.nom && (
+                          <span className="text-[10px] bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full">
+                            {g.formation.nom}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-[#64748B]">{g.inscriptions_count ?? '—'} étudiant(s)</p>
+                      <div className="flex items-center justify-between">
+                       <p className="text-xs text-slate-400">{g.nb_etudiants ?? 0} étudiant(s)</p>
+                        <ChevronRight size={14} className="text-slate-300" />
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            ))
+              )}
+            </>
           )}
         </>
       )}

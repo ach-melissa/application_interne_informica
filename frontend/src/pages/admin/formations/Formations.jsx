@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, Clock, DollarSign, BookOpen, UserCheck } from 'lucide-react';
+import { Plus, Search, Users, Clock, DollarSign, BookOpen, UserCheck, Phone, Mail, MapPin, CalendarDays, CheckCircle2, GraduationCap, Pencil, Trash2, ChevronRight, ArrowLeft } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddFormationModal from './AddFormationModal';
 const Formations = () => {
@@ -95,64 +95,76 @@ const handleDelete = async (formation) => {
     i.etudiant?.telephone?.includes(search)
   );
 
+  const COLS = [
+    { label: 'Étudiant',  Icon: null,         width: 150 },
+    { label: 'Tél.',      Icon: Phone,        width: 100 },
+    { label: 'Email',     Icon: Mail,         width: 160 },
+    { label: 'Niveau',    Icon: GraduationCap,width: 90  },
+    { label: 'Adresse',   Icon: MapPin,       width: 140 },
+    { label: 'Formation', Icon: Users,        width: 140 },
+    { label: 'Date',      Icon: CalendarDays, width: 90  },
+    { label: 'Statut',    Icon: CheckCircle2, width: 100 },
+  ];
+
   const InscriptionsTable = () => (
-    <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
-          <tr>
-            <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Étudiant</th>
-            <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Téléphone</th>
-            <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Email</th>
-            <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Niveau</th>
-            <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Adresse</th>
-            <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Formation</th>
-            <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Date inscription</th>
-            <th className="text-left px-4 py-3.5 text-[#64748B] font-medium whitespace-nowrap">Statut</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[#F1F5F9]">
-          {filteredInscriptions.length === 0 ? (
+    <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+      <div className="overflow-x-auto">
+        <table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
+          <colgroup>
+            {COLS.map(c => <col key={c.label} style={{ width: `${c.width}px` }} />)}
+          </colgroup>
+          <thead className="bg-[#DCEBFA]">
             <tr>
-              <td colSpan={8} className="text-center py-10 text-[#94A3B8]">
-                Aucun étudiant trouvé.
-              </td>
+              {COLS.map(({ label, Icon }, i) => (
+                <th key={label} className={`text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] overflow-hidden ${i === 0 ? 'border-l border-[#E2E8F0]' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    {Icon && <Icon size={11} className="text-[#0369A1] flex-shrink-0" />}
+                    <span className="truncate">{label}</span>
+                  </div>
+                </th>
+              ))}
             </tr>
-          ) : (
-            filteredInscriptions.map((i) => (
-              <tr key={i.id} className="hover:bg-[#F8FAFC] transition">
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-[#EFF6FF] flex items-center justify-center flex-shrink-0">
-                      <UserCheck size={14} className="text-[#2563EB]" />
+          </thead>
+          <tbody>
+            {filteredInscriptions.length === 0 ? (
+              <tr><td colSpan={COLS.length} className="text-center py-10 text-slate-400 bg-white">Aucun étudiant trouvé.</td></tr>
+            ) : filteredInscriptions.map((i, idx) => (
+              <tr key={i.id} className={`hover:bg-[#DCEBFA]/30 transition ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
+                <td className="px-3 py-2 overflow-hidden border-b border-l border-[#E2E8F0]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
+                      {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}
                     </div>
-                    <span className="font-medium text-[#1E293B]">
-                      {i.etudiant?.nom} {i.etudiant?.prenom}
-                    </span>
+                    <span className="font-medium text-slate-700 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-[#64748B] whitespace-nowrap">{i.etudiant?.telephone ?? '—'}</td>
-                <td className="px-4 py-3 text-[#64748B] whitespace-nowrap">{i.etudiant?.email ?? '—'}</td>
-                <td className="px-4 py-3 text-[#64748B] whitespace-nowrap">{i.etudiant?.niveau_scolaire ?? '—'}</td>
-                <td className="px-4 py-3 text-[#64748B] whitespace-nowrap">{i.etudiant?.adresse ?? '—'}</td>
-                <td className="px-4 py-3 text-[#64748B] whitespace-nowrap">{i.formation?.nom ?? '—'}</td>
-                <td className="px-4 py-3 text-[#64748B] whitespace-nowrap">
+                <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.telephone ?? '—'}</td>
+                <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.email ?? '—'}</td>
+                <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.niveau_scolaire ?? '—'}</td>
+                <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.adresse ?? '—'}</td>
+                <td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                  {i.formation?.nom
+                    ? <span className="bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium truncate block max-w-full">{i.formation.nom}</span>
+                    : <span className="text-slate-300">—</span>}
+                </td>
+                <td className="px-3 py-2 text-slate-400 truncate border-b border-[#E2E8F0]">
                   {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                    i.statut === 'confirmed' ? 'bg-green-100 text-green-600' :
-                    i.statut === 'pending' ? 'bg-yellow-100 text-yellow-600' :
-                    'bg-red-100 text-red-500'
+                <td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                    i.statut === 'confirmed' ? 'bg-emerald-50 text-emerald-600' :
+                    i.statut === 'pending' ? 'bg-amber-50 text-amber-700' :
+                    'bg-red-50 text-red-500'
                   }`}>
                     {i.statut === 'confirmed' ? 'Confirmé' :
                      i.statut === 'pending' ? 'En attente' : 'Non confirmé'}
                   </span>
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 
@@ -161,19 +173,14 @@ const handleDelete = async (formation) => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">Formations</h1>
-          <p className="text-[#64748B] text-sm mt-1">
-            {view === 'formations'
-              ? `${formations.length} formations disponibles`
-              : view === 'all_inscriptions'
-              ? `${inscriptions.length} étudiants confirmés`
-              : `Inscriptions — ${selectedFormation?.nom}`}
-          </p>
+          <h1 className="text-xl font-bold text-slate-800">Formations</h1>
+         
         </div>
         {view === 'formations' && (
          <button
   onClick={() => setShowAddModal(true)}
-  className="flex items-center gap-2 bg-[#2563EB] text-white px-4 py-2.5 rounded-lg hover:bg-[#1D4ED8] transition text-sm font-medium"
+  className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-lg text-xs font-medium
+            shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all"
 >
   <Plus size={18} />
   Ajouter une formation
@@ -183,23 +190,23 @@ const handleDelete = async (formation) => {
 
       {/* Tabs — only formations & all_inscriptions, NOT formation_inscriptions */}
       {view !== 'formation_inscriptions' && (
-        <div className="flex gap-2 mb-6">
+        <div className="flex items-center gap-2 mb-6">
           <button
             onClick={() => { setView('formations'); setSearch(''); setSelectedFormation(null); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+            className={`px-4 py-2.5 rounded-full text-sm font-medium transition ${
               view === 'formations'
-                ? 'bg-[#2563EB] text-white'
-                : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
+                ? 'bg-[#0F2A4A] text-white'
+                : 'bg-[#DCEBFA] text-[#0369A1] hover:bg-[#c9e2f7]'
             }`}
           >
             Formations
           </button>
           <button
             onClick={() => { setView('all_inscriptions'); setSearch(''); setSelectedFormation(null); fetchInscriptionsConfirmed(); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+            className={`px-4 py-2.5 rounded-full text-sm font-medium transition ${
               view === 'all_inscriptions'
-                ? 'bg-[#2563EB] text-white'
-                : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
+                ? 'bg-[#0F2A4A] text-white'
+                : 'bg-[#DCEBFA] text-[#0369A1] hover:bg-[#c9e2f7]'
             }`}
           >
             Tout les inscriptions
@@ -207,28 +214,17 @@ const handleDelete = async (formation) => {
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative mb-6 max-w-sm">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-        <input
-          type="text"
-          placeholder={view === 'formations' ? 'Rechercher une formation...' : 'Rechercher un étudiant...'}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white"
-        />
-      </div>
 
       {/* Loading */}
       {(loading || loadingInscriptions) && (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
       {/* Error */}
       {error && (
-        <p className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+        <p className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-lg px-4 py-3">
           Erreur : {error}
         </p>
       )}
@@ -237,24 +233,27 @@ const handleDelete = async (formation) => {
       {view === 'formations' && !loading && !error && (
         <>
           {filtered.length === 0 ? (
-            <p className="text-[#64748B] text-sm">Aucune formation trouvée.</p>
+            <p className="text-slate-400 text-sm">Aucune formation trouvée.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {filtered.map((f) => (
-                <div key={f.id} className="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-sm hover:shadow-md transition">
+                <div key={f.id} className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition">
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-10 h-10 bg-[#EFF6FF] rounded-lg flex items-center justify-center">
-                      <BookOpen size={20} className="text-[#2563EB]" />
+                    <div className="w-10 h-10 bg-[#DCEBFA] rounded-full flex items-center justify-center">
+                      <BookOpen size={20} className="text-[#0369A1]" />
                     </div>
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                      f.statut === 'active' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'
+                      f.statut === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'
                     }`}>
                       {f.statut === 'active' ? 'Active' : 'Non active'}
                     </span>
                   </div>
-                  <h2 className="text-[#1E293B] font-semibold text-base mb-1">{f.nom}</h2>
-                  <p className="text-[#64748B] text-xs mb-4">{f.teacher?.nom ?? 'Aucun professeur assigné'}</p>
-                  <div className="flex items-center gap-4 text-xs text-[#64748B] mb-5">
+                  <h2 className="text-slate-800 font-semibold text-base mb-3">{f.nom}</h2>
+                  <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
+                    <span className="flex items-center gap-1"><Users size={13} className="text-[#0369A1]" /> {f.nb_groupes ?? 0} groupe(s)</span>
+                    <span className="flex items-center gap-1"><UserCheck size={13} className="text-[#0369A1]" /> {f.nb_etudiants ?? 0} étudiant(s)</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
                     {f.heures > 0 && (
                       <span className="flex items-center gap-1"><Clock size={13} /> {f.heures}h</span>
                     )}
@@ -265,9 +264,9 @@ const handleDelete = async (formation) => {
 <div className="flex items-center gap-2 flex-wrap">
   <button
     onClick={() => navigate(`/admin/formations/${f.id}/groups`)}
-    className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] border border-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition"
+    className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1] bg-[#DCEBFA] border border-[#0369A1]/20 px-3 py-1.5 rounded-full hover:bg-[#c9e2f7] hover:shadow-sm active:scale-95 transition"
   >
-    <Users size={13} /> Groupes
+    <Users size={13} /> Groupes <ChevronRight size={13} />
   </button>
   <button
     onClick={() => {
@@ -275,28 +274,28 @@ const handleDelete = async (formation) => {
       fetchInscriptionsByFormation(f);
       setView('formation_inscriptions');
     }}
-    className="flex items-center gap-1.5 text-xs font-medium text-[#10B981] border border-[#10B981] px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition"
+    className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-600/20 px-3 py-1.5 rounded-full hover:bg-emerald-100 hover:shadow-sm active:scale-95 transition"
   >
-    <UserCheck size={13} /> Inscriptions
+    <UserCheck size={13} /> Inscriptions <ChevronRight size={13} />
   </button>
   <button
     onClick={() => navigate(`/admin/formations/${f.id}/emplois`)}
-    className="text-xs font-medium text-[#7C3AED] border border-[#7C3AED] px-3 py-1.5 rounded-lg hover:bg-violet-50 transition"
+    className="flex items-center gap-1.5 text-xs font-medium text-violet-600 bg-violet-50 border border-violet-600/20 px-3 py-1.5 rounded-full hover:bg-violet-100 hover:shadow-sm active:scale-95 transition"
   >
-    Emplois global
+    <CalendarDays size={13} /> Emplois global <ChevronRight size={13} />
   </button>
   <button
     onClick={() => setEditingFormation(f)}
-    className="text-xs font-medium text-[#F97316] border border-[#F97316] px-3 py-1.5 rounded-lg hover:bg-orange-50 transition"
+    className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 hover:shadow-sm active:scale-95 transition"
   >
-    Modifier
+    <Pencil size={13} /> Modifier
   </button>
 
   <button
     onClick={() => handleDelete(f)}
-    className="text-xs font-medium text-red-500 border border-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
+    className="flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 border border-red-500/20 px-3 py-1.5 rounded-full hover:bg-red-100 hover:shadow-sm active:scale-95 transition"
   >
-    Supprimer
+    <Trash2 size={13} /> Supprimer
   </button>
 </div>
                 </div>
@@ -314,15 +313,37 @@ const handleDelete = async (formation) => {
       {/* VIEW: Inscriptions par formation */}
       {view === 'formation_inscriptions' && !loadingInscriptions && !error && (
         <>
-          <button
-            onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); }}
-            className="mb-4 text-xs text-[#2563EB] hover:underline flex items-center gap-1"
-          >
-            ← Retour aux formations
-          </button>
-          <p className="mb-4 text-sm font-semibold text-[#1E293B]">
-            Inscriptions — {selectedFormation?.nom} ({filteredInscriptions.length} étudiants)
+          <div className="flex items-center gap-1.5 text-xs mb-2">
+            <button onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); }} className="text-slate-400 hover:text-[#0369A1] hover:underline transition">
+              Formations
+            </button>
+            <ChevronRight size={12} className="text-slate-300" />
+            <span className="text-[#0369A1] font-medium">Inscriptions — {selectedFormation?.nom}</span>
+          </div>
+          <div className="flex items-center gap-3 mb-2">
+            <button
+              onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); }}
+              className="w-8 h-8 flex items-center justify-center rounded-full border border-[#F1F5F9] hover:bg-[#DCEBFA] transition"
+            >
+              <ArrowLeft size={16} className="text-[#0369A1]" />
+            </button>
+            <h2 className="text-lg font-bold text-slate-800">Inscriptions — {selectedFormation?.nom}</h2>
+          </div>
+          <p className="mb-4 text-sm text-slate-400 ml-11">
+            {filteredInscriptions.length} étudiant(s)
           </p>
+          
+      {/* Search */}
+      <div className="relative mb-6 max-w-xs">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+        <input
+          type="text"
+          placeholder={view === 'formations' ? 'Rechercher une formation...' : 'Rechercher un étudiant...'}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+        />
+      </div>
           <InscriptionsTable />
         </>
       )}

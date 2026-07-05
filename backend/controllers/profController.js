@@ -28,18 +28,31 @@ groups(
 )
     `)
     .order('created_at', { ascending: false });
-
   if (error) return res.status(500).json({ error: error.message });
 
-  const result = data.map((t) => ({
-    id: t.id,
-    nom: t.user?.nom ?? '',
-    prenom: t.user?.prenom ?? '',
-    email: t.user?.email ?? '',
-    telephone: t.user?.telephone ?? '',
-    formations: [...new Set(t.groups?.map((g) => g.formation?.nom).filter(Boolean))],
-    groups: t.groups ?? [],
-  }));
+  const result = await Promise.all(
+    data.map(async (t) => {
+      const groupsWithCounts = await Promise.all(
+        (t.groups ?? []).map(async (g) => {
+          const { count } = await supabase
+            .from('inscriptions')
+            .select('*', { count: 'exact', head: true })
+            .eq('group_id', g.id);
+          return { ...g, nb_etudiants: count ?? 0 };
+        })
+      );
+
+      return {
+        id: t.id,
+        nom: t.user?.nom ?? '',
+        prenom: t.user?.prenom ?? '',
+        email: t.user?.email ?? '',
+        telephone: t.user?.telephone ?? '',
+        formations: [...new Set(groupsWithCounts.map((g) => g.formation?.nom).filter(Boolean))],
+        groups: groupsWithCounts,
+      };
+    })
+  );
 
   res.json(result);
 };

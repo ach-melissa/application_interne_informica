@@ -217,7 +217,7 @@ const getUsers = async (req, res) => {
       query = query.eq('archived', req.query.archived === 'true');
     }
     if (req.query.role) query = query.eq('role', req.query.role);
-    
+
     const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
 
@@ -268,6 +268,7 @@ const restoreUser = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
+
 const createUser = async (req, res) => {
   try {
     const { nom, prenom, email, nom_utilisateur, mot_de_passe, telephone, date_naissance, role } = req.body;
@@ -346,10 +347,11 @@ const createUser = async (req, res) => {
 
 // ============================================================
 // PATCH /api/users/:id — modifier un utilisateur (admin)
+// Accepte aussi une photo optionnelle (multer: upload.single('photo'))
 // ============================================================
 const updateUser = async (req, res) => {
   try {
-    const { nom, prenom, email, nom_utilisateur, telephone, date_naissance, role, mot_de_passe } = req.body;
+    const { nom, prenom, email, nom_utilisateur, telephone, date_naissance, role, mot_de_passe, remove_photo } = req.body;
 
     const patch = {};
     if (nom             !== undefined) patch.nom             = nom;
@@ -357,10 +359,50 @@ const updateUser = async (req, res) => {
     if (email           !== undefined) patch.email           = email;
     if (nom_utilisateur !== undefined) patch.nom_utilisateur = nom_utilisateur;
     if (telephone       !== undefined) patch.telephone       = telephone;
-    if (date_naissance  !== undefined) patch.date_naissance  = date_naissance;
+    if (date_naissance  !== undefined) patch.date_naissance  = date_naissance === '' ? null : date_naissance;
     if (role            !== undefined) patch.role            = role;
-    if (Object.keys(patch).length === 0) {
+
+    if (req.file) {
+      if (!ALLOWED_TYPES.includes(req.file.mimetype)) {
+        return res.status(400).json({ message: 'Format non supporté (jpg, png ou webp uniquement)' });
+      }
+      if (req.file.size > MAX_SIZE) {
+        return res.status(400).json({ message: 'Le fichier ne doit pas dépasser 5 Mo' });
+      }
+    }
+
+    const shouldRemovePhoto = !req.file && remove_photo === 'true';
+
+    if (Object.keys(patch).length === 0 && !req.file && !shouldRemovePhoto) {
       return res.status(400).json({ message: 'Aucune donnée à mettre à jour' });
+    }
+
+    if (req.file || shouldRemovePhoto) {
+      // Supprime les anciennes photos de cet utilisateur (évite l'accumulation de fichiers)
+      const { data: existing } = await supabase.storage.from(AVATAR_BUCKET).list(req.params.id);
+      if (existing?.length) {
+        await supabase.storage
+          .from(AVATAR_BUCKET)
+          .remove(existing.map((f) => `${req.params.id}/${f.name}`));
+      }
+
+      if (shouldRemovePhoto) {
+        patch.photo_path = null;
+      } else {
+        const ext = req.file.mimetype.split('/')[1];
+        const path = `${req.params.id}/${Date.now()}.${ext}`;
+
+        const { error: uploadErr } = await supabase.storage
+          .from(AVATAR_BUCKET)
+          .upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+
+        if (uploadErr) {
+          console.error('updateUser (photo upload):', uploadErr);
+          return res.status(500).json({ message: "Erreur lors de l'upload de la photo" });
+        }
+
+        patch.photo_path = path;
+      }
     }
 
     const { data, error } = await supabase

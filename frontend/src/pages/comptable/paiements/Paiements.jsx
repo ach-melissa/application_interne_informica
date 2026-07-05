@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CreditCard } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
 import PaiementsGlobale   from './PaiementsGlobale';
 import PaiementsFormation from './PaiementsFormation';
@@ -13,7 +14,6 @@ const Paiements = () => {
   const token = () => localStorage.getItem('token');
   const api   = import.meta.env.VITE_API_URL;
 
-  // ── Fetch all payments (for globale tab) ────────────────────────────────
   const fetchPaiements = async () => {
     setLoading(true);
     try {
@@ -29,7 +29,6 @@ const Paiements = () => {
     }
   };
 
-  // ── Fetch formations (needed by the "Vue par formation" tab) ────────────
   const fetchFormations = async () => {
     try {
       const res = await fetch(`${api}/api/comptable/formations`, {
@@ -44,7 +43,6 @@ const Paiements = () => {
     fetchFormations();
   }, []);
 
-  // ── Inline statut update ─────────────────────────────────────────────────
   const handleUpdateStatut = async (id, statut) => {
     try {
       await fetch(`${api}/api/comptable/paiements/${id}`, {
@@ -58,36 +56,38 @@ const Paiements = () => {
     }
   };
 
+  const TABS = [
+    { key: 'globale',   label: 'Vue globale' },
+    { key: 'formation', label: 'Vue par formation' },
+  ];
+
   return (
     <ComptableLayout>
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Paiements</h1>
-          <p className="text-gray-500 text-sm mt-1">{paiements.length} paiement(s)</p>
+          <h1 className="text-xl font-bold text-slate-800">Paiements</h1>
+          <p className="text-slate-400 text-xs mt-0.5">{paiements.length} paiement(s)</p>
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex justify-between">
+        <div className="mb-4 flex justify-between items-center text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
           {error}
-          <button onClick={() => setError(null)} className="font-bold">✕</button>
+          <button onClick={() => setError(null)} className="font-bold text-red-400 hover:text-red-600">✕</button>
         </div>
       )}
 
-      {/* ── Tabs ────────────────────────────────────────────────────────── */}
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
-        {[
-          { key: 'globale',    label: 'Vue globale' },
-          { key: 'formation',  label: 'Vue par formation' },
-        ].map((tab) => (
+      {/* Tabs — same pill pattern as GroupDetail */}
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+            className={`px-4 py-2.5 rounded-full text-sm font-medium transition ${
               activeTab === tab.key
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-[#0F2A4A] text-white'
+                : 'bg-[#DCEBFA] text-[#0369A1] hover:bg-[#c9e2f7]'
             }`}
           >
             {tab.label}
@@ -95,7 +95,6 @@ const Paiements = () => {
         ))}
       </div>
 
-      {/* ── Tab content ─────────────────────────────────────────────────── */}
       {activeTab === 'globale' && (
         <PaiementsGlobale
           paiements={paiements}

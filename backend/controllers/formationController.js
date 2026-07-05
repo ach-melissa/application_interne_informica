@@ -7,7 +7,26 @@ const getFormations = async (req, res) => {
     .order('created_at', { ascending: false });
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+
+  const result = await Promise.all(
+    data.map(async (f) => {
+      const { count: nb_groupes } = await supabase
+        .from('groups')
+        .select('*', { count: 'exact', head: true })
+        .eq('formation_id', f.id)
+        .eq('archived', false);
+
+      const { count: nb_etudiants } = await supabase
+        .from('inscriptions')
+        .select('*', { count: 'exact', head: true })
+        .eq('formation_id', f.id)
+        .eq('statut', 'confirmed');
+
+      return { ...f, nb_groupes: nb_groupes ?? 0, nb_etudiants: nb_etudiants ?? 0 };
+    })
+  );
+
+  res.json(result);
 };
 const getFormationById = async (req, res) => {
   const { id } = req.params;
