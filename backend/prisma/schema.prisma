@@ -43,25 +43,22 @@ model etudiants {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model formations {
-  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nom            String            @db.VarChar(255)
-  prix           Decimal           @db.Decimal(10, 2)
-  heures         Int
-  teacher_id     String?           @db.Uuid
-  statut         formation_status? @default(active)
-  archived       Boolean?          @default(false)
-  created_at     DateTime?         @default(now()) @db.Timestamp(6)
-  prix_etudiant  Decimal?          @db.Decimal
-  tarif_mensuel  Decimal?          @db.Decimal
-  description    String?
-  categorie      String?           @db.VarChar
-  annee_scolaire String?
-  attestations   attestations[]
-  creneaux       creneaux[]
-  teachers       teachers?         @relation(fields: [teacher_id], references: [id], onUpdate: NoAction)
-  groups         groups[]
-  inscriptions   inscriptions[]
-  payments       payments[]
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nom           String            @db.VarChar(255)
+  prix          Decimal           @db.Decimal(10, 2)
+  heures        Int
+  teacher_id    String?           @db.Uuid
+  statut        formation_status? @default(active)
+  created_at    DateTime?         @default(now()) @db.Timestamp(6)
+  prix_etudiant Decimal?          @db.Decimal
+  tarif_mensuel Decimal?          @db.Decimal
+  description   String?
+  categorie     String?           @db.VarChar
+  attestations  attestations[]
+  teachers      teachers?         @relation(fields: [teacher_id], references: [id], onUpdate: NoAction)
+  groups        groups[]
+  inscriptions  inscriptions[]
+  payments      payments[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -75,10 +72,8 @@ model groups {
   created_at      DateTime?      @default(now()) @db.Timestamp(6)
   jours_formation String?
   heure_formation String?
-  creneau_id      String?        @db.Uuid
   annee_scolaire  String?
   attestations    attestations[]
-  creneaux        creneaux?      @relation(fields: [creneau_id], references: [id], onUpdate: NoAction)
   formations      formations     @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   teachers        teachers?      @relation(fields: [teacher_id], references: [id], onUpdate: NoAction)
   inscriptions    inscriptions[]
@@ -100,9 +95,9 @@ model inscriptions {
   statut           inscription_status? @default(pending)
   created_at       DateTime?           @default(now()) @db.Timestamp(6)
   group_id         String?             @db.Uuid
-  creneau_id       String?             @db.Uuid
+  archived         Boolean?            @default(false)
+  annee_scolaire   String?
   attestations     attestations[]
-  creneaux         creneaux?           @relation(fields: [creneau_id], references: [id], onUpdate: NoAction)
   etudiants        etudiants           @relation(fields: [etudiant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   formations       formations          @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   groups           groups?             @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -220,20 +215,6 @@ model attestations {
   formations     formations?   @relation(fields: [formation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   groups         groups?       @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   inscriptions   inscriptions? @relation(fields: [inscription_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model creneaux {
-  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  formation_id String         @db.Uuid
-  jours        String         @db.VarChar(100)
-  heure        String         @db.VarChar(50)
-  label        String?        @db.VarChar(150)
-  archived     Boolean?       @default(false)
-  created_at   DateTime?      @default(now()) @db.Timestamp(6)
-  formations   formations     @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  groups       groups[]
-  inscriptions inscriptions[]
 }
 
 enum attendance_status {
