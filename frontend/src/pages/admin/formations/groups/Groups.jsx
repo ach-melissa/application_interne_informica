@@ -15,7 +15,7 @@ const Section = ({ children }) => (
 
 const JOURS = ['samedi', 'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi'];
 const PERIODES = ['matin', 'midi'];
-const SALLES = ['Salle 01', 'Salle 02', 'Salle 03', 'Salle 04', 'Salle 05'];
+const SALLES = ['Salle 01', 'Salle 02', 'Salle 03', 'Salle 04', 'Salle 05','Salle 06', 'Salle 07', 'Salle 08'];
 
 const GroupScheduleTable = ({ groupId, formation_id }) => {
   const [cells, setCells] = useState({});

@@ -70,7 +70,7 @@ return (
       className="h-30 w-auto object-contain"
     />
 
-    <h1 className="text-3xl font-extrabold text-blue-950 tracking-wide mt-2">
+    <h1 className="text-3xl font-extrabold text-[#0056B3] tracking-wide mt-2">
       ATTESTATION DE FORMATION
     </h1>
     <p className="text-xs mt-1">Réf : N°{numeroRef}</p>
@@ -95,7 +95,7 @@ return (
   {/* Signature */}
   <div className="flex justify-end pr-20">
     <div className="text-center text-[16px] text-neutral-900 ">
-      <p className="underline">
+      <p >
         <u>{ville}</u> le : {dateSignature}
       </p>
       <p>Le Directeur Général</p>
@@ -104,6 +104,7 @@ return (
 
   {/* Footer / coordonnées */}
   <div className="text-center text-[13px] text-neutral-900 font-semibold border-t border-neutral-300 pt-1 mt-20">
+    
     <p>
       Cité <u>Alliliguia</u>, Groupement PR. N°1224, N°01- 2-ème
       étage. Boumerdès. Tél. /Fax : 024 79 97 67 / Mobile :
