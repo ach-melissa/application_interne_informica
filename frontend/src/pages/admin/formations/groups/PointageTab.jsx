@@ -156,20 +156,43 @@ const PointageTab = ({ groupId, etudiants, group, readOnly = false }) => {
     </div>
   );
 
-  return (
+return (
+  <>
+    <style>{`
+      @media print {
+        @page { size: landscape; margin: 10mm; }
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body * { visibility: hidden; }
+        #pointage-print-area, #pointage-print-area * { visibility: visible; }
+        #pointage-print-area {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+        }
+      }
+    `}</style>
     <div className="space-y-4">
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-400">{sessions.length} séance(s)</p>
-        {!readOnly && (
-          <button
-            onClick={() => setAddingSession(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0F2A4A] text-white text-xs font-medium rounded-lg hover:bg-[#065e8f] transition"
-          >
-            <Plus size={14} /> Ajouter séance
-          </button>
-        )}
-      </div>
+<div className="flex items-center justify-between print:hidden">
+  <p className="text-sm text-slate-400">{sessions.length} séance(s)</p>
+  <div className="flex items-center gap-2">
+    <button
+      onClick={() => window.print()}
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#DCEBFA] text-[#0369A1] text-xs font-medium rounded-lg hover:bg-[#F8FCFF] transition"
+    >
+      🖨️ Imprimer
+    </button>
+    {!readOnly && (
+      <button
+        onClick={() => setAddingSession(true)}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0F2A4A] text-white text-xs font-medium rounded-lg hover:bg-[#065e8f] transition"
+      >
+        <Plus size={14} /> Ajouter séance
+      </button>
+    )}
+  </div>
+</div>
 
       {/* ── Add session modal ── */}
       {!readOnly && addingSession && (
@@ -205,6 +228,7 @@ const PointageTab = ({ groupId, etudiants, group, readOnly = false }) => {
         </div>
       )}
 
+      <div id="pointage-print-area">
       {/* ── Fiche info header ── */}
       <div className="bg-white border border-[#F1F5F9] rounded-xl px-4 py-3 text-xs text-slate-800 space-y-2">
         <div className="flex gap-6 flex-wrap items-center">
@@ -256,7 +280,7 @@ const PointageTab = ({ groupId, etudiants, group, readOnly = false }) => {
       {sessions.length === 0 ? (
         <p className="text-sm text-slate-300 py-8 text-center">Aucune séance enregistrée.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[#F1F5F9]">
+        <div className="overflow-x-auto rounded-xl border border-[#F1F5F9] print:overflow-visible print:border-0">
           <table className="text-xs border-collapse bg-white" style={{ minWidth: `${140 + sessions.length * 80}px` }}>
             <tbody>
 
@@ -401,8 +425,8 @@ const PointageTab = ({ groupId, etudiants, group, readOnly = false }) => {
               ))}
 
               {/* ── Supprimer séance ── */}
-              {!readOnly && (
-                <tr className="bg-red-50/40">
+{!readOnly && (
+  <tr className="bg-red-50/40 print:hidden">
                   <td className="border border-[#F1F5F9] px-3 py-1.5 text-slate-300 sticky left-0 bg-red-50/40 z-10 text-[10px]">
                     Supprimer
                   </td>
@@ -420,8 +444,10 @@ const PointageTab = ({ groupId, etudiants, group, readOnly = false }) => {
           </table>
         </div>
       )}
+      </div>
     </div>
-  );
+  </>
+);
 };
 
 export default PointageTab;
