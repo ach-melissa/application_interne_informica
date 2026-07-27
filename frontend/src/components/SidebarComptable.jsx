@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, CreditCard, Wallet, ChevronLeft, ChevronRight, LogOut,
+  LayoutDashboard, CreditCard, Wallet, Receipt, ChevronLeft, ChevronRight, LogOut,
 } from 'lucide-react';
 
 const navGroups = [
@@ -9,7 +9,8 @@ const navGroups = [
     label: 'Gestion',
     items: [
       { label: 'Dashboard', icon: LayoutDashboard, path: '/comptable', exact: true },
-      { label: 'Paiements', icon: CreditCard,       path: '/comptable/paiements' },
+      { label: 'Revenu',    icon: CreditCard,       path: '/comptable/paiements' },
+      { label: 'Charges',   icon: Receipt,          path: '/comptable/charges' },
       { label: 'Salaires',  icon: Wallet,           path: '/comptable/salaires' },
     ],
   },

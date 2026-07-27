@@ -34,6 +34,7 @@ import ProfGroupDetail from './pages/prof/formations/ProfGroupDetail';
 // ── Pages comptable (nouvelles) ─────────────────────────────
 import DashboardComptable from './pages/comptable/dashboard/DashboardComptable';
 import Paiements from './pages/comptable/paiements/Paiements';
+import Charges from './pages/comptable/charges/Charges';
 import Salaires from './pages/comptable/salaires/Salaires';
 
 // ── Page partagée (nouvelle) ───────────────────────────────
@@ -165,6 +166,11 @@ function App() {
           <Route path="/comptable/paiements" element={
             <PrivateRoute allowedRoles={['comptable']}>
               <Paiements />
+            </PrivateRoute>
+          } />
+          <Route path="/comptable/charges" element={
+            <PrivateRoute allowedRoles={['comptable']}>
+              <Charges />
             </PrivateRoute>
           } />
           <Route path="/comptable/salaires" element={
