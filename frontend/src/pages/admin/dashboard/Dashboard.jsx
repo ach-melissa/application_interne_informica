@@ -84,7 +84,38 @@ const Dashboard = () => {
           );
         })}
       </div>
+{stats?.formationsEnAttenteGroupe?.length > 0 && (
+  <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-sm mb-6">
+    <h2 className="text-sm font-semibold text-[#1E293B] mb-4 flex items-center gap-2">
+      <Users size={16} className="text-[#0284C7]" />
+      Formations en attente de groupe
+    </h2>
+    <div className="space-y-3">
+      {stats.formationsEnAttenteGroupe.map((f) => {
+        const pct = Math.min((f.count / f.capacite) * 100, 100);
+        const tier =
+          pct >= 100 ? { bar: 'bg-red-500',    badge: 'bg-red-50 text-red-600',       label: ' — Complet !' } :
+          pct >= 70  ? { bar: 'bg-orange-500', badge: 'bg-orange-50 text-orange-700', label: '' } :
+          pct >= 40  ? { bar: 'bg-yellow-500', badge: 'bg-yellow-50 text-yellow-700', label: '' } :
+                       { bar: 'bg-emerald-500',badge: 'bg-emerald-50 text-emerald-700', label: '' };
 
+        return (
+          <div key={f.formation_id}>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-medium text-[#1E293B]">{f.nom}</p>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${tier.badge}`}>
+                {f.count} / {f.capacite}{tier.label}
+              </span>
+            </div>
+            <div className="w-full h-2 bg-[#F1F5F9] rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${tier.bar}`} style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-start">
         {/* Today's groups — mini schedule, sorted by time, fixed height so layout stays stable */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-sm">
