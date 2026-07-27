@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
-import { Search, Tag, Calendar, Plus, X, Receipt } from 'lucide-react';
-
+import { Search, Tag, Calendar, Plus, Receipt } from 'lucide-react';
 const CATEGORIES = [
   'Loyer',
   'Matériel pédagogique',
@@ -181,53 +180,71 @@ const Charges = () => {
       </div>
 
       {showForm && (
-        <div className="mb-5 bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] p-4 flex flex-wrap gap-2 items-end">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-slate-400 uppercase">Date</label>
-            <input
-              type="date"
-              value={form.date}
-              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-              className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
-            />
-          </div>
-          <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
-            <label className="text-[10px] text-slate-400 uppercase">Description</label>
-            <input
-              type="text"
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
-              placeholder="Ex: Facture électricité juillet"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-slate-400 uppercase">Montant (DA)</label>
-            <input
-              type="number"
-              value={form.montant}
-              onChange={(e) => setForm((f) => ({ ...f, montant: e.target.value }))}
-              className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 w-32"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-slate-400 uppercase">Catégorie</label>
-            <select
-              value={form.categorie}
-              onChange={(e) => setForm((f) => ({ ...f, categorie: e.target.value }))}
-              className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 min-w-[180px]"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            onClick={handleAdd}
-            className="px-4 py-1.5 text-xs font-medium text-white bg-[#0F2A4A] rounded-lg hover:bg-[#0F2A4A]/90"
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+          onClick={() => setShowForm(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-md p-5"
+            onClick={(e) => e.stopPropagation()}
           >
-            Ajouter
-          </button>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-[#0F2A4A]">Ajouter une charge</h3>
+              <button onClick={() => setShowForm(false)} className="text-[#0369A1] hover:text-[#0F2A4A]">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-slate-400 uppercase">Date</label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-slate-400 uppercase">Description</label>
+                <input
+                  type="text"
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+                  placeholder="Ex: Facture électricité juillet"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-slate-400 uppercase">Montant (DA)</label>
+                <input
+                  type="number"
+                  value={form.montant}
+                  onChange={(e) => setForm((f) => ({ ...f, montant: e.target.value }))}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-slate-400 uppercase">Catégorie</label>
+                <select
+                  value={form.categorie}
+                  onChange={(e) => setForm((f) => ({ ...f, categorie: e.target.value }))}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={handleAdd}
+              className="mt-4 w-full px-4 py-2 text-xs font-medium text-white bg-[#0F2A4A] rounded-lg hover:bg-[#0F2A4A]/90"
+            >
+              Ajouter
+            </button>
+          </div>
         </div>
       )}
 
@@ -282,9 +299,15 @@ const Charges = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+      <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden mb-5">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+<table className="w-full text-xs table-fixed">
+  <colgroup>
+    <col className="w-[15%]" />   {/* Date */}
+    <col className="w-[30%]" />   {/* Description */}
+    <col className="w-[20%]" />   {/* Montant */}
+    <col className="w-[20%]" />   {/* Catégorie */}
+  </colgroup>
             <thead className="bg-[#DCEBFA]">
               <tr>
                 <th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-l border-[#E2E8F0] whitespace-nowrap">
@@ -296,16 +319,16 @@ const Charges = () => {
                 <th className="text-right px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap">
                   Montant
                 </th>
-                <th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap">
-                  Catégorie
-                </th>
-                <th className="w-10 border-b border-r border-[#E2E8F0]"></th>
+<th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-r border-[#E2E8F0] whitespace-nowrap">
+  Catégorie
+</th>
+                
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-10 text-slate-400 bg-white">
+                  <td colSpan={4} className="text-center py-10 text-slate-400 bg-white">
                     Aucune charge trouvée.
                   </td>
                 </tr>
@@ -322,16 +345,11 @@ const Charges = () => {
                     <td className="px-3 py-2.5 text-right font-semibold text-slate-700 whitespace-nowrap border-b border-[#E2E8F0]">
                       {Number(c.montant).toLocaleString('fr-DZ')} DA
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap border-b border-[#E2E8F0]">
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
-                        {c.categorie}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-right border-b border-r border-[#E2E8F0]">
-                      <button onClick={() => handleRemove(c.id)} className="text-slate-300 hover:text-red-500">
-                        <X size={13} />
-                      </button>
-                    </td>
+<td className="px-3 py-2.5 whitespace-nowrap border-b border-r border-[#E2E8F0]">
+  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
+    {c.categorie}
+  </span>
+</td>
                   </tr>
                 );
               })}

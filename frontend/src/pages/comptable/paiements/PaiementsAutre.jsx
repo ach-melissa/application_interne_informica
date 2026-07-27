@@ -76,56 +76,59 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onRemove }) => {
         </button>
       </div>
 
-      {showForm && (
-        <div className="mb-5 bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] p-4 flex flex-wrap gap-2 items-end">
-          <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
-            <label className="text-[10px] text-slate-400 uppercase">Libellé</label>
-            <input
-              type="text"
-              value={form.libelle}
-              onChange={(e) => setForm((f) => ({ ...f, libelle: e.target.value }))}
-              className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
-              placeholder="Ex: Location salle informatique"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-slate-400 uppercase">Catégorie</label>
-            <select
-              value={form.categorie}
-              onChange={(e) => setForm((f) => ({ ...f, categorie: e.target.value }))}
-              className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 min-w-[190px]"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-slate-400 uppercase">Montant (DA)</label>
-            <input
-              type="number"
-              value={form.montant}
-              onChange={(e) => setForm((f) => ({ ...f, montant: e.target.value }))}
-              className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 w-32"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-slate-400 uppercase">Date</label>
-            <input
-              type="date"
-              value={form.date}
-              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-              className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
-            />
-          </div>
-          <button
-            onClick={handleAdd}
-            className="px-4 py-1.5 text-xs font-medium text-white bg-[#0F2A4A] rounded-lg hover:bg-[#0F2A4A]/90"
-          >
-            Ajouter
-          </button>
+{showForm && (
+  <div
+    className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+    onClick={() => setShowForm(false)}
+  >
+    <div
+      className="bg-white rounded-xl shadow-xl w-full max-w-md p-5"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-bold text-[#0F2A4A]">Ajouter un revenu</h3>
+        <button onClick={() => setShowForm(false)} className="text-[#0369A1] hover:text-[#0F2A4A]">
+          <X size={18} />
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] text-slate-400 uppercase">Libellé</label>
+          <input type="text" value={form.libelle}
+            onChange={(e) => setForm((f) => ({ ...f, libelle: e.target.value }))}
+            className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+            placeholder="Ex: Location salle informatique" />
         </div>
-      )}
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] text-slate-400 uppercase">Catégorie</label>
+          <select value={form.categorie}
+            onChange={(e) => setForm((f) => ({ ...f, categorie: e.target.value }))}
+            className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40">
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] text-slate-400 uppercase">Montant (DA)</label>
+          <input type="number" value={form.montant}
+            onChange={(e) => setForm((f) => ({ ...f, montant: e.target.value }))}
+            className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] text-slate-400 uppercase">Date</label>
+          <input type="date" value={form.date}
+            onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+            className="px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40" />
+        </div>
+      </div>
+
+      <button onClick={handleAdd}
+        className="mt-4 w-full px-4 py-2 text-xs font-medium text-white bg-[#0F2A4A] rounded-lg hover:bg-[#0F2A4A]/90">
+        Ajouter
+      </button>
+    </div>
+  </div>
+)}
 
       {filtered.length === 0 ? (
         <div className="text-center py-20 text-slate-400 text-sm">

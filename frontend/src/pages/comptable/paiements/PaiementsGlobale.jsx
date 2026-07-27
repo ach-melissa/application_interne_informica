@@ -94,7 +94,7 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap 
         </span>
       </div>
 
-      {loading ? (
+{loading ? (
         <div className="flex justify-center py-16">
           <div className="w-7 h-7 border-4 border-[#0F2A4A] border-t-transparent rounded-full animate-spin" />
         </div>
@@ -119,18 +119,15 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap 
                   <th className="text-right px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap">
                     Reste à payer
                   </th>
-                  <th className="text-center px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap">
-                    Statut
-                  </th>
                   <th className="text-center px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-r border-[#E2E8F0] whitespace-nowrap">
-                    Détails
+                    Statut
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-10 text-slate-400 bg-white">
+                    <td colSpan={6} className="text-center py-10 text-slate-400 bg-white">
                       Aucun revenu trouvé.
                     </td>
                   </tr>
@@ -140,7 +137,11 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap 
                   const statut = statutMap[row.key] ?? 'Non payé';
 
                   return (
-                    <tr key={row.key} className={`hover:bg-[#DCEBFA]/30 transition ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
+                    <tr
+                      key={row.key}
+                      onClick={() => setSelectedRow(row)}
+                      className={`cursor-pointer hover:bg-[#DCEBFA]/30 transition ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}
+                    >
                       <td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap border-b border-l border-[#E2E8F0]">
                         {row.nom}
                       </td>
@@ -162,9 +163,10 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap 
                           </span>
                         ) : '—'}
                       </td>
-                      <td className="px-3 py-2.5 text-center whitespace-nowrap border-b border-[#E2E8F0]">
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap border-b border-r border-[#E2E8F0]">
                         <select
                           value={statut}
+                          onClick={(e) => e.stopPropagation()}
                           onChange={(e) => onStatutChange?.(row.key, e.target.value)}
                           className={`text-[11px] font-medium rounded-full px-2.5 py-1 border-none focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer ${
                             statut === 'Payé' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
@@ -174,14 +176,6 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap 
                             <option key={s} value={s}>{s}</option>
                           ))}
                         </select>
-                      </td>
-                      <td className="px-3 py-2.5 text-center whitespace-nowrap border-b border-r border-[#E2E8F0]">
-                        <button
-                          onClick={() => setSelectedRow(row)}
-                          className="text-[#0369A1] hover:text-[#0F2A4A] inline-flex items-center"
-                        >
-                          <Eye size={14} />
-                        </button>
                       </td>
                     </tr>
                   );
