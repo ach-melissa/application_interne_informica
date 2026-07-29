@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Image, Search, X, CheckCircle2, User, Wallet, PiggyBank, FileText } from 'lucide-react';
 
-const PaymentsTab = ({ groupId, onSelectStudent }) => {
+const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,7 +27,7 @@ const PaymentsTab = ({ groupId, onSelectStudent }) => {
       }
     };
     fetchPayments();
-  }, [groupId]);
+  }, [groupId, refreshKey]);
 
   const filtered = payments.filter(p => {
     if (search && !p.nom.toLowerCase().includes(search.toLowerCase())) return false;

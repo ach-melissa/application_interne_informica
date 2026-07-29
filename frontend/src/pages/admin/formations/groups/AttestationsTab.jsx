@@ -1,5 +1,5 @@
 // AttestationsTab.jsx
-import { useState } from 'react';
+import { useState ,useEffect  } from 'react';
 import { Printer, FileDown, Phone, Mail, GraduationCap, MapPin, CalendarDays, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -24,6 +24,28 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [periode, setPeriode] = useState('');
   const [dateSignature, setDateSignature] = useState('');
+const [payments, setPayments] = useState([]);
+
+useEffect(() => {
+  const fetchPayments = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/payments/group/${groupId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) setPayments(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  fetchPayments();
+}, [groupId]);
+
+const isEligible = (etudiantId) => {
+  const p = payments.find(p => p.studentId === etudiantId);
+  return !p || p.remaining <= 0;
+};
 
   const toggle = (id) => {
     setSelectedIds(prev => {
@@ -33,11 +55,12 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     });
   };
 
-  const toggleAll = () => {
-    setSelectedIds(prev =>
-      prev.size === etudiants.length ? new Set() : new Set(etudiants.map(i => i.id))
-    );
-  };
+const toggleAll = () => {
+  const eligibleIds = etudiants.filter(i => isEligible(i.etudiant?.id)).map(i => i.id);
+  setSelectedIds(prev =>
+    prev.size === eligibleIds.length && eligibleIds.length > 0 ? new Set() : new Set(eligibleIds)
+  );
+};
 
   const handlePrintClick = () => {
     if (selectedIds.size === 0) return;
@@ -106,7 +129,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                 <th className="px-3 py-2.5 w-8 border-b border-l border-[#E2E8F0]">
                   <input
                     type="checkbox"
-                    checked={selectedIds.size === etudiants.length && etudiants.length > 0}
+                    checked={selectedIds.size === etudiants.filter(i => isEligible(i.etudiant?.id)).length && etudiants.length > 0}
                     onChange={toggleAll}
                     className="cursor-pointer accent-[#0369A1]"
                   />
@@ -127,19 +150,20 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
               ) : etudiants.map((i, idx) => {
                 const sm = statutMeta[i.statut];
                 const checked = selectedIds.has(i.id);
+                const eligible = isEligible(i.etudiant?.id);
                 return (
-                  <tr
-                    key={i.id}
-                    onClick={() => toggle(i.id)}
-                    className={`cursor-pointer transition hover:bg-[#DCEBFA]/30 ${checked ? 'bg-[#DCEBFA]/40' : idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}
-                  >
+<tr
+  onClick={() => eligible && toggle(i.id)}
+  className={`transition ${eligible ? 'cursor-pointer hover:bg-[#DCEBFA]/30' : 'cursor-not-allowed opacity-50'} ${checked ? 'bg-[#DCEBFA]/40' : idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}
+>
                     <td className="px-3 py-2.5 border-b border-l border-[#E2E8F0]" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggle(i.id)}
-                        className="cursor-pointer accent-[#0369A1]"
-                      />
+<input
+  type="checkbox"
+  checked={checked}
+  disabled={!eligible}
+  onChange={() => eligible && toggle(i.id)}
+  className="cursor-pointer accent-[#0369A1] disabled:cursor-not-allowed disabled:opacity-40"
+/>
                     </td>
                     <td className="px-3 py-2.5 border-b border-[#E2E8F0]">
                       <div className="flex items-center gap-2">

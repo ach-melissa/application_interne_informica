@@ -1,5 +1,5 @@
 import React from "react";
-import informicaLogo from "../../../assets/images/logo.png";
+import informicaLogo from "../../../assets/images/logo_informica.png";
 import borderFrame from "../../../assets/images/border-frame.png";
 
 /**
@@ -67,7 +67,7 @@ return (
     <img
       src={informicaLogo}
       alt="INFORMICA"
-      className="h-30 w-auto object-contain"
+      className="h-20 w-auto object-contain"
     />
 
     <h1 className="text-3xl font-extrabold text-[#0056B3] tracking-wide mt-2">
@@ -88,7 +88,7 @@ return (
     <p>A suivi la formation intitulée « {formation} »</p>
 
     <p>
-      Organisée à INFORMICA. <u>{ville}</u> du {periode}.
+      Organisée à INFORMICA. {ville} du {periode}.
     </p>
   </div>
 
@@ -96,7 +96,7 @@ return (
   <div className="flex justify-end pr-20">
     <div className="text-center text-[16px] text-neutral-900 ">
       <p >
-        <u>{ville}</u> le : {dateSignature}
+        {ville} le : {dateSignature}
       </p>
       <p>Le Directeur Général</p>
     </div>
@@ -106,9 +106,9 @@ return (
   <div className="text-center text-[13px] text-neutral-900 font-semibold border-t border-neutral-300 pt-1 mt-20">
     
     <p>
-      Cité <u>Alliliguia</u>, Groupement PR. N°1224, N°01- 2-ème
-      étage. Boumerdès. Tél. /Fax : 024 79 97 67 / Mobile :
-      0661 83 23 78 - 0560 606 896
+      Cité Alliliguia , Groupement PR. N°1224, N°01- 2-ème
+      étage. Boumerdès. Tél. /Fax : 028 65 80 73 / Mobile :
+      0561 14 85 63 - 0560 60 68 96
     </p>
     <p>RC N° 35/00-3671752A16 / E-mail : informicadz@gmail.com</p>
   </div>

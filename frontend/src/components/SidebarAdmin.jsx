@@ -13,7 +13,7 @@ const navGroups = [
       { label: 'Formations',   icon: BookOpen,         path: '/admin/formations' },
       { label: 'Utilisateurs', icon: Users,            path: '/admin/utilisateurs' },
       { label: 'Professeurs',  icon: GraduationCap,    path: '/admin/profs' },
-      { label: 'Étudiants',    icon: UserCircle,       path: '/admin/students' },
+      { label: 'Pré inscription', icon: UserCircle, path: '/admin/students' },
     ],
   },
   {

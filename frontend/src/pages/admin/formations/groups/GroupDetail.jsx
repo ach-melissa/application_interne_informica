@@ -38,6 +38,7 @@ const GroupDetail = () => {
   const [error, setError]         = useState(null);
   const [activeTab, setActiveTab] = useState('etudiants');
   const [selectedStudent, setSelectedStudent] = useState(null);
+const [paymentsRefreshKey, setPaymentsRefreshKey] = useState(0);
 
   // filters
   const [search, setSearch]   = useState('');
@@ -217,11 +218,11 @@ useEffect(() => {
         </>
       )}
 
-{activeTab === 'paiements'    && <PaymentsTab groupId={groupId} onSelectStudent={setSelectedStudent} />}
+{activeTab === 'paiements'    && <PaymentsTab groupId={groupId} onSelectStudent={setSelectedStudent} refreshKey={paymentsRefreshKey} />}
 {activeTab === 'emploi'       && <ScheduleTab groupId={groupId} />}
 {activeTab === 'pointage'     && <PointageTab groupId={groupId} etudiants={etudiants.map(i => i.etudiant)} group={group} />}
 {activeTab === 'attestations' && <AttestationsTab etudiants={etudiants} formationId={formation_id} formationNom={formation?.nom} groupId={groupId} />}  
-      <PaymentHistoryModal student={selectedStudent} formationId={group?.formation_id} onClose={() => setSelectedStudent(null)} />
+<PaymentHistoryModal student={selectedStudent} formationId={group?.formation_id} onClose={() => setSelectedStudent(null)} onRefresh={() => setPaymentsRefreshKey(k => k + 1)} />
     </AdminLayout>
   );
 };

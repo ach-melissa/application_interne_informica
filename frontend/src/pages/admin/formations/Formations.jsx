@@ -14,6 +14,7 @@ const Formations = () => {
   const [error, setError] = useState(null);
   const [selectedFormation, setSelectedFormation] = useState(null);
   const [editingFormation, setEditingFormation] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -90,9 +91,31 @@ const handleDelete = async (formation) => {
     f.nom.toLowerCase().includes(search.toLowerCase())
   );
 
-  const filteredInscriptions = inscriptions.filter((i) =>
+  // Strip a trailing "(A1)", "(B2)" etc. suffix to get the base language name
+  const stripLevel = (nom) => {
+    const m = nom.match(/^(.*?)\s*\([^)]*\)\s*$/);
+    return m ? m[1].trim() : nom;
+  };
+
+  const getLevel = (nom) => {
+    const m = nom.match(/\(([^)]*)\)\s*$/);
+    return m ? m[1] : '';
+  };
+
+  const languageGroups = filtered.reduce((acc, f) => {
+    if (f.categorie === 'langues') {
+      const base = stripLevel(f.nom);
+      (acc[base] = acc[base] || []).push(f);
+    }
+    return acc;
+  }, {});
+
+  const nonLangueFormations = filtered.filter((f) => f.categorie !== 'langues');
+
+const filteredInscriptions = inscriptions.filter((i) =>
     `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase().includes(search.toLowerCase()) ||
-    i.etudiant?.telephone?.includes(search)
+    i.etudiant?.telephone?.includes(search) ||
+    i.formation?.nom?.toLowerCase().includes(search.toLowerCase())
   );
 
   const COLS = [
@@ -168,6 +191,71 @@ const handleDelete = async (formation) => {
     </div>
   );
 
+  const renderCard = (f) => (
+    <div key={f.id} className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition">
+      <div className="flex items-start justify-between mb-4">
+        <div className="w-10 h-10 bg-[#DCEBFA] rounded-full flex items-center justify-center">
+          <BookOpen size={20} className="text-[#0369A1]" />
+        </div>
+        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+          f.statut === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'
+        }`}>
+          {f.statut === 'active' ? 'Active' : 'Non active'}
+        </span>
+      </div>
+      <h2 className="text-slate-800 font-semibold text-base mb-3">{f.nom}</h2>
+      <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
+        <span className="flex items-center gap-1"><Users size={13} className="text-[#0369A1]" /> {f.nb_groupes ?? 0} groupe(s)</span>
+        <span className="flex items-center gap-1"><UserCheck size={13} className="text-[#0369A1]" /> {f.nb_etudiants ?? 0} étudiant(s)</span>
+      </div>
+      <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
+        {f.heures > 0 && (
+          <span className="flex items-center gap-1"><Clock size={13} /> {f.heures}h</span>
+        )}
+        <span className="flex items-center gap-1">
+          <DollarSign size={13} /> {Number(f.prix).toLocaleString()} DA
+        </span>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => navigate(`/admin/formations/${f.id}/groups`)}
+          className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1] bg-[#DCEBFA] border border-[#0369A1]/20 px-3 py-1.5 rounded-full hover:bg-[#c9e2f7] hover:shadow-sm active:scale-95 transition"
+        >
+          <Users size={13} /> Groupes <ChevronRight size={13} />
+        </button>
+        <button
+          onClick={() => {
+            setSearch('');
+            fetchInscriptionsByFormation(f);
+            setView('formation_inscriptions');
+          }}
+          className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-600/20 px-3 py-1.5 rounded-full hover:bg-emerald-100 hover:shadow-sm active:scale-95 transition"
+        >
+          <UserCheck size={13} /> Inscriptions <ChevronRight size={13} />
+        </button>
+        <button
+          onClick={() => navigate(`/admin/formations/${f.id}/emplois`)}
+          className="flex items-center gap-1.5 text-xs font-medium text-violet-600 bg-violet-50 border border-violet-600/20 px-3 py-1.5 rounded-full hover:bg-violet-100 hover:shadow-sm active:scale-95 transition"
+        >
+          <CalendarDays size={13} /> Emplois global <ChevronRight size={13} />
+        </button>
+        <button
+          onClick={() => setEditingFormation(f)}
+          className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 hover:shadow-sm active:scale-95 transition"
+        >
+          <Pencil size={13} /> Modifier
+        </button>
+
+        <button
+          onClick={() => handleDelete(f)}
+          className="flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 border border-red-500/20 px-3 py-1.5 rounded-full hover:bg-red-100 hover:shadow-sm active:scale-95 transition"
+        >
+          <Trash2 size={13} /> Supprimer
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <AdminLayout>
       {/* Header */}
@@ -192,7 +280,7 @@ const handleDelete = async (formation) => {
       {view !== 'formation_inscriptions' && (
         <div className="flex items-center gap-2 mb-6">
           <button
-            onClick={() => { setView('formations'); setSearch(''); setSelectedFormation(null); }}
+            onClick={() => { setView('formations'); setSearch(''); setSelectedFormation(null); setSelectedGroup(null); }}
             className={`px-4 py-2.5 rounded-full text-sm font-medium transition ${
               view === 'formations'
                 ? 'bg-[#0F2A4A] text-white'
@@ -202,7 +290,7 @@ const handleDelete = async (formation) => {
             Formations
           </button>
           <button
-            onClick={() => { setView('all_inscriptions'); setSearch(''); setSelectedFormation(null); fetchInscriptionsConfirmed(); }}
+            onClick={() => { setView('all_inscriptions'); setSearch(''); setSelectedFormation(null); setSelectedGroup(null); fetchInscriptionsConfirmed(); }}
             className={`px-4 py-2.5 rounded-full text-sm font-medium transition ${
               view === 'all_inscriptions'
                 ? 'bg-[#0F2A4A] text-white'
@@ -232,89 +320,90 @@ const handleDelete = async (formation) => {
       {/* VIEW: Formations */}
       {view === 'formations' && !loading && !error && (
         <>
-          {filtered.length === 0 ? (
+          {selectedGroup ? (
+            <>
+              <div className="flex items-center gap-1.5 text-xs mb-2">
+                <button onClick={() => setSelectedGroup(null)} className="text-slate-400 hover:text-[#0369A1] hover:underline transition">
+                  Formations
+                </button>
+                <ChevronRight size={12} className="text-slate-300" />
+                <span className="text-[#0369A1] font-medium">{selectedGroup}</span>
+              </div>
+              <div className="flex items-center gap-3 mb-5">
+                <button
+                  onClick={() => setSelectedGroup(null)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-[#F1F5F9] hover:bg-[#DCEBFA] transition"
+                >
+                  <ArrowLeft size={16} className="text-[#0369A1]" />
+                </button>
+                <h2 className="text-lg font-bold text-slate-800">{selectedGroup}</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {(languageGroups[selectedGroup] || []).map(renderCard)}
+              </div>
+            </>
+          ) : filtered.length === 0 ? (
             <p className="text-slate-400 text-sm">Aucune formation trouvée.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filtered.map((f) => (
-                <div key={f.id} className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition">
+              {Object.entries(languageGroups).map(([base, items]) => (
+                <div
+                  key={base}
+                  onClick={() => setSelectedGroup(base)}
+                  className="cursor-pointer bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition h-full flex flex-col"
+                >
                   <div className="flex items-start justify-between mb-4">
                     <div className="w-10 h-10 bg-[#DCEBFA] rounded-full flex items-center justify-center">
                       <BookOpen size={20} className="text-[#0369A1]" />
                     </div>
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                      f.statut === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'
-                    }`}>
-                      {f.statut === 'active' ? 'Active' : 'Non active'}
+                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[#DCEBFA] text-[#0369A1]">
+                      {items.length} niveaux
                     </span>
                   </div>
-                  <h2 className="text-slate-800 font-semibold text-base mb-3">{f.nom}</h2>
-                  <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
-                    <span className="flex items-center gap-1"><Users size={13} className="text-[#0369A1]" /> {f.nb_groupes ?? 0} groupe(s)</span>
-                    <span className="flex items-center gap-1"><UserCheck size={13} className="text-[#0369A1]" /> {f.nb_etudiants ?? 0} étudiant(s)</span>
+                  <h2 className="text-slate-800 font-semibold text-base mb-3">{base}</h2>
+                  <div className="grid grid-cols-3 gap-1.5 mb-3">
+                    {items.map((item) => (
+                      <span
+                        key={item.id}
+className="text-[11px] font-medium h-9 flex items-center justify-center rounded-full bg-[#DCEBFA] text-[#0369A1]"
+                      >
+                        {getLevel(item.nom)}
+                      </span>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
-                    {f.heures > 0 && (
-                      <span className="flex items-center gap-1"><Clock size={13} /> {f.heures}h</span>
-                    )}
-                    <span className="flex items-center gap-1">
-                      <DollarSign size={13} /> {Number(f.prix).toLocaleString()} DA
-                    </span>
-                  </div>
-<div className="flex items-center gap-2 flex-wrap">
-  <button
-    onClick={() => navigate(`/admin/formations/${f.id}/groups`)}
-    className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1] bg-[#DCEBFA] border border-[#0369A1]/20 px-3 py-1.5 rounded-full hover:bg-[#c9e2f7] hover:shadow-sm active:scale-95 transition"
-  >
-    <Users size={13} /> Groupes <ChevronRight size={13} />
-  </button>
-  <button
-    onClick={() => {
-      setSearch('');
-      fetchInscriptionsByFormation(f);
-      setView('formation_inscriptions');
-    }}
-    className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-600/20 px-3 py-1.5 rounded-full hover:bg-emerald-100 hover:shadow-sm active:scale-95 transition"
-  >
-    <UserCheck size={13} /> Inscriptions <ChevronRight size={13} />
-  </button>
-  <button
-    onClick={() => navigate(`/admin/formations/${f.id}/emplois`)}
-    className="flex items-center gap-1.5 text-xs font-medium text-violet-600 bg-violet-50 border border-violet-600/20 px-3 py-1.5 rounded-full hover:bg-violet-100 hover:shadow-sm active:scale-95 transition"
-  >
-    <CalendarDays size={13} /> Emplois global <ChevronRight size={13} />
-  </button>
-  <button
-    onClick={() => setEditingFormation(f)}
-    className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 hover:shadow-sm active:scale-95 transition"
-  >
-    <Pencil size={13} /> Modifier
-  </button>
-
-  <button
-    onClick={() => handleDelete(f)}
-    className="flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 border border-red-500/20 px-3 py-1.5 rounded-full hover:bg-red-100 hover:shadow-sm active:scale-95 transition"
-  >
-    <Trash2 size={13} /> Supprimer
-  </button>
-</div>
+                  <p className="text-xs text-slate-400 flex items-center gap-1 mt-auto">
+                    Voir les niveaux <ChevronRight size={13} />
+                  </p>
                 </div>
               ))}
+              {nonLangueFormations.map(renderCard)}
             </div>
           )}
         </>
       )}
 
       {/* VIEW: Tout les inscriptions confirmés */}
-      {view === 'all_inscriptions' && !loadingInscriptions && !error && (
-        <InscriptionsTable />
+{view === 'all_inscriptions' && !loadingInscriptions && !error && (
+        <>
+          <div className="relative mb-6 max-w-xs">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Rechercher (nom, formation, téléphone)..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+            />
+          </div>
+          <InscriptionsTable />
+        </>
       )}
 
       {/* VIEW: Inscriptions par formation */}
       {view === 'formation_inscriptions' && !loadingInscriptions && !error && (
         <>
           <div className="flex items-center gap-1.5 text-xs mb-2">
-            <button onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); }} className="text-slate-400 hover:text-[#0369A1] hover:underline transition">
+            <button onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); setSelectedGroup(null); }} className="text-slate-400 hover:text-[#0369A1] hover:underline transition">
               Formations
             </button>
             <ChevronRight size={12} className="text-slate-300" />
@@ -322,7 +411,7 @@ const handleDelete = async (formation) => {
           </div>
           <div className="flex items-center gap-3 mb-2">
             <button
-              onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); }}
+              onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); setSelectedGroup(null); }}
               className="w-8 h-8 flex items-center justify-center rounded-full border border-[#F1F5F9] hover:bg-[#DCEBFA] transition"
             >
               <ArrowLeft size={16} className="text-[#0369A1]" />

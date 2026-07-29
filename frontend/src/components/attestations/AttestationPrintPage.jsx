@@ -127,7 +127,7 @@ const AttestationPrintPage = () => {
 
   return (
     <div className="min-h-screen bg-neutral-200">
-      <div className="print:hidden sticky top-0 z-10 flex items-center gap-4 bg-neutral-100 border-b border-neutral-300 px-6 py-3">
+<div className="print:hidden sticky top-0 z-50 flex items-center gap-4 bg-neutral-100 border-b border-neutral-300 px-6 py-3">
         <span className="text-sm text-neutral-600">
           {attestations.length} attestation(s) prête(s)
         </span>

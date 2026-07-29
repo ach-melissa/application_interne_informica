@@ -177,12 +177,6 @@ return (
 <div className="flex items-center justify-between print:hidden">
   <p className="text-sm text-slate-400">{sessions.length} séance(s)</p>
   <div className="flex items-center gap-2">
-    <button
-      onClick={() => window.print()}
-      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#DCEBFA] text-[#0369A1] text-xs font-medium rounded-lg hover:bg-[#F8FCFF] transition"
-    >
-      🖨️ Imprimer
-    </button>
     {!readOnly && (
       <button
         onClick={() => setAddingSession(true)}
