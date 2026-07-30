@@ -20,14 +20,20 @@ const PointageTab = ({ groupId, etudiants, group, readOnly = false }) => {
   const [loading, setLoading] = useState(true);
   const [addingSession, setAddingSession] = useState(false);
   const [newDate, setNewDate] = useState('');
+  const [newType, setNewType] = useState('normale');
   const [editingCell, setEditingCell] = useState(null);
-  const [ficheInfo, setFicheInfo] = useState({ jours_formation: '', heure_formation: '' });
+const [ficheInfo, setFicheInfo] = useState({
+    date_debut: '', date_fin: '',
+    jours_formation: '', heure_formation: '',
+  });
   const [savingInfo, setSavingInfo] = useState(false);
   const dropdownRef = useRef(null);
 
   // ── Sync ficheInfo when group loads ─────────────────────
-  useEffect(() => {
-    if (group) setFicheInfo({
+useEffect(() => {
+if (group) setFicheInfo({
+      date_debut: group.date_debut ?? '',
+      date_fin: group.date_fin ?? '',
       jours_formation: group.jours_formation ?? '',
       heure_formation: group.heure_formation ?? '',
     });
@@ -68,7 +74,7 @@ const PointageTab = ({ groupId, etudiants, group, readOnly = false }) => {
     };
     fetchData();
   }, [groupId]);
-
+  
   // ── Save fiche info (jours/heure) ────────────────────────
   const saveInfo = async () => {
     setSavingInfo(true);
@@ -83,14 +89,20 @@ const PointageTab = ({ groupId, etudiants, group, readOnly = false }) => {
   };
 
   // ── Update durée séance ──────────────────────────────────
-  const updateDuree = async (sessionId, duree) => {
-    await fetch(`${API}/api/sessions/${sessionId}`, {
+const updateDuree = async (sessionId, duree) => {
+  try {
+    const res = await fetch(`${API}/api/sessions/${sessionId}`, {
       method: 'PATCH',
       headers: getHeaders(),
       body: JSON.stringify({ duree }),
     });
+    if (!res.ok) throw new Error('Échec de la sauvegarde de la durée');
     setSessions(prev => prev.map(x => x.id === sessionId ? { ...x, duree } : x));
-  };
+  } catch (err) {
+    console.error(err);
+    alert('La durée n\'a pas pu être enregistrée. Réessayez.');
+  }
+};
 
   // ── Update statut ────────────────────────────────────────
   const updateStatut = async (session_id, etudiant_id, next) => {
@@ -123,13 +135,14 @@ const PointageTab = ({ groupId, etudiants, group, readOnly = false }) => {
   const addSession = async () => {
     if (!newDate) return;
     try {
-      const res = await fetch(`${API}/api/sessions`, {
+const res = await fetch(`${API}/api/sessions`, {
         method: 'POST', headers: getHeaders(),
-        body: JSON.stringify({ group_id: groupId, date: newDate, statut: 'effectuee' }),
+        body: JSON.stringify({ group_id: groupId, date: newDate, statut: 'effectuee', type_seance: newType }),
       });
       const data = await res.json();
       setSessions(s => [...s, data].sort((a, b) => new Date(a.date) - new Date(b.date)));
-      setNewDate('');
+setNewDate('');
+      setNewType('normale');
       setAddingSession(false);
     } catch (err) { console.error(err); }
   };
@@ -210,6 +223,17 @@ return (
                   className="w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors"
                 />
               </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Type de séance</p>
+                <select
+                  value={newType}
+                  onChange={e => setNewType(e.target.value)}
+                  className="w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors"
+                >
+                  <option value="normale">Normale</option>
+                  <option value="remplacement">Remplacement</option>
+                </select>
+              </div>
               <div className="flex justify-end gap-2 pt-1">
                 <button onClick={() => setAddingSession(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
                 <button onClick={addSession} disabled={!newDate}
@@ -225,13 +249,29 @@ return (
       <div id="pointage-print-area">
       {/* ── Fiche info header ── */}
       <div className="bg-white border border-[#F1F5F9] rounded-xl px-4 py-3 text-xs text-slate-800 space-y-2">
-        <div className="flex gap-6 flex-wrap items-center">
-          <span><strong>Formation :</strong> {group?.formations?.nom ?? '—'}</span>
-          <span><strong>Date de début :</strong> {firstDate}</span>
-          <span><strong>Date de fin :</strong> {lastDate}</span>
+<div className="flex gap-6 flex-wrap items-center">
+<span><strong>Formation :</strong> {group?.formations?.nom ?? '—'}</span>
+          <label className="flex items-center gap-1.5">
+            <strong>Date de début :</strong>
+            {readOnly ? (
+              <span className="px-1">{ficheInfo.date_debut ? formatDate(ficheInfo.date_debut) : firstDate}</span>
+            ) : (
+              <input type="date" value={ficheInfo.date_debut} onChange={e => setFicheInfo(f => ({ ...f, date_debut: e.target.value }))} onBlur={saveInfo}
+                className="border-b border-slate-300 bg-transparent focus:outline-none focus:border-[#0369A1] px-1" />
+            )}
+          </label>
+          <label className="flex items-center gap-1.5">
+            <strong>Date de fin :</strong>
+            {readOnly ? (
+              <span className="px-1">{ficheInfo.date_fin ? formatDate(ficheInfo.date_fin) : lastDate}</span>
+            ) : (
+              <input type="date" value={ficheInfo.date_fin} onChange={e => setFicheInfo(f => ({ ...f, date_fin: e.target.value }))} onBlur={saveInfo}
+                className="border-b border-slate-300 bg-transparent focus:outline-none focus:border-[#0369A1] px-1" />
+            )}
+          </label>
         </div>
         <div className="flex gap-4 flex-wrap items-center">
-          <span>
+<span>
             <strong>Enseignant :</strong>{' '}
             {group?.teacher?.user
               ? `${group.teacher.user.nom} ${group.teacher.user.prenom}`
@@ -301,7 +341,18 @@ return (
                   </td>
                 ))}
               </tr>
-
+<tr className="bg-[#F8FCFF]">
+                <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-[#F8FCFF] z-10">
+                  Type
+                </td>
+                {sessions.map(s => (
+                  <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center">
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${s.type_seance === 'remplacement' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                      {s.type_seance === 'remplacement' ? 'Remplacement' : 'Normale'}
+                    </span>
+                  </td>
+                ))}
+              </tr>
               {/* ── Durée (editable) ── */}
               <tr className="bg-[#F8FCFF]">
                 <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-[#F8FCFF] z-10">

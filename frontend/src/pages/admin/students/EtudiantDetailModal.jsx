@@ -430,7 +430,9 @@ const [wilayas, setWilayas]       = useState([]);
               {opts.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           : <input type={type} value={form[field]} onChange={set(field)} className={inp} />
-        : <p className="text-xs text-slate-700 font-medium">{form[field] || '—'}</p>}
+        : field === 'telephone' && form[field]
+          ? <a href={`tel:${form[field]}`} className="text-xs text-[#0369A1] font-medium hover:underline">{form[field]}</a>
+          : <p className="text-xs text-slate-700 font-medium">{form[field] || '—'}</p>}
     </Row>
   );
 

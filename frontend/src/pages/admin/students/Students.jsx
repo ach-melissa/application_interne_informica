@@ -226,7 +226,11 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
                           <span className="font-medium text-slate-700 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
                         </div>
                       </td>
-                    <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.telephone ?? '—'}</td>
+<td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
+                      {i.etudiant?.telephone ? (
+                        <a href={`tel:${i.etudiant.telephone}`} className="hover:text-[#0369A1] hover:underline">{i.etudiant.telephone}</a>
+                      ) : '—'}
+                    </td>
 <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.wilaya ?? '—'}</td>
                       <td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
                         {i.formation?.nom

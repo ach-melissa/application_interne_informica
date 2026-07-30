@@ -12,10 +12,10 @@ const getSessions = async (req, res) => {
 };
 
 const createSession = async (req, res) => {
-  const { group_id, date, statut } = req.body;
+  const { group_id, date, statut, type_seance } = req.body;
   const { data, error } = await supabase
     .from('sessions')
-    .insert({ group_id, date, statut: statut ?? 'effectuee' })
+    .insert({ group_id, date, statut: statut ?? 'effectuee', type_seance: type_seance ?? 'normale' })
     .select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
