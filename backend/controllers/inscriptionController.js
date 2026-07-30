@@ -22,22 +22,28 @@ const getInscriptions = async (req, res) => {
     }
   }
 
-  const { data, error } = await query;
+const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
 
-  // La page d'impression appelle cette route au chargement :
-  // on marque les attestations comme imprimées à ce moment-là.
-  if (idList.length > 0 && data?.length > 0) {
-    const { error: printErr } = await supabase
-      .from('inscriptions')
-      .update({ attestation_imprimee: true })
-      .in('id', idList);
+  res.json(data);
+};
 
-    if (printErr) return res.status(500).json({ error: printErr.message });
-    data.forEach((d) => { d.attestation_imprimee = true; });
+// Marque les attestations comme imprimées — appelé uniquement
+// quand l'admin confirme réellement l'impression
+const markAttestationsPrinted = async (req, res) => {
+  const { ids } = req.body; // tableau d'UUIDs
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids requis' });
   }
 
-  res.json(data);
+  const { error } = await supabase
+    .from('inscriptions')
+    .update({ attestation_imprimee: true })
+    .in('id', ids);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 };
 
 const assignToGroup = async (req, res) => {
@@ -54,4 +60,4 @@ const assignToGroup = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-module.exports = { getInscriptions, assignToGroup };
+module.exports = { getInscriptions, assignToGroup, markAttestationsPrinted };

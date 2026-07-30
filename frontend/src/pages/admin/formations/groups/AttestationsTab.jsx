@@ -26,6 +26,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
   const [periode, setPeriode] = useState('');
   const [dateSignature, setDateSignature] = useState('');
 const [payments, setPayments] = useState([]);
+const [justPrinted, setJustPrinted] = useState(new Set());
 
 useEffect(() => {
   const fetchPayments = async () => {
@@ -43,10 +44,14 @@ useEffect(() => {
   fetchPayments();
 }, [groupId]);
 
-const isEligible = (i) => {
-  const p = payments.find(p => p.studentId === i.etudiant?.id);
+const isPrinted = (inscriptionId, attestationImprimee) =>
+  attestationImprimee || justPrinted.has(inscriptionId);
+
+const isEligible = (inscription) => {
+  const p = payments.find(p => p.studentId === inscription.etudiant?.id);
   const paid = !p || p.remaining <= 0;
-  return paid && !i.attestation_imprimee;
+  const printed = isPrinted(inscription.id, inscription.attestation_imprimee);
+  return paid && !printed;
 };
 
   const toggle = (id) => {
@@ -58,7 +63,7 @@ const isEligible = (i) => {
   };
 
 const toggleAll = () => {
-  const eligibleIds = etudiants.filter(i => isEligible(i.etudiant?.id)).map(i => i.id);
+  const eligibleIds = etudiants.filter(i => isEligible(i)).map(i => i.id);
   setSelectedIds(prev =>
     prev.size === eligibleIds.length && eligibleIds.length > 0 ? new Set() : new Set(eligibleIds)
   );
@@ -69,10 +74,29 @@ const toggleAll = () => {
     setShowPrintModal(true);
   };
 
-  const handleConfirmPrint = () => {
-    const ids = Array.from(selectedIds).join(',');
+const handleConfirmPrint = async () => {
+    const idsArray = Array.from(selectedIds);
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions/mark-printed`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ids: idsArray }),
+      });
+
+      if (res.ok) {
+        setJustPrinted(prev => new Set([...prev, ...idsArray]));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
     const params = new URLSearchParams({
-      ids,
+      ids: idsArray.join(','),
       periode,
       dateSignature,
     });
@@ -81,6 +105,7 @@ const toggleAll = () => {
       '_blank'
     );
     setShowPrintModal(false);
+    setSelectedIds(new Set()); 
   };
 
   const handleExportExcel = () => {
@@ -152,7 +177,7 @@ const toggleAll = () => {
               ) : etudiants.map((i, idx) => {
                 const sm = statutMeta[i.statut];
                 const checked = selectedIds.has(i.id);
-                const eligible = isEligible(i.etudiant?.id);
+                const eligible = isEligible(i);
                 return (
 <tr
   onClick={() => eligible && toggle(i.id)}
@@ -182,13 +207,13 @@ const toggleAll = () => {
  <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
                       {i.etudiant?.date_naissance ? new Date(i.etudiant.date_naissance).toLocaleDateString('fr-FR') : '—'}
                     </td>
-                    <td className="px-3 py-2.5 border-b border-[#E2E8F0]">
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                        i.attestation_imprimee ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-sky-600'
-                      }`}>
-                        {i.attestation_imprimee ? 'Oui' : 'Non'}
-                      </span>
-                    </td>
+<td className="px-3 py-2.5 border-b border-[#E2E8F0]">
+  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+    isPrinted(i.id, i.attestation_imprimee) ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-sky-600'
+  }`}>
+    {isPrinted(i.id, i.attestation_imprimee) ? 'Oui' : 'Non'}
+  </span>
+</td>
                     <td className="px-3 py-2.5 border-b border-[#E2E8F0]">
                       <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}>
                         {sm?.label ?? i.statut}

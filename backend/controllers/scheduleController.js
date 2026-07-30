@@ -12,7 +12,23 @@ const getGroupSchedule = async (req, res) => {
 
 const createSchedule = async (req, res) => {
   const { group_id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin } = req.body;
-  const { data, error } = await supabase
+
+  // ← NOUVEAU : ces 12 lignes n'existaient pas avant
+  const { data: conflicts, error: conflictErr } = await supabase
+    .from('schedules')
+    .select('id, heure_debut, heure_fin')
+    .eq('salle', salle)
+    .eq('jour_semaine', jour_semaine)
+    .lt('heure_debut', heure_fin)
+    .gt('heure_fin', heure_debut);
+
+  if (conflictErr) return res.status(500).json({ error: conflictErr.message });
+  if (conflicts.length > 0) {
+    return res.status(409).json({
+      error: `${salle} est déjà occupée ce jour-là de ${conflicts[0].heure_debut} à ${conflicts[0].heure_fin}.`,
+    });
+  }
+  const { data, error } = await supabase 
     .from('schedules')
     .insert({ group_id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin })
     .select()
@@ -24,7 +40,34 @@ const createSchedule = async (req, res) => {
 const updateSchedule = async (req, res) => {
   const { id } = req.params;
   const { contenu, heure_debut, heure_fin } = req.body;
-  const { data, error } = await supabase
+
+  // ← NOUVEAU : tout ce bloc n'existait pas avant
+  if (heure_debut && heure_fin) {
+    const { data: current, error: curErr } = await supabase
+      .from('schedules')
+      .select('salle, jour_semaine')
+      .eq('id', id)
+      .single();
+    if (curErr) return res.status(500).json({ error: curErr.message });
+
+    const { data: conflicts, error: conflictErr } = await supabase
+      .from('schedules')
+      .select('id, heure_debut, heure_fin')
+      .eq('salle', current.salle)
+      .eq('jour_semaine', current.jour_semaine)
+      .neq('id', id)
+      .lt('heure_debut', heure_fin)
+      .gt('heure_fin', heure_debut);
+
+    if (conflictErr) return res.status(500).json({ error: conflictErr.message });
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        error: `${current.salle} est déjà occupée ce jour-là de ${conflicts[0].heure_debut} à ${conflicts[0].heure_fin}.`,
+      });
+    }
+  }
+
+  const { data, error } = await supabase 
     .from('schedules')
     .update({ contenu, heure_debut, heure_fin })
     .eq('id', id)
@@ -41,6 +84,17 @@ const deleteSchedule = async (req, res) => {
   res.json({ success: true });
 };
 
+const renameSalle = async (req, res) => {
+  const { oldName, newName } = req.body;
+  if (!oldName || !newName) return res.status(400).json({ error: 'oldName et newName requis' });
+  const { data, error } = await supabase
+    .from('schedules')
+    .update({ salle: newName })
+    .eq('salle', oldName)
+    .select();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
 
 const getProfSchedule = async (req, res) => {
   const userId = req.user.id;
@@ -104,5 +158,27 @@ const getSchedulesByFormation = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
+const getAllSchedules = async (req, res) => {
+  const { data, error } = await supabase
+    .from('schedules')
+    .select(`
+      *,
+      groups (
+        id,
+        nom,
+        formations (
+          id,
+          nom
+        )
+      ),
+users:prof_id (
+  id,
+  nom,
+  prenom
+)
+    `);
 
-module.exports = { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule , getProfSchedule ,getSchedulesByFormation  };
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+module.exports = { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule,renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules };

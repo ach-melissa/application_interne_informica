@@ -1,84 +1,206 @@
+import { useState, useMemo } from 'react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
 import {
-  Users, BookOpen, AlertTriangle, MapPin,
+  Users, BookOpen, AlertTriangle, MapPin, Share2,
 } from 'lucide-react';
 
 // ────────────────────────────────────────────────────────────
 // DONNÉES STATIQUES (mock) — à remplacer par des fetch API plus tard
 // ────────────────────────────────────────────────────────────
 
-const formations = [
-  { nom: 'Anglais A1',              groupes: 2, etudiants: 34 },
-  { nom: 'Anglais B1',              groupes: 1, etudiants: 12 },
-  { nom: 'Informatique Bureautique',groupes: 3, etudiants: 45 },
-  { nom: 'Comptabilité',            groupes: 1, etudiants: 8  },
-  { nom: 'Français A1',             groupes: 0, etudiants: 0  },
-  { nom: 'Allemand A1',             groupes: 0, etudiants: 0  },
-  { nom: 'Design Graphique',        groupes: 0, etudiants: 0  },
+// ────────────────────────────────────────────────────────────
+// DONNÉES BRUTES MOCK — une ligne par inscription
+// (à remplacer plus tard par un fetch API type: GET /api/inscriptions/stats)
+// ────────────────────────────────────────────────────────────
+
+const rawInscriptions = [
+  { annee: 2025, mois: 'Jan', formation: 'Anglais A1', wilaya: 'Oran', age: 33, apporteur: 'Yacine Meziane', source: 'TikTok' },
+  { annee: 2025, mois: 'Jan', formation: 'Anglais B1', wilaya: 'Constantine', age: 34, apporteur: 'Amina Cherif', source: 'Facebook' },
+  { annee: 2025, mois: 'Jan', formation: 'Informatique Bureautique', wilaya: 'Constantine', age: 37, apporteur: 'Karim Boudiaf', source: 'Publicité' },
+  { annee: 2025, mois: 'Jan', formation: 'Comptabilité', wilaya: 'Blida', age: 20, apporteur: 'Amina Cherif', source: 'Bouche-à-oreille' },
+  { annee: 2025, mois: 'Jan', formation: 'Anglais A1', wilaya: 'Tipaza', age: 24, apporteur: 'Yacine Meziane', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Jan', formation: 'Anglais A1', wilaya: 'Oran', age: 33, apporteur: 'Yacine Meziane', source: 'Bouche-à-oreille' },
+  { annee: 2025, mois: 'Fév', formation: 'Comptabilité', wilaya: 'Béjaïa', age: 23, apporteur: 'Ahmed Benali', source: 'Publicité' },
+  { annee: 2025, mois: 'Fév', formation: 'Anglais A1', wilaya: 'Blida', age: 31, apporteur: 'Karim Boudiaf', source: 'Facebook' },
+  { annee: 2025, mois: 'Fév', formation: 'Informatique Bureautique', wilaya: 'Constantine', age: 19, apporteur: 'Ahmed Benali', source: 'Facebook' },
+  { annee: 2025, mois: 'Fév', formation: 'Anglais B1', wilaya: 'Béjaïa', age: 36, apporteur: 'Sara Khaled', source: 'Amis/Famille' },
+  { annee: 2025, mois: 'Mar', formation: 'Anglais A1', wilaya: 'Béjaïa', age: 29, apporteur: 'Amina Cherif', source: 'Publicité' },
+  { annee: 2025, mois: 'Mar', formation: 'Anglais B1', wilaya: 'Tipaza', age: 31, apporteur: 'Sara Khaled', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Mar', formation: 'Informatique Bureautique', wilaya: 'Oran', age: 21, apporteur: 'Yacine Meziane', source: 'TikTok' },
+  { annee: 2025, mois: 'Mar', formation: 'Comptabilité', wilaya: 'Alger', age: 27, apporteur: 'Sara Khaled', source: 'Instagram' },
+  { annee: 2025, mois: 'Avr', formation: 'Comptabilité', wilaya: 'Oran', age: 30, apporteur: 'Ahmed Benali', source: 'TikTok' },
+  { annee: 2025, mois: 'Avr', formation: 'Informatique Bureautique', wilaya: 'Tipaza', age: 33, apporteur: 'Sara Khaled', source: 'Facebook' },
+  { annee: 2025, mois: 'Avr', formation: 'Anglais B1', wilaya: 'Oran', age: 27, apporteur: 'Karim Boudiaf', source: 'Publicité' },
+  { annee: 2025, mois: 'Avr', formation: 'Anglais A1', wilaya: 'Alger', age: 21, apporteur: 'Sara Khaled', source: 'Amis/Famille' },
+  { annee: 2025, mois: 'Avr', formation: 'Comptabilité', wilaya: 'Blida', age: 21, apporteur: 'Ahmed Benali', source: 'Bouche-à-oreille' },
+  { annee: 2025, mois: 'Avr', formation: 'Anglais B1', wilaya: 'Oran', age: 34, apporteur: 'Karim Boudiaf', source: 'Amis/Famille' },
+  { annee: 2025, mois: 'Mai', formation: 'Anglais A1', wilaya: 'Oran', age: 35, apporteur: 'Ahmed Benali', source: 'Bouche-à-oreille' },
+  { annee: 2025, mois: 'Mai', formation: 'Anglais B1', wilaya: 'Constantine', age: 28, apporteur: 'Sara Khaled', source: 'Bouche-à-oreille' },
+  { annee: 2025, mois: 'Mai', formation: 'Informatique Bureautique', wilaya: 'Oran', age: 34, apporteur: 'Yacine Meziane', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Mai', formation: 'Comptabilité', wilaya: 'Boumerdès', age: 20, apporteur: 'Ahmed Benali', source: 'Amis/Famille' },
+  { annee: 2025, mois: 'Mai', formation: 'Anglais A1', wilaya: 'Constantine', age: 33, apporteur: 'Ahmed Benali', source: 'Facebook' },
+  { annee: 2025, mois: 'Jun', formation: 'Comptabilité', wilaya: 'Constantine', age: 37, apporteur: 'Amina Cherif', source: 'TikTok' },
+  { annee: 2025, mois: 'Jun', formation: 'Anglais B1', wilaya: 'Boumerdès', age: 33, apporteur: 'Amina Cherif', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Jun', formation: 'Anglais A1', wilaya: 'Boumerdès', age: 35, apporteur: 'Sara Khaled', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Jun', formation: 'Informatique Bureautique', wilaya: 'Béjaïa', age: 30, apporteur: 'Ahmed Benali', source: 'Instagram' },
+  { annee: 2025, mois: 'Jun', formation: 'Anglais A1', wilaya: 'Boumerdès', age: 27, apporteur: 'Sara Khaled', source: 'Amis/Famille' },
+  { annee: 2025, mois: 'Jul', formation: 'Informatique Bureautique', wilaya: 'Béjaïa', age: 24, apporteur: 'Amina Cherif', source: 'Instagram' },
+  { annee: 2025, mois: 'Jul', formation: 'Anglais B1', wilaya: 'Sétif', age: 24, apporteur: 'Yacine Meziane', source: 'Instagram' },
+  { annee: 2025, mois: 'Jul', formation: 'Anglais A1', wilaya: 'Alger', age: 21, apporteur: 'Yacine Meziane', source: 'Facebook' },
+  { annee: 2025, mois: 'Jul', formation: 'Comptabilité', wilaya: 'Tipaza', age: 27, apporteur: 'Yacine Meziane', source: 'Bouche-à-oreille' },
+  { annee: 2025, mois: 'Jul', formation: 'Anglais A1', wilaya: 'Boumerdès', age: 33, apporteur: 'Sara Khaled', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Jul', formation: 'Informatique Bureautique', wilaya: 'Blida', age: 26, apporteur: 'Karim Boudiaf', source: 'Instagram' },
+  { annee: 2025, mois: 'Aoû', formation: 'Anglais A1', wilaya: 'Sétif', age: 34, apporteur: 'Sara Khaled', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Aoû', formation: 'Anglais B1', wilaya: 'Oran', age: 22, apporteur: 'Amina Cherif', source: 'Bouche-à-oreille' },
+  { annee: 2025, mois: 'Aoû', formation: 'Comptabilité', wilaya: 'Boumerdès', age: 26, apporteur: 'Karim Boudiaf', source: 'TikTok' },
+  { annee: 2025, mois: 'Aoû', formation: 'Informatique Bureautique', wilaya: 'Boumerdès', age: 25, apporteur: 'Karim Boudiaf', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Aoû', formation: 'Anglais B1', wilaya: 'Blida', age: 20, apporteur: 'Amina Cherif', source: 'Amis/Famille' },
+  { annee: 2025, mois: 'Aoû', formation: 'Comptabilité', wilaya: 'Boumerdès', age: 19, apporteur: 'Yacine Meziane', source: 'Publicité' },
+  { annee: 2025, mois: 'Sep', formation: 'Informatique Bureautique', wilaya: 'Sétif', age: 23, apporteur: 'Amina Cherif', source: 'TikTok' },
+  { annee: 2025, mois: 'Sep', formation: 'Anglais B1', wilaya: 'Boumerdès', age: 26, apporteur: 'Yacine Meziane', source: 'TikTok' },
+  { annee: 2025, mois: 'Sep', formation: 'Anglais A1', wilaya: 'Alger', age: 35, apporteur: 'Sara Khaled', source: 'TikTok' },
+  { annee: 2025, mois: 'Sep', formation: 'Comptabilité', wilaya: 'Tipaza', age: 21, apporteur: 'Karim Boudiaf', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Sep', formation: 'Anglais A1', wilaya: 'Blida', age: 37, apporteur: 'Amina Cherif', source: 'TikTok' },
+  { annee: 2025, mois: 'Oct', formation: 'Comptabilité', wilaya: 'Blida', age: 30, apporteur: 'Yacine Meziane', source: 'Publicité' },
+  { annee: 2025, mois: 'Oct', formation: 'Informatique Bureautique', wilaya: 'Alger', age: 23, apporteur: 'Karim Boudiaf', source: 'Publicité' },
+  { annee: 2025, mois: 'Oct', formation: 'Anglais B1', wilaya: 'Blida', age: 28, apporteur: 'Yacine Meziane', source: 'Bouche-à-oreille' },
+  { annee: 2025, mois: 'Oct', formation: 'Anglais A1', wilaya: 'Blida', age: 23, apporteur: 'Sara Khaled', source: 'Instagram' },
+  { annee: 2025, mois: 'Oct', formation: 'Informatique Bureautique', wilaya: 'Boumerdès', age: 23, apporteur: 'Ahmed Benali', source: 'TikTok' },
+  { annee: 2025, mois: 'Oct', formation: 'Informatique Bureautique', wilaya: 'Sétif', age: 20, apporteur: 'Yacine Meziane', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Nov', formation: 'Anglais A1', wilaya: 'Tipaza', age: 26, apporteur: 'Karim Boudiaf', source: 'Instagram' },
+  { annee: 2025, mois: 'Nov', formation: 'Anglais B1', wilaya: 'Blida', age: 19, apporteur: 'Sara Khaled', source: 'Amis/Famille' },
+  { annee: 2025, mois: 'Nov', formation: 'Informatique Bureautique', wilaya: 'Oran', age: 20, apporteur: 'Amina Cherif', source: 'Bouche-à-oreille' },
+  { annee: 2025, mois: 'Nov', formation: 'Comptabilité', wilaya: 'Blida', age: 26, apporteur: 'Sara Khaled', source: 'Publicité' },
+  { annee: 2025, mois: 'Nov', formation: 'Comptabilité', wilaya: 'Boumerdès', age: 32, apporteur: 'Yacine Meziane', source: 'Facebook' },
+  { annee: 2025, mois: 'Nov', formation: 'Comptabilité', wilaya: 'Constantine', age: 33, apporteur: 'Ahmed Benali', source: 'Publicité' },
+  { annee: 2025, mois: 'Déc', formation: 'Anglais A1', wilaya: 'Constantine', age: 18, apporteur: 'Karim Boudiaf', source: 'Publicité' },
+  { annee: 2025, mois: 'Déc', formation: 'Anglais B1', wilaya: 'Béjaïa', age: 25, apporteur: 'Amina Cherif', source: 'Recherche Google' },
+  { annee: 2025, mois: 'Déc', formation: 'Comptabilité', wilaya: 'Sétif', age: 24, apporteur: 'Karim Boudiaf', source: 'TikTok' },
+  { annee: 2025, mois: 'Déc', formation: 'Informatique Bureautique', wilaya: 'Boumerdès', age: 36, apporteur: 'Ahmed Benali', source: 'TikTok' },
+  { annee: 2025, mois: 'Déc', formation: 'Anglais A1', wilaya: 'Oran', age: 38, apporteur: 'Karim Boudiaf', source: 'Bouche-à-oreille' },
+  { annee: 2025, mois: 'Déc', formation: 'Anglais B1', wilaya: 'Sétif', age: 22, apporteur: 'Karim Boudiaf', source: 'Facebook' },
+  { annee: 2026, mois: 'Jan', formation: 'Anglais A1', wilaya: 'Béjaïa', age: 29, apporteur: 'Yacine Meziane', source: 'TikTok' },
+  { annee: 2026, mois: 'Jan', formation: 'Anglais B1', wilaya: 'Blida', age: 37, apporteur: 'Amina Cherif', source: 'Publicité' },
+  { annee: 2026, mois: 'Jan', formation: 'Comptabilité', wilaya: 'Sétif', age: 18, apporteur: 'Ahmed Benali', source: 'Publicité' },
+  { annee: 2026, mois: 'Fév', formation: 'Comptabilité', wilaya: 'Constantine', age: 25, apporteur: 'Sara Khaled', source: 'Publicité' },
+  { annee: 2026, mois: 'Fév', formation: 'Informatique Bureautique', wilaya: 'Constantine', age: 28, apporteur: 'Sara Khaled', source: 'Bouche-à-oreille' },
+  { annee: 2026, mois: 'Fév', formation: 'Anglais B1', wilaya: 'Oran', age: 24, apporteur: 'Karim Boudiaf', source: 'Bouche-à-oreille' },
+  { annee: 2026, mois: 'Fév', formation: 'Anglais A1', wilaya: 'Blida', age: 24, apporteur: 'Yacine Meziane', source: 'Recherche Google' },
+  { annee: 2026, mois: 'Mar', formation: 'Anglais B1', wilaya: 'Béjaïa', age: 26, apporteur: 'Yacine Meziane', source: 'Instagram' },
+  { annee: 2026, mois: 'Mar', formation: 'Comptabilité', wilaya: 'Oran', age: 30, apporteur: 'Sara Khaled', source: 'Instagram' },
+  { annee: 2026, mois: 'Mar', formation: 'Informatique Bureautique', wilaya: 'Constantine', age: 29, apporteur: 'Karim Boudiaf', source: 'Instagram' },
+  { annee: 2026, mois: 'Mar', formation: 'Anglais A1', wilaya: 'Boumerdès', age: 35, apporteur: 'Yacine Meziane', source: 'Publicité' },
+  { annee: 2026, mois: 'Mar', formation: 'Informatique Bureautique', wilaya: 'Alger', age: 18, apporteur: 'Sara Khaled', source: 'Instagram' },
+  { annee: 2026, mois: 'Avr', formation: 'Comptabilité', wilaya: 'Tipaza', age: 19, apporteur: 'Yacine Meziane', source: 'TikTok' },
+  { annee: 2026, mois: 'Avr', formation: 'Anglais A1', wilaya: 'Constantine', age: 27, apporteur: 'Sara Khaled', source: 'Recherche Google' },
+  { annee: 2026, mois: 'Avr', formation: 'Anglais B1', wilaya: 'Alger', age: 21, apporteur: 'Sara Khaled', source: 'Bouche-à-oreille' },
+  { annee: 2026, mois: 'Avr', formation: 'Informatique Bureautique', wilaya: 'Tipaza', age: 37, apporteur: 'Karim Boudiaf', source: 'Facebook' },
+  { annee: 2026, mois: 'Avr', formation: 'Anglais A1', wilaya: 'Blida', age: 25, apporteur: 'Ahmed Benali', source: 'Publicité' },
+  { annee: 2026, mois: 'Mai', formation: 'Anglais A1', wilaya: 'Alger', age: 22, apporteur: 'Karim Boudiaf', source: 'Publicité' },
+  { annee: 2026, mois: 'Mai', formation: 'Informatique Bureautique', wilaya: 'Oran', age: 32, apporteur: 'Karim Boudiaf', source: 'Facebook' },
+  { annee: 2026, mois: 'Mai', formation: 'Comptabilité', wilaya: 'Alger', age: 21, apporteur: 'Ahmed Benali', source: 'Amis/Famille' },
+  { annee: 2026, mois: 'Mai', formation: 'Anglais B1', wilaya: 'Boumerdès', age: 19, apporteur: 'Yacine Meziane', source: 'Bouche-à-oreille' },
+  { annee: 2026, mois: 'Mai', formation: 'Comptabilité', wilaya: 'Blida', age: 34, apporteur: 'Amina Cherif', source: 'Instagram' },
+  { annee: 2026, mois: 'Jun', formation: 'Anglais B1', wilaya: 'Alger', age: 21, apporteur: 'Ahmed Benali', source: 'Publicité' },
+  { annee: 2026, mois: 'Jun', formation: 'Comptabilité', wilaya: 'Béjaïa', age: 27, apporteur: 'Amina Cherif', source: 'Amis/Famille' },
+  { annee: 2026, mois: 'Jun', formation: 'Anglais A1', wilaya: 'Alger', age: 26, apporteur: 'Karim Boudiaf', source: 'Amis/Famille' },
+  { annee: 2026, mois: 'Jun', formation: 'Informatique Bureautique', wilaya: 'Béjaïa', age: 27, apporteur: 'Ahmed Benali', source: 'Instagram' },
+  { annee: 2026, mois: 'Jun', formation: 'Anglais B1', wilaya: 'Tipaza', age: 38, apporteur: 'Sara Khaled', source: 'Recherche Google' },
+  { annee: 2026, mois: 'Jul', formation: 'Comptabilité', wilaya: 'Blida', age: 37, apporteur: 'Karim Boudiaf', source: 'Instagram' },
+  { annee: 2026, mois: 'Jul', formation: 'Informatique Bureautique', wilaya: 'Béjaïa', age: 30, apporteur: 'Amina Cherif', source: 'Instagram' },
+  { annee: 2026, mois: 'Jul', formation: 'Anglais B1', wilaya: 'Constantine', age: 23, apporteur: 'Karim Boudiaf', source: 'Bouche-à-oreille' },
+  { annee: 2026, mois: 'Jul', formation: 'Anglais A1', wilaya: 'Blida', age: 19, apporteur: 'Ahmed Benali', source: 'Publicité' },
 ];
 
-const formationsOubliees = formations.filter(
-  (f) => f.groupes === 0 && f.etudiants === 0
-);
-
-const formationsActives = formations.filter(
-  (f) => !(f.groupes === 0 && f.etudiants === 0)
-);
-
-const totalEtudiants = formations.reduce((sum, f) => sum + f.etudiants, 0);
-
-const wilayaData = [
-  { wilaya: 'Alger',     etudiants: 120 },
-  { wilaya: 'Blida',     etudiants: 45  },
-  { wilaya: 'Boumerdès', etudiants: 30  },
-  { wilaya: 'Tipaza',    etudiants: 22  },
-  { wilaya: 'Oran',      etudiants: 15  },
-  { wilaya: 'Constantine',etudiants: 10 },
-  { wilaya: 'Béjaïa',    etudiants: 8   },
-  { wilaya: 'Sétif',     etudiants: 5   },
+// Liste des formations connues (y compris celles jamais lancées)
+const toutesLesFormations = [
+  'Anglais A1', 'Anglais B1', 'Informatique Bureautique',
+  'Comptabilité', 'Français A1', 'Allemand A1', 'Design Graphique',
 ];
 
-const ageData = [
-  { tranche: '15-18', etudiants: 40 },
-  { tranche: '19-22', etudiants: 85 },
-  { tranche: '23-26', etudiants: 60 },
-  { tranche: '27-30', etudiants: 35 },
-  { tranche: '31-40', etudiants: 20 },
-  { tranche: '40+',   etudiants: 10 },
-];
+const wilayasConnues = ['Alger', 'Blida', 'Boumerdès', 'Tipaza', 'Oran', 'Constantine', 'Béjaïa', 'Sétif'];
 
-// Personnes ayant amené le plus d'étudiants (parrainage / apporteur)
-const topApporteurs = [
-  { nom: 'Ahmed Benali',   etudiants: 25 },
-  { nom: 'Sara Khaled',    etudiants: 18 },
-  { nom: 'Yacine Meziane', etudiants: 15 },
-  { nom: 'Amina Cherif',   etudiants: 12 },
-  { nom: 'Karim Boudiaf',  etudiants: 9  },
-];
+const anneesDisponibles = [...new Set(rawInscriptions.map((i) => i.annee))].sort((a, b) => b - a);
 
-// Inscriptions par mois + formation la plus demandée ce mois-là
-const monthlyData = [
-  { mois: 'Jan', inscriptions: 8,  topFormation: 'Anglais A1',              topCount: 5 },
-  { mois: 'Fév', inscriptions: 12, topFormation: 'Informatique Bureautique',topCount: 7 },
-  { mois: 'Mar', inscriptions: 20, topFormation: 'Informatique Bureautique',topCount: 11 },
-  { mois: 'Avr', inscriptions: 15, topFormation: 'Anglais A1',              topCount: 8  },
-  { mois: 'Mai', inscriptions: 25, topFormation: 'Anglais B1',              topCount: 13 },
-  { mois: 'Jun', inscriptions: 19, topFormation: 'Comptabilité',            topCount: 9  },
-   { mois: 'Jun', inscriptions: 19, topFormation: 'Comptabilité',            topCount: 9  },
-    { mois: 'Jun', inscriptions: 19, topFormation: 'Comptabilité',            topCount: 9  },
-     { mois: 'Jun', inscriptions: 19, topFormation: 'Comptabilité',            topCount: 9  },
-      { mois: 'Jun', inscriptions: 19, topFormation: 'Comptabilité',            topCount: 9  },
-       { mois: 'Jun', inscriptions: 19, topFormation: 'Comptabilité',            topCount: 9  },
-        { mois: 'Jun', inscriptions: 19, topFormation: 'Comptabilité',            topCount: 9  },
-];
+const moisOrdre = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
-const topFormations = [...formationsActives]
-  .sort((a, b) => b.etudiants - a.etudiants)
-  .map((f) => ({ nom: f.nom, etudiants: f.etudiants }));
+const trancheAge = (age) => {
+  if (age <= 18) return '15-18';
+  if (age <= 22) return '19-22';
+  if (age <= 26) return '23-26';
+  if (age <= 30) return '27-30';
+  if (age <= 40) return '31-40';
+  return '40+';
+};
+
+const computeStats = (data) => {
+  const totalEtudiants = data.length;
+
+  const formationsCount = toutesLesFormations.map((nom) => {
+    const inscriptions = data.filter((i) => i.formation === nom);
+    return { nom, etudiants: inscriptions.length };
+  });
+
+  const formationsActives = formationsCount.filter((f) => f.etudiants > 0);
+  const formationsOubliees = formationsCount.filter((f) => f.etudiants === 0);
+
+  const wilayaData = wilayasConnues
+    .map((wilaya) => ({ wilaya, etudiants: data.filter((i) => i.wilaya === wilaya).length }))
+    .filter((w) => w.etudiants > 0);
+
+  const tranches = ['15-18', '19-22', '23-26', '27-30', '31-40', '40+'];
+  const ageData = tranches.map((tranche) => ({
+    tranche,
+    etudiants: data.filter((i) => trancheAge(i.age) === tranche).length,
+  }));
+
+  const apporteurCounts = {};
+  data.forEach((i) => {
+    if (!i.apporteur) return;
+    apporteurCounts[i.apporteur] = (apporteurCounts[i.apporteur] || 0) + 1;
+  });
+  const topApporteurs = Object.entries(apporteurCounts)
+    .map(([nom, etudiants]) => ({ nom, etudiants }))
+    .sort((a, b) => b.etudiants - a.etudiants)
+    .slice(0, 5);
+
+  const sourceCounts = {};
+  data.forEach((i) => {
+    if (!i.source) return;
+    sourceCounts[i.source] = (sourceCounts[i.source] || 0) + 1;
+  });
+  const sourceData = Object.entries(sourceCounts)
+    .map(([source, etudiants]) => ({ source, etudiants }))
+    .sort((a, b) => b.etudiants - a.etudiants);
+
+  const monthlyMap = {};
+  data.forEach((i) => {
+    if (!monthlyMap[i.mois]) monthlyMap[i.mois] = { mois: i.mois, inscriptions: 0, formationCounts: {} };
+    monthlyMap[i.mois].inscriptions += 1;
+    monthlyMap[i.mois].formationCounts[i.formation] =
+      (monthlyMap[i.mois].formationCounts[i.formation] || 0) + 1;
+  });
+  const monthlyData = moisOrdre
+    .filter((m) => monthlyMap[m])
+    .map((m) => {
+      const entry = monthlyMap[m];
+      const [topFormation, topCount] = Object.entries(entry.formationCounts)
+        .sort((a, b) => b[1] - a[1])[0] || ['—', 0];
+      return { mois: m, inscriptions: entry.inscriptions, topFormation, topCount };
+    });
+
+  const topFormations = [...formationsActives].sort((a, b) => b.etudiants - a.etudiants);
+
+  return {
+    totalEtudiants, formationsActives, formationsOubliees,
+    wilayaData, ageData, topApporteurs, sourceData, monthlyData, topFormations,
+  };
+};
+
 
 // ────────────────────────────────────────────────────────────
 // COMPOSANTS UTILITAIRES
@@ -134,12 +256,64 @@ const MonthlyTooltip = ({ active, payload, label }) => {
 // ────────────────────────────────────────────────────────────
 
 const Statistique = () => {
+  const [selectedYear, setSelectedYear] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState('all');
+
+  const filteredData = useMemo(() => {
+    return rawInscriptions.filter((i) => {
+      const yearMatch = selectedYear === 'all' || i.annee === Number(selectedYear);
+      const monthMatch = selectedMonth === 'all' || i.mois === selectedMonth;
+      return yearMatch && monthMatch;
+    });
+  }, [selectedYear, selectedMonth]);
+
+  const stats = useMemo(() => computeStats(filteredData), [filteredData]);
+
+  const {
+    totalEtudiants, formationsActives, formationsOubliees,
+    wilayaData, ageData, topApporteurs, sourceData, monthlyData, topFormations,
+  } = stats;
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-lg font-bold text-slate-800">Statistique</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Vue d'ensemble de l'activité</p>
+<div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-lg font-bold text-slate-800">Statistique</h1>
+            <p className="text-sm text-slate-400 mt-0.5">
+              {selectedYear === 'all'
+                ? "Vue d'ensemble globale (toutes années)"
+                : `Vue d'ensemble — ${selectedYear}${selectedMonth !== 'all' ? ` / ${selectedMonth}` : ''}`}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedYear}
+              onChange={(e) => {
+                setSelectedYear(e.target.value);
+                setSelectedMonth('all'); // reset le mois quand on change d'année
+              }}
+              className="text-xs font-medium text-slate-600 bg-white border border-[#E2E8F0] rounded-full px-3.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer"
+            >
+              <option value="all">Toutes les années</option>
+              {anneesDisponibles.map((annee) => (
+                <option key={annee} value={annee}>{annee}</option>
+              ))}
+            </select>
+
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              disabled={selectedYear === 'all'}
+              className="text-xs font-medium text-slate-600 bg-white border border-[#E2E8F0] rounded-full px-3.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <option value="all">Tous les mois</option>
+              {moisOrdre.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* ── Cartes résumé ── */}
@@ -271,6 +445,30 @@ const Statistique = () => {
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
+
+          <ChartCard title="Étudiants par source (comment ils nous ont connus)">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={sourceData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                <XAxis
+                  dataKey="source"
+                  tick={{ fontSize: 10, fill: '#64748B' }}
+                  interval={0}
+                  angle={-20}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} allowDecimals={false} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F8FAFC' }} />
+                <Bar dataKey="etudiants" radius={[6, 6, 0, 0]}>
+                  {sourceData.map((_, i) => (
+                    <Cell key={i} fill={i === 0 ? '#0F2A4A' : '#0369A1'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
         </div>
       </div>
     </AdminLayout>
