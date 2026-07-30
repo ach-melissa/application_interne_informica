@@ -57,87 +57,160 @@ const FICHE_HEADER = {
   rc: 'RC 353671752-00/A16',
 };
 
+const ICONS = {
+  pin: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+  phone: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+  mail: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
+  globe: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></svg>`,
+};
+
 function buildFicheInner(logoHtml, rows) {
   return `
-    <div class="top-line"></div>
-    <div class="header">
-      ${logoHtml}
-      <div class="contact">
-        <div>${FICHE_HEADER.address}</div>
-        <div>${FICHE_HEADER.phone}</div>
-        <div>${FICHE_HEADER.email} | ${FICHE_HEADER.site} | ${FICHE_HEADER.rc}</div>
+    <div class="frame">
+      <div class="header">
+        <div class="logo-block">${logoHtml}</div>
+        <div class="contact">
+          <div class="contact-row">${ICONS.pin}<span>${FICHE_HEADER.address}</span></div>
+          <div class="contact-row">${ICONS.phone}<span>${FICHE_HEADER.phone}</span></div>
+          <div class="contact-row">${ICONS.mail}<span>${FICHE_HEADER.email} &nbsp;|&nbsp; ${FICHE_HEADER.rc}</span></div>
+          <div class="contact-row">${ICONS.globe}<span>${FICHE_HEADER.site}</span></div>
+        </div>
       </div>
-    </div>
-    <div class="title">
-      <h1>École de Formation</h1>
-      <h1>INFORMICA</h1>
-    </div>
-    <div class="fields">
-     ${rows.map(r => `
-  <div class="row">
-    <span class="row-fr">${r.fr}${r.fr ? ' :' : ''}</span>
-    <div class="row-line ${r.value ? 'filled' : ''} ${r.key === 'adresse' ? 'row-line-tall' : ''}"><span class="row-value">${r.value}</span></div>
-    <span class="row-ar">${r.ar ? `: ${r.ar}` : ''}</span>
-  </div>`).join('')}
-    </div>
-    <div class="footer">
-      <div><p class="sig-label">إمضاء المعني</p><div class="sig-box"></div></div>
-      <div class="date-line">التاريخ : .... / .... / ........</div>
-    </div>
-    <div class="bottom-line"></div>`;
+      <div class="header-line"></div>
+
+      <div class="title">
+        <h1>Fiche d'Inscription</h1>
+        <p class="subtitle">École de Formation</p>
+        <div class="brand-line">
+          <span class="line"></span>
+          <span class="brand">INFORMICA</span>
+          <span class="line"></span>
+        </div>
+      </div>
+
+      <div class="fields">
+        ${rows.map(r => `
+          <div class="row">
+            <span class="row-fr">${r.fr}${r.fr ? ' :' : ''}</span>
+            <div class="row-line ${r.value ? 'filled' : ''} ${r.key === 'adresse' ? 'row-line-tall' : ''}"><span class="row-value">${r.value}</span></div>
+            <span class="row-ar">${r.ar ? `: ${r.ar}` : ''}</span>
+          </div>`).join('')}
+      </div>
+
+      <div class="footer">
+        <div>
+          <p class="sig-label">
+            <span class="fr">Signature</span>
+            <span class="sep">/</span>
+            <span class="ar">إمضاء المعني</span>
+          </p>
+          <div class="sig-box"></div>
+        </div>
+        <div class="date-line">
+          <span class="fr">Date :</span> .... / .... / ........
+          
+          <span class="ar">التاريخ 
+        </div>
+      </div>
+    </div>`;
 }
 
 const FICHE_CSS = `
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  body{font-family:'Helvetica Neue',Arial,sans-serif;color:#000;font-size:13px;background:#f1f5f9}
+  body{font-family:'Helvetica Neue',Arial,sans-serif;color:#171717;font-size:13px;background:#f1f5f9}
+
   .toolbar{position:sticky;top:0;background:#0F2A4A;padding:10px 16px;display:flex;gap:10px;justify-content:flex-end;z-index:10}
   .toolbar button{font-size:13px;font-weight:600;padding:7px 16px;border-radius:8px;border:none;cursor:pointer}
   .btn-print{background:#0369A1;color:#fff}
   .btn-download{background:#16a34a;color:#fff}
   .btn-close{background:transparent;color:#fff;border:1px solid #475569 !important}
-  .top-line{border-top:2px solid #000;margin-bottom:1.25rem;width:100%}
-  .bottom-line{position:absolute;left:16mm;right:16mm;bottom:18mm;border-top:2px solid #000}
-  .row-line-tall{
-    height:2.8rem;
-    border-bottom:none;
-    align-items:flex-start;
-    background-image:repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.4rem - 1px), #000 1.4rem, #000 calc(1.4rem + 1px));
-    background-size:100% 1.4rem;
-    background-repeat:repeat-y;
+
+  .page-wrap{display:flex;justify-content:center;padding:24px 16px}
+  .sheet{
+    width:210mm;height:297mm;
+    background:#fff;padding:10mm;border-radius:4px;
+    box-shadow:0 1px 4px rgba(0,0,0,.15);
+    position:relative;
+    overflow:hidden;
   }
+
+  /* Cadre autour de la feuille */
+  .frame{
+    height:100%;
+    border:1.4px solid #0F2A4A;
+    border-radius:2px;
+    padding:9mm 10mm;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* Header — logo gauche / contact droite */
+  .header{display:flex;justify-content:space-between;align-items:center;gap:16px}
+  .logo-block img{height:58px;width:auto;object-fit:contain}
+  .logo-text{font-size:1.5rem;font-weight:700;letter-spacing:.06em;color:#0F2A4A}
+
+  .contact{display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+  .contact-row{display:flex;align-items:center;gap:6px;font-size:9.5px;color:#334155;font-weight:500}
+  .contact-row svg{color:#0F2A4A;flex-shrink:0}
+  .contact-row span{white-space:nowrap}
+
+  .header-line{height:2px;background:#0F2A4A;margin:10px 0 1.6rem}
+
+  /* Title */
+  .title{text-align:center;margin-bottom:2rem}
+  .title h1{font-size:1.9rem;font-weight:700;letter-spacing:.03em;color:#171717;text-transform:uppercase}
+  .subtitle{font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#64748B;font-weight:500;margin-top:.3rem}
+  .brand-line{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:.6rem}
+  .brand-line .line{width:70px;height:1px;background:#CBD5E1}
+  .brand{font-size:1rem;font-weight:600;letter-spacing:.14em;color:#171717}
+
+  /* Fields */
+  .fields{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:1.5rem}
+  .row{display:flex;align-items:flex-end;gap:10px}
+  .row-fr{font-size:13px;font-weight:500;white-space:nowrap;width:160px;flex-shrink:0;color:#334155}
+  .row-line{
+    flex:1;min-width:0;height:1.5rem;display:flex;align-items:flex-end;
+    border-bottom:1.5px dotted #94A3B8;
+  }
+  .row-line.filled{
+    border-bottom:none;
+  }
+  .row-value{display:block;width:100%;white-space:normal;word-break:break-word;font-size:14px;font-weight:600;line-height:1;padding-bottom:5px;color:#171717}
+  .row-ar{font-size:13px;font-weight:500;white-space:nowrap;width:135px;flex-shrink:0;text-align:right;direction:rtl;color:#64748B}
+
+ .row-line-tall{
+  height:2.8rem;
+  border-bottom:none;
+  align-items:flex-start;
+}
+.row-line-tall:not(.filled){
+  background-image:repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.4rem - 1px), #94A3B8 1.4rem, #94A3B8 calc(1.4rem + 1px));
+  background-size:100% 1.4rem;
+  background-repeat:repeat-y;
+}
   .row-line-tall .row-value{
     display:block;
     width:100%;
     white-space:normal;
     line-height:1.4rem;
+    padding-bottom:0;
   }
-  .page-wrap{display:flex;justify-content:center;padding:24px 16px}
-  .sheet{
-  width:210mm;height:297mm;
-  background:#fff;padding:18mm 16mm;border-radius:4px;
-  display:flex;flex-direction:column;
-  box-shadow:0 1px 4px rgba(0,0,0,.15);
-  position:relative;
-  overflow:hidden;
-}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:1rem;margin-bottom:1rem}
-  .logo-text{font-size:1.8rem;font-weight:900;letter-spacing:.1em}
-  .contact{font-size:10px;text-align:right;line-height:1.7;color:#6b7280}
-  .title{text-align:center;margin-bottom:2.25rem}
-  .title p{font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:#6b7280;margin-bottom:.25rem}
-  .title h1{font-size:2.2rem;font-weight:900;letter-spacing:.08em;color:#000}
-  .fields{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:2rem}
-  .row{display:flex;align-items:flex-end;gap:8px}
-  .row-fr{font-size:16px;font-weight:600;white-space:nowrap;width:180px;flex-shrink:0}
-  .row-line{flex:1;min-width:0;border-bottom:1px dotted #000;height:1.3rem;display:flex;align-items:flex-end}
-  .row-value{display:block;width:100%;white-space:normal;word-break:break-word;font-size:16px;line-height:1;padding-bottom:2px}
-  .row-ar{font-size:16px;font-weight:600;white-space:nowrap;width:150px;flex-shrink:0;text-align:right;direction:rtl}
-  .row-line.filled{border-bottom:none}
-  .footer{margin-top:2.5rem;padding-top:1.5rem;display:flex;justify-content:space-between;align-items:flex-start}
-  .sig-label{font-size:13px;margin-bottom:.5rem;font-weight:600;direction:rtl}
-  .sig-box{width:180px;height:72px;border-radius:6px}
-  .date-line{font-size:13px;direction:rtl}
+
+  /* Footer */
+  .footer{margin-top:2.4rem;padding-top:1.3rem;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:flex-start}
+
+  .sig-label{font-size:11.5px;margin-bottom:.55rem;font-weight:500;color:#334155;display:flex;align-items:center;gap:6px}
+  .sig-label .fr{direction:ltr}
+  .sig-label .ar{direction:rtl}
+  .sig-label .sep{color:#CBD5E1}
+
+  .sig-box{width:175px;height:62px;border:1px dashed #CBD5E1;border-radius:6px}
+
+  .date-line{font-size:11.5px;color:#334155;padding-top:.3rem;display:flex;align-items:center;gap:6px;direction:ltr}
+  .date-line .fr{font-weight:500}
+  .date-line .ar{direction:rtl}
+  .date-line .sep{color:#CBD5E1}
 
   @media print {
     .toolbar{display:none}
@@ -187,28 +260,33 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess, readOnly = false
   const [confirmSave, setConfirmSave] = useState(false);
   const [error, setError]           = useState(null);
   const [formations, setFormations] = useState([]);
-
+const [wilayas, setWilayas]       = useState([]);
   const [form, setForm] = useState({
-    nom: e?.nom ?? '', prenom: e?.prenom ?? '', telephone: e?.telephone ?? '',
-    email: e?.email ?? '', adresse: e?.adresse ?? '',
-    niveau_scolaire: e?.niveau_scolaire ?? '',
-    date_naissance: e?.date_naissance?.slice(0, 10) ?? '',
-    lieu_naissance: e?.lieu_naissance ?? '',
-    source: inscription?.source ?? '',
-    registered_by: inscription?.registered_by ?? '',
-    statut: inscription?.statut ?? 'pending',
-    first_try: inscription?.first_try ?? '',
-    second_try: inscription?.second_try ?? '',
-    third_try: inscription?.third_try ?? '',
-    formation_id: inscription?.formation_id ?? '',
-  });
+  nom: e?.nom ?? '', prenom: e?.prenom ?? '', telephone: e?.telephone ?? '',
+  email: e?.email ?? '', adresse: e?.adresse ?? '',
+  niveau_scolaire: e?.niveau_scolaire ?? '',
+  date_naissance: e?.date_naissance?.slice(0, 10) ?? '',
+  lieu_naissance: e?.lieu_naissance ?? '',
+  wilaya: e?.wilaya ?? '',
+  source: inscription?.source ?? '',
+  registered_by: inscription?.registered_by ?? '',
+  statut: inscription?.statut ?? 'pending',
+  first_try: inscription?.first_try ?? '',
+  second_try: inscription?.second_try ?? '',
+  third_try: inscription?.third_try ?? '',
+  formation_id: inscription?.formation_id ?? '',
+});
 
-  useEffect(() => {
-    fetch(`${API}/api/formations`, { headers: getHeaders() })
-      .then(r => r.json())
-      .then(data => setFormations(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, []);
+ useEffect(() => {
+  fetch(`${API}/api/formations`, { headers: getHeaders() })
+    .then(r => r.json())
+    .then(data => setFormations(Array.isArray(data) ? data : []))
+    .catch(() => {});
+  fetch(`${API}/api/enums`, { headers: getHeaders() })
+    .then(r => r.json())
+    .then(e => setWilayas(e.wilaya || []))
+    .catch(() => {});
+}, []);
 
   if (!inscription) return null;
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
@@ -228,8 +306,8 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess, readOnly = false
       });
 
       const fd = new FormData();
-      ['nom','prenom','telephone','email','adresse','niveau_scolaire','date_naissance','lieu_naissance']
-        .forEach(k => { if (form[k] !== undefined) fd.append(k, form[k]); });
+['nom','prenom','telephone','email','adresse','niveau_scolaire','date_naissance','lieu_naissance','wilaya']
+  .forEach(k => { if (form[k] !== undefined) fd.append(k, form[k]); });
       if (files.photo)          fd.append('photo',          files.photo);
       if (files.piece_identite) fd.append('piece_identite', files.piece_identite);
 
@@ -475,7 +553,8 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess, readOnly = false
             <Field icon={Phone}         label="Téléphone"       field="telephone" />
             <Field icon={Mail}          label="Email"           field="email" />
             <Field icon={Calendar}      label="Date naissance"  field="date_naissance" type="date" />
-            <Field icon={MapPin}        label="Lieu naissance"  field="lieu_naissance" />
+            <Field icon={MapPin} label="Lieu naissance" field="lieu_naissance" />
+<Field icon={MapPin} label="Wilaya" field="wilaya" select opts={wilayas} />
             <Field icon={GraduationCap} label="Niveau scolaire" field="niveau_scolaire" />
             <div className="col-span-2">
               <Field icon={MapPin} label="Adresse" field="adresse" />
@@ -545,21 +624,27 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess, readOnly = false
               </p>
             </Row>
             <Field icon={Radio}     label="Source"         field="source"        select opts={SOURCE_OPTS} />
-            <Field icon={UserCheck} label="Enregistré par" field="registered_by" select opts={REGISTERED_OPTS} />
-
+            <Field icon={UserCheck} label="Rapporteur" field="registered_by" select opts={REGISTERED_OPTS} />
             <div className="col-span-2 grid grid-cols-3 gap-3 pt-3 border-t border-[#F1F5F9] mt-1">
               <TryField label="1er appel"  field="first_try"  />
               <TryField label="2ème appel" field="second_try" prev="first_try" />
               <TryField label="3ème appel" field="third_try"  prev="second_try" />
             </div>
 
-            <div className="col-span-2 pt-3 border-t border-[#F1F5F9] mt-1">
-              <Row icon={UserCheck} label="Groupe">
-                <p className="text-xs text-slate-700 font-medium">
-                  {inscription.groups?.nom ?? <span className="text-slate-400 font-normal">—</span>}
-                </p>
-              </Row>
-            </div>
+           <div className="col-span-2 pt-3 border-t border-[#F1F5F9] mt-1">
+  <Row icon={UserCheck} label="Groupe">
+    <p className="text-xs text-slate-700 font-medium">
+      {inscription.groups?.nom ?? <span className="text-slate-400 font-normal">—</span>}
+    </p>
+  </Row>
+</div>
+<div className="col-span-2">
+  <Row icon={UserCheck} label="Ajouté par">
+    <p className="text-xs text-slate-700 font-medium">
+      {inscription.added_by ?? <span className="text-slate-400 font-normal">— (inscription en ligne)</span>}
+    </p>
+  </Row>
+</div>
           </div>
         </div>
       </div>

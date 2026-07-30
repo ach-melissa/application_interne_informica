@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Search, Plus, X, CheckCircle2, Phone, PhoneCall, Users,
-  Radio, UserCheck, CalendarDays, Megaphone,
+  Radio, UserCheck, CalendarDays, Megaphone, MapPin,
 } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddEtudiantModal from './AddEtudiantModal';
@@ -66,8 +66,9 @@ const FilterSelect = ({ icon: Icon, label, value, onChange, opts, display }) => 
 );
 
 const Students = () => {
-  const [etudiants, setEtudiants]   = useState([]);
-  const [formations, setFormations] = useState([]);
+const [etudiants, setEtudiants]   = useState([]);
+const [formations, setFormations] = useState([]);
+const [wilayas, setWilayas]       = useState([]);
   const [search, setSearch]         = useState('');
   const [filters, setFilters]       = useState({});
   const [dateFrom, setDateFrom]     = useState('');
@@ -77,16 +78,17 @@ const Students = () => {
   const [showAdd, setShowAdd]       = useState(false);
   const [selected, setSelected]     = useState(null);
 
-  useEffect(() => {
-    const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-    Promise.all([
-      fetch(`${API}/api/etudiants`,  { headers: h }).then(r => r.json()),
-      fetch(`${API}/api/formations`, { headers: h }).then(r => r.json()),
-    ])
-      .then(([e, f]) => { setEtudiants(e); setFormations(f); })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+useEffect(() => {
+  const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+  Promise.all([
+    fetch(`${API}/api/etudiants`,  { headers: h }).then(r => r.json()),
+    fetch(`${API}/api/formations`, { headers: h }).then(r => r.json()),
+    fetch(`${API}/api/enums`,      { headers: h }).then(r => r.json()),
+  ])
+    .then(([e, f, en]) => { setEtudiants(e); setFormations(f); setWilayas(en.wilaya || []); })
+    .catch(err => setError(err.message))
+    .finally(() => setLoading(false));
+}, []);
 
   const refetch = () => {
     const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
@@ -111,6 +113,7 @@ const Students = () => {
     if (filters.source        && i.source           !== filters.source)         return false;
     if (filters.registered_by && i.registered_by    !== filters.registered_by)  return false;
     if (filters.formation     && i.formation?.nom   !== filters.formation)      return false;
+if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         return false;
     if (dateFrom && i.date_inscription && new Date(i.date_inscription) < new Date(dateFrom)) return false;
     if (dateTo   && i.date_inscription && new Date(i.date_inscription) > new Date(dateTo))   return false;
     return true;
@@ -120,17 +123,19 @@ const Students = () => {
   const clearAll = () => { setFilters({}); setDateFrom(''); setDateTo(''); setSearch(''); };
 
   const COLS = [
-    { label: 'Étudiant',   Icon: null,        width: 130 },
-    { label: 'Tél.',       Icon: Phone,       width: 80 },
-    { label: 'Formation',  Icon: Users,       width: 150 },
-    { label: 'Date',       Icon: CalendarDays,width: 75  },
-    { label: '1er appel',  Icon: PhoneCall,   width: 95  },
-    { label: '2ème appel', Icon: PhoneCall,   width: 95  },
-    { label: '3ème appel', Icon: PhoneCall,   width: 95  },
-    { label: 'Source',     Icon: Megaphone,   width: 105 },
-    { label: 'Par',        Icon: UserCheck,   width: 70  },
-    { label: 'Statut',     Icon: CheckCircle2,width: 96 },
-  ];
+  { label: 'Étudiant',    Icon: null,        width: 130 },
+  { label: 'Tél.',        Icon: Phone,       width: 80  },
+  { label: 'Wilaya',      Icon: MapPin,      width: 110 },
+  { label: 'Formation',   Icon: Users,       width: 140 },
+  { label: 'Date',        Icon: CalendarDays,width: 75  },
+  { label: '1er appel',   Icon: PhoneCall,   width: 90  },
+  { label: '2ème appel',  Icon: PhoneCall,   width: 90  },
+  { label: '3ème appel',  Icon: PhoneCall,   width: 90  },
+  { label: 'Source',      Icon: Megaphone,   width: 100 },
+  { label: 'Rapporteur',  Icon: UserCheck,   width: 80  },
+  { label: 'Ajouté par',  Icon: UserCheck,   width: 90  },
+  { label: 'Statut',      Icon: CheckCircle2,width: 96  },
+];
 
   return (
     <AdminLayout>
@@ -159,8 +164,8 @@ const Students = () => {
         <FilterSelect icon={CheckCircle2} label="Statut"         value={filters.statut || ''}        onChange={v => setFilter('statut', v)}        opts={STATUT_OPTS}               display={o => statutMeta[o]?.label ?? o} />
         <FilterSelect icon={Radio}        label="Source"          value={filters.source || ''}        onChange={v => setFilter('source', v)}        opts={SOURCE_OPTS} />
         <FilterSelect icon={UserCheck}    label="Enregistré par"  value={filters.registered_by || ''} onChange={v => setFilter('registered_by', v)} opts={REGISTERED_OPTS} />
-        <FilterSelect icon={Users}        label="Formation"       value={filters.formation || ''}     onChange={v => setFilter('formation', v)}     opts={formations.map(f => f.nom)} />
-
+     <FilterSelect icon={Users}   label="Formation" value={filters.formation || ''} onChange={v => setFilter('formation', v)} opts={formations.map(f => f.nom)} />
+<FilterSelect icon={MapPin}  label="Wilaya"    value={filters.wilaya || ''}    onChange={v => setFilter('wilaya', v)}    opts={wilayas} />
         <div className="w-px h-5 bg-[#E2E8F0]" />
 
         <div className="flex items-center gap-1.5 bg-white rounded-full px-3 py-1 border border-[#E2E8F0]">
@@ -221,7 +226,8 @@ const Students = () => {
                           <span className="font-medium text-slate-700 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.telephone ?? '—'}</td>
+                    <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.telephone ?? '—'}</td>
+<td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.wilaya ?? '—'}</td>
                       <td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
                         {i.formation?.nom
                           ? <span className="bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium truncate block max-w-full">{i.formation.nom}</span>
@@ -252,15 +258,18 @@ const Students = () => {
                         </select>
                       </td>
                       <td className="px-2 py-2 overflow-hidden border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
-                        <select
-                          value={i.registered_by ?? ''}
-                          onChange={e => updateField(i.id, 'registered_by', e.target.value || null)}
-                          className="text-[11px] font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none w-full bg-slate-100 text-slate-500"
-                        >
-                          <option value="">— aucun —</option>
-                          {REGISTERED_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      </td>
+  <select
+    value={i.registered_by ?? ''}
+    onChange={e => updateField(i.id, 'registered_by', e.target.value || null)}
+    className="text-[11px] font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none w-full bg-slate-100 text-slate-500"
+  >
+    <option value="">— aucun —</option>
+    {REGISTERED_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+  </select>
+</td>
+<td className="px-3 py-2 text-slate-400 truncate border-b border-[#E2E8F0]">
+  {i.added_by ?? '—'}
+</td>
                       <td className="px-2 py-2 overflow-hidden border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
                         <select
                           value={i.statut ?? 'pending'}
