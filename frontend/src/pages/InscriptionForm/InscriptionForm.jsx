@@ -6,9 +6,8 @@ import {
 import logo from '../../assets/images/logo_informica.png';
 
 const API = 'http://localhost:5000/api';
-const EMPTY = { nom: '', prenom: '', ddn: '', lieu: '', adresse: '', niveau: '', email: '', tel: '', formation_id: '', source: '' };
-const REQUIRED = ['nom', 'prenom', 'tel', 'formation_id', 'ddn', 'niveau'];
-
+const EMPTY = { nom: '', prenom: '', ddn: '', lieu: '', wilaya: '', adresse: '', niveau: '', email: '', tel: '', formation_id: '', source: '' };
+const REQUIRED = ['nom', 'prenom', 'tel', 'formation_id', 'ddn', 'niveau', 'wilaya'];
 const inp = (err) => `w-full border rounded-lg pl-9 pr-3 py-2.5 text-sm bg-white transition focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/30 focus:border-[#1E3A5F] ${err ? 'border-orange-400' : 'border-slate-200'}`;
 const lbl = 'block text-xs font-semibold text-slate-600 mb-1';
 const Req = () => <span className="text-orange-500">*</span>;
@@ -79,6 +78,7 @@ export default function InscriptionForm() {
   const [formations, setFormations] = useState([]);
   const [niveaux, setNiveaux] = useState([]);
   const [sources, setSources] = useState([]);
+  const [wilayas, setWilayas] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export default function InscriptionForm() {
       fetch(`${API}/formations`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }).then(r => r.json()),
       fetch(`${API}/enums`).then(r => r.json()),
     ])
-      .then(([f, e]) => { setFormations(Array.isArray(f) ? f : []); setNiveaux(e.niveau_scolaire || []); setSources(e.source || []); })
+     .then(([f, e]) => { setFormations(Array.isArray(f) ? f : []); setNiveaux(e.niveau_scolaire || []); setSources(e.source || []); setWilayas(e.wilaya || []); })
       .catch(() => setApiError('Impossible de charger les données.'))
       .finally(() => setLoading(false));
   }, []);
@@ -123,7 +123,7 @@ export default function InscriptionForm() {
           nom: form.nom, prenom: form.prenom, telephone: form.tel,
           email: form.email || null, adresse: form.adresse || null,
           niveau_scolaire: form.niveau, date_naissance: form.ddn,
-          lieu_naissance: form.lieu || null, formation_id: form.formation_id,
+         lieu_naissance: form.lieu || null, wilaya: form.wilaya, formation_id: form.formation_id,
           source: form.source || null,
         }),
       });
@@ -192,13 +192,13 @@ export default function InscriptionForm() {
   </div>
 ) : (
           <form onSubmit={handleSubmit} noValidate className="p-6 sm:p-8 space-y-8">
-
-            <Section icon={User} title="Informations personnelles" ar="المعلومات الشخصية">
-              <Field icon={User} label="Nom" ar="اللقب" field="nom" required placeholder="Nom de famille" form={form} errors={errors} set={set} />
-              <Field icon={User} label="Prénom" ar="الاسم" field="prenom" required placeholder="Prénom" form={form} errors={errors} set={set} />
-              <Field icon={Calendar} label="Date de naissance" ar="تاريخ الميلاد" field="ddn" type="date" required form={form} errors={errors} set={set} />
-              <Field icon={MapPin} label="Lieu de naissance" ar="مكان الميلاد" required field="lieu" placeholder="Ville" form={form} errors={errors} set={set} />
-            </Section>
+<Section icon={User} title="Informations personnelles" ar="المعلومات الشخصية">
+  <Field icon={User} label="Nom" ar="اللقب" field="nom" required placeholder="Nom de famille" form={form} errors={errors} set={set} />
+  <Field icon={User} label="Prénom" ar="الاسم" field="prenom" required placeholder="Prénom" form={form} errors={errors} set={set} />
+  <Field icon={Calendar} label="Date de naissance" ar="تاريخ الميلاد" field="ddn" type="date" required form={form} errors={errors} set={set} />
+  <Field icon={MapPin} label="Lieu de naissance" ar="مكان الميلاد" required field="lieu" placeholder="Ville" form={form} errors={errors} set={set} />
+  <Select icon={MapPin} label="Wilaya" ar="الولاية" field="wilaya" required options={wilayas} form={form} errors={errors} set={set} loading={loading} />
+</Section>
 
             <Section icon={Phone} title="Contact" ar="الاتصال">
               <Field icon={Phone} label="Téléphone" ar="رقم الهاتف" field="tel" required placeholder="05XXXXXXXX" inputMode="numeric" maxLength={10} form={form} errors={errors} set={set} />

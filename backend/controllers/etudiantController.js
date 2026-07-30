@@ -96,11 +96,24 @@ const restoreInscription = async (req, res) => {
 const createEtudiant = async (req, res) => {
   const {
     nom, prenom, telephone, email, adresse,
-    niveau_scolaire, date_naissance, lieu_naissance,
+    niveau_scolaire, date_naissance, lieu_naissance, wilaya,
     formation_id, source, registered_by,
   } = req.body;
 
-if (nom && prenom && formation_id) {
+  let addedByName = null;
+if (req.user?.id) {
+  const { data: adminUser, error: adminErr } = await supabase
+    .from('users')
+    .select('nom')
+    .eq('id', req.user.id)
+    .single();
+  if (adminErr) console.error('added_by lookup error:', adminErr);
+  addedByName = adminUser?.nom ?? null;
+} else {
+  addedByName = 'En ligne'; // 👈 au lieu de rester null
+}
+
+  if (nom && prenom && formation_id) {
     const { data: duplicate, error: dupErr } = await supabase
       .from('inscriptions')
       .select('id, etudiant:etudiant_id!inner(nom, prenom)')
@@ -118,7 +131,7 @@ if (nom && prenom && formation_id) {
   let photo = null;
   let piece_identite = null;
 
- if (req.files?.photo?.[0]) {
+  if (req.files?.photo?.[0]) {
     const file = req.files.photo[0];
     const ext = file.originalname.split('.').pop() || 'jpg';
     const path = `photos/${Date.now()}.${ext}`;
@@ -126,7 +139,7 @@ if (nom && prenom && formation_id) {
       .from('etudiants-docs')
       .upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
     if (uploadError) return res.status(500).json({ error: uploadError.message });
-    photo = supabase.storage.from('etudiants-docs').getPublicUrl(path).data.publicUrl; // 👈 photo not updates.photo
+    photo = supabase.storage.from('etudiants-docs').getPublicUrl(path).data.publicUrl;
   }
 
   if (req.files?.piece_identite?.[0]) {
@@ -142,7 +155,7 @@ if (nom && prenom && formation_id) {
 
   const { data: etudiant, error: etudiantErr } = await supabase
     .from('etudiants')
-    .insert({ nom, prenom, telephone, email, adresse, niveau_scolaire, date_naissance, lieu_naissance, photo, piece_identite })
+    .insert({ nom, prenom, telephone, email, adresse, niveau_scolaire, date_naissance, lieu_naissance, wilaya, photo, piece_identite })
     .select()
     .single();
 
@@ -153,6 +166,7 @@ if (nom && prenom && formation_id) {
     .insert({
       etudiant_id: etudiant.id,
       formation_id, source, registered_by,
+      added_by: addedByName,
       date_inscription: new Date().toISOString().split('T')[0],
       statut: 'pending',
     })
@@ -165,8 +179,8 @@ if (nom && prenom && formation_id) {
 
 const updateEtudiant = async (req, res) => {
   const { id } = req.params;
-  const { nom, prenom, telephone, email, adresse, niveau_scolaire, date_naissance, lieu_naissance } = req.body;
-  const updates = { nom, prenom, telephone, email, adresse, niveau_scolaire, date_naissance, lieu_naissance };
+  const { nom, prenom, telephone, email, adresse, niveau_scolaire, date_naissance, lieu_naissance, wilaya } = req.body;
+  const updates = { nom, prenom, telephone, email, adresse, niveau_scolaire, date_naissance, lieu_naissance, wilaya };
   console.log('updateEtudiant id:', id);
   console.log('updateEtudiant body:', req.body);
   console.log('updateEtudiant files:', req.files);

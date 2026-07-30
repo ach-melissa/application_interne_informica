@@ -36,6 +36,7 @@ model etudiants {
   photo           String?
   piece_identite  String?
   genre           String?               @default("homme")
+  wilaya          wilaya_enum?
   attendance      attendance[]
   inscriptions    inscriptions[]
   payments        payments[]
@@ -43,22 +44,23 @@ model etudiants {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model formations {
-  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nom           String            @db.VarChar(255)
-  prix          Decimal           @db.Decimal(10, 2)
-  heures        Int
-  teacher_id    String?           @db.Uuid
-  statut        formation_status? @default(active)
-  created_at    DateTime?         @default(now()) @db.Timestamp(6)
-  prix_etudiant Decimal?          @db.Decimal
-  tarif_mensuel Decimal?          @db.Decimal
-  description   String?
-  categorie     String?           @db.VarChar
-  attestations  attestations[]
-  teachers      teachers?         @relation(fields: [teacher_id], references: [id], onUpdate: NoAction)
-  groups        groups[]
-  inscriptions  inscriptions[]
-  payments      payments[]
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nom             String            @db.VarChar(255)
+  prix            Decimal           @db.Decimal(10, 2)
+  heures          Int
+  teacher_id      String?           @db.Uuid
+  statut          formation_status? @default(active)
+  created_at      DateTime?         @default(now()) @db.Timestamp(6)
+  prix_etudiant   Decimal?          @db.Decimal
+  tarif_mensuel   Decimal?          @db.Decimal
+  description     String?
+  categorie       String?           @db.VarChar
+  capacite_groupe Int?              @default(20)
+  attestations    attestations[]
+  teachers        teachers?         @relation(fields: [teacher_id], references: [id], onUpdate: NoAction)
+  groups          groups[]
+  inscriptions    inscriptions[]
+  payments        payments[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -83,24 +85,26 @@ model groups {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model inscriptions {
-  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  etudiant_id      String              @db.Uuid
-  formation_id     String              @db.Uuid
-  date_inscription DateTime?           @default(dbgenerated("CURRENT_DATE")) @db.Date
-  first_try        try_status?
-  second_try       try_status?
-  third_try        try_status?
-  registered_by    registered_by_enum?
-  source           source_enum?
-  statut           inscription_status? @default(pending)
-  created_at       DateTime?           @default(now()) @db.Timestamp(6)
-  group_id         String?             @db.Uuid
-  archived         Boolean?            @default(false)
-  annee_scolaire   String?
-  attestations     attestations[]
-  etudiants        etudiants           @relation(fields: [etudiant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  formations       formations          @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  groups           groups?             @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  etudiant_id          String              @db.Uuid
+  formation_id         String              @db.Uuid
+  date_inscription     DateTime?           @default(dbgenerated("CURRENT_DATE")) @db.Date
+  first_try            try_status?
+  second_try           try_status?
+  third_try            try_status?
+  registered_by        registered_by_enum?
+  source               source_enum?
+  statut               inscription_status? @default(pending)
+  created_at           DateTime?           @default(now()) @db.Timestamp(6)
+  group_id             String?             @db.Uuid
+  archived             Boolean?            @default(false)
+  annee_scolaire       String?
+  attestation_imprimee Boolean?            @default(false)
+  added_by             String?
+  attestations         attestations[]
+  etudiants            etudiants           @relation(fields: [etudiant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  formations           formations          @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  groups               groups?             @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -312,4 +316,65 @@ enum niveau_scolaire_enum {
   Master
   Doctorat
   Autre
+}
+
+enum wilaya_enum {
+  Adrar               @map("01 - Adrar")
+  Chlef               @map("02 - Chlef")
+  Laghouat            @map("03 - Laghouat")
+  Oum_El_Bouaghi      @map("04 - Oum El Bouaghi")
+  Batna               @map("05 - Batna")
+  B_ja_a              @map("06 - Béjaïa")
+  Biskra              @map("07 - Biskra")
+  B_char              @map("08 - Béchar")
+  Blida               @map("09 - Blida")
+  Bouira              @map("10 - Bouira")
+  Tamanrasset         @map("11 - Tamanrasset")
+  T_bessa             @map("12 - Tébessa")
+  Tlemcen             @map("13 - Tlemcen")
+  Tiaret              @map("14 - Tiaret")
+  Tizi_Ouzou          @map("15 - Tizi Ouzou")
+  Alger               @map("16 - Alger")
+  Djelfa              @map("17 - Djelfa")
+  Jijel               @map("18 - Jijel")
+  S_tif               @map("19 - Sétif")
+  Sa_da               @map("20 - Saïda")
+  Skikda              @map("21 - Skikda")
+  Sidi_Bel_Abb_s      @map("22 - Sidi Bel Abbès")
+  Annaba              @map("23 - Annaba")
+  Guelma              @map("24 - Guelma")
+  Constantine         @map("25 - Constantine")
+  M_d_a               @map("26 - Médéa")
+  Mostaganem          @map("27 - Mostaganem")
+  M_Sila              @map("28 - M'Sila")
+  Mascara             @map("29 - Mascara")
+  Ouargla             @map("30 - Ouargla")
+  Oran                @map("31 - Oran")
+  El_Bayadh           @map("32 - El Bayadh")
+  Illizi              @map("33 - Illizi")
+  Bordj_Bou_Arr_ridj  @map("34 - Bordj Bou Arréridj")
+  Boumerd_s           @map("35 - Boumerdès")
+  El_Tarf             @map("36 - El Tarf")
+  Tindouf             @map("37 - Tindouf")
+  Tissemsilt          @map("38 - Tissemsilt")
+  El_Oued             @map("39 - El Oued")
+  Khenchela           @map("40 - Khenchela")
+  Souk_Ahras          @map("41 - Souk Ahras")
+  Tipaza              @map("42 - Tipaza")
+  Mila                @map("43 - Mila")
+  A_n_Defla           @map("44 - Aïn Defla")
+  Na_ma               @map("45 - Naâma")
+  A_n_T_mouchent      @map("46 - Aïn Témouchent")
+  Gharda_a            @map("47 - Ghardaïa")
+  Relizane            @map("48 - Relizane")
+  Timimoun            @map("49 - Timimoun")
+  Bordj_Badji_Mokhtar @map("50 - Bordj Badji Mokhtar")
+  Ouled_Djellal       @map("51 - Ouled Djellal")
+  B_ni_Abb_s          @map("52 - Béni Abbès")
+  In_Salah            @map("53 - In Salah")
+  In_Guezzam          @map("54 - In Guezzam")
+  Touggourt           @map("55 - Touggourt")
+  Djanet              @map("56 - Djanet")
+  El_M_Ghair          @map("57 - El M'Ghair")
+  El_Meniaa           @map("58 - El Meniaa")
 }

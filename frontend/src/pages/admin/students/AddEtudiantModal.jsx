@@ -25,19 +25,21 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
   const [files, setFiles] = useState({ photo: null, piece_identite: null });
   const handleFile = f => e => setFiles(p => ({ ...p, [f]: e.target.files[0] }));
   const [formations, setFormations] = useState([]);
+const [wilayas, setWilayas]       = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState(null);
-  const [form, setForm] = useState({
-    nom: '', prenom: '', telephone: '', email: '', adresse: '',
-    niveau_scolaire: '', date_naissance: '', lieu_naissance: '',
-    formation_id: '', source: '', registered_by: '',
-  });
+ const [form, setForm] = useState({
+  nom: '', prenom: '', telephone: '', email: '', adresse: '',
+  niveau_scolaire: '', date_naissance: '', lieu_naissance: '', wilaya: '',
+  formation_id: '', source: '', registered_by: '',
+});
 
-  useEffect(() => {
-    fetch(`${API}/api/formations`, { headers: getHeaders() })
-      .then(r => r.json()).then(setFormations).catch(console.error);
-  }, []);
-
+useEffect(() => {
+  fetch(`${API}/api/formations`, { headers: getHeaders() })
+    .then(r => r.json()).then(setFormations).catch(console.error);
+  fetch(`${API}/api/enums`, { headers: getHeaders() })
+    .then(r => r.json()).then(e => setWilayas(e.wilaya || [])).catch(console.error);
+}, []);
   const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }));
 
   const handleSubmit = async () => {
@@ -89,6 +91,13 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
             <div><Label icon={Mail} text="Email" /><input type="email" value={form.email} onChange={set('email')} className={inp} /></div>
             <div><Label icon={Calendar} text="Date naissance" /><input type="date" value={form.date_naissance} onChange={set('date_naissance')} className={inp} /></div>
             <div><Label icon={MapPin} text="Lieu naissance" /><input value={form.lieu_naissance} onChange={set('lieu_naissance')} className={inp} /></div>
+<div>
+  <Label icon={MapPin} text="Wilaya" />
+  <select value={form.wilaya} onChange={set('wilaya')} className={inp}>
+    <option value="">—</option>
+    {wilayas.map(o => <option key={o} value={o}>{o}</option>)}
+  </select>
+</div>
             <div>
               <Label icon={GraduationCap} text="Niveau scolaire" />
               <select value={form.niveau_scolaire} onChange={set('niveau_scolaire')} className={inp}>
@@ -132,12 +141,12 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
               </select>
             </div>
             <div>
-              <Label icon={UserCheck} text="Enregistré par" />
-              <select value={form.registered_by} onChange={set('registered_by')} className={inp}>
-                <option value="">—</option>
-                {REGISTERED_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
+  <Label icon={UserCheck} text="Rapporteur" />
+  <select value={form.registered_by} onChange={set('registered_by')} className={inp}>
+    <option value="">—</option>
+    {REGISTERED_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+  </select>
+</div>
           </Section>
 
           <div className="flex justify-end gap-2 pt-1">
