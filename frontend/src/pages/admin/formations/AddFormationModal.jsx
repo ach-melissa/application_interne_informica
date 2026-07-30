@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, BookOpen, DollarSign, Clock, FileText } from 'lucide-react';
+import { X, BookOpen, DollarSign, Clock, FileText, Users } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
 
@@ -22,6 +22,7 @@ const [form, setForm] = useState({
   prix: formation?.prix ?? '',
   heures: formation?.heures ?? '',
   description: formation?.description || '',
+  capacite_groupe: formation?.capacite_groupe ?? '',
 });
   const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }));
 
@@ -88,6 +89,10 @@ const res = await fetch(
               <Label icon={FileText} text="Description" />
               <textarea value={form.description} onChange={set('description')} rows={3} className={`${inp} resize-none`} placeholder="Optionnel" />
             </div>
+         <div>
+  <Label icon={Users} text="Capacité (étudiants)" />
+  <input type="number" min="1" value={form.capacite_groupe} onChange={set('capacite_groupe')} className={inp} placeholder="Ex: 20" />
+</div>
           </Section>
 
           <div className="flex justify-end gap-2 pt-1">

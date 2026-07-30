@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, Clock, DollarSign, BookOpen, UserCheck, Phone, Mail, MapPin, CalendarDays, CheckCircle2, GraduationCap, Pencil, Trash2, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Plus, Search, Users, Clock, DollarSign, BookOpen, UserCheck, Phone, Mail, MapPin, CalendarDays, CheckCircle2, GraduationCap, Pencil, Trash2, ChevronRight, ArrowLeft, Gauge } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddFormationModal from './AddFormationModal';
 const Formations = () => {
@@ -101,14 +101,25 @@ const handleDelete = async (formation) => {
     const m = nom.match(/\(([^)]*)\)\s*$/);
     return m ? m[1] : '';
   };
+// Sort levels like A1, A2, B1, B2, C1, C2 in the correct order
+const levelSortValue = (nom) => {
+  const level = getLevel(nom); // e.g. "A1", "B2"
+  const letter = level.charCodeAt(0) ?? 0;   // A=65, B=66, C=67...
+  const number = parseInt(level.slice(1), 10) || 0;
+  return letter * 100 + number; // A1=6501, A2=6502, B1=6602...
+};
+const languageGroups = filtered.reduce((acc, f) => {
+  if (f.categorie === 'langues') {
+    const base = stripLevel(f.nom);
+    (acc[base] = acc[base] || []).push(f);
+  }
+  return acc;
+}, {});
 
-  const languageGroups = filtered.reduce((acc, f) => {
-    if (f.categorie === 'langues') {
-      const base = stripLevel(f.nom);
-      (acc[base] = acc[base] || []).push(f);
-    }
-    return acc;
-  }, {});
+// Sort each group's levels A1 → A2 → B1 → B2 → C1 → C2
+Object.values(languageGroups).forEach((items) => {
+  items.sort((a, b) => levelSortValue(a.nom) - levelSortValue(b.nom));
+});
 
   const nonLangueFormations = filtered.filter((f) => f.categorie !== 'langues');
 
@@ -204,10 +215,13 @@ const filteredInscriptions = inscriptions.filter((i) =>
         </span>
       </div>
       <h2 className="text-slate-800 font-semibold text-base mb-3">{f.nom}</h2>
-      <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
-        <span className="flex items-center gap-1"><Users size={13} className="text-[#0369A1]" /> {f.nb_groupes ?? 0} groupe(s)</span>
-        <span className="flex items-center gap-1"><UserCheck size={13} className="text-[#0369A1]" /> {f.nb_etudiants ?? 0} étudiant(s)</span>
-      </div>
+<div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
+  <span className="flex items-center gap-1"><Users size={13} className="text-[#0369A1]" /> {f.nb_groupes ?? 0} groupe(s)</span>
+  <span className="flex items-center gap-1"><UserCheck size={13} className="text-[#0369A1]" /> {f.nb_etudiants ?? 0} étudiant(s)</span>
+  <span className="flex items-center gap-1">
+  <Gauge size={13} className="text-[#0369A1]" />
+  {f.nb_etudiants ?? 0} / {f.capacite_groupe ?? 20}
+</span></div>
       <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
         {f.heures > 0 && (
           <span className="flex items-center gap-1"><Clock size={13} /> {f.heures}h</span>
@@ -346,7 +360,9 @@ const filteredInscriptions = inscriptions.filter((i) =>
             <p className="text-slate-400 text-sm">Aucune formation trouvée.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {Object.entries(languageGroups).map(([base, items]) => (
+             {Object.entries(languageGroups)
+  .sort(([a], [b]) => a.localeCompare(b, 'fr'))
+  .map(([base, items]) => (
                 <div
                   key={base}
                   onClick={() => setSelectedGroup(base)}

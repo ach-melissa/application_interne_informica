@@ -37,8 +37,8 @@ const login = async (req, res) => {
     }
 
     if (!user) {
-      return res.status(401).json({ message: 'Utilisateur introuvable' });
-    }
+  return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+}
 
     if (user.role === 'etudiant') {
       return res.status(403).json({ message: 'Accès refusé' });
@@ -49,9 +49,9 @@ const login = async (req, res) => {
     }
 
     const validPassword = await bcrypt.compare(password, user.mot_de_passe);
-    if (!validPassword) {
-      return res.status(401).json({ message: 'Mot de passe incorrect' });
-    }
+if (!validPassword) {
+  return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+}
 
     const token = jwt.sign(
       { id: user.id, role: user.role },

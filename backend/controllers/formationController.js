@@ -40,8 +40,7 @@ const getFormationById = async (req, res) => {
   res.json(data);
 };
 const createFormation = async (req, res) => {
- const { nom, prix, heures, description } = req.body;
-
+ const { nom, prix, heures, description, capacite_groupe } = req.body;
   if (!nom || !nom.trim()) {
     return res.status(400).json({ error: 'Le nom de la formation est obligatoire.' });
   }
@@ -51,7 +50,9 @@ const createFormation = async (req, res) => {
   if (heures === undefined || heures === null || isNaN(heures) || Number(heures) <= 0) {
     return res.status(400).json({ error: "Le nombre d'heures doit être un nombre valide." });
   }
-
+ if (capacite_groupe !== undefined && capacite_groupe !== null && (isNaN(capacite_groupe) || Number(capacite_groupe) <= 0)) {
+  return res.status(400).json({ error: "La capacité doit être un nombre valide." });
+}
   const { data, error } = await supabase
     .from('formations')
     .insert([{
@@ -59,6 +60,7 @@ const createFormation = async (req, res) => {
   prix: Number(prix),
   heures: Number(heures),
   description: description?.trim() || null,
+capacite_groupe: capacite_groupe ? Number(capacite_groupe) : null,
 }])
     .select()
     .single();
@@ -69,7 +71,7 @@ const createFormation = async (req, res) => {
 
 const updateFormation = async (req, res) => {
   const { id } = req.params;
- const { nom, prix, heures, description } = req.body;
+const { nom, prix, heures, description, capacite_groupe } = req.body;
 
   if (!nom || !nom.trim()) {
     return res.status(400).json({ error: 'Le nom de la formation est obligatoire.' });
@@ -83,11 +85,12 @@ const updateFormation = async (req, res) => {
 
   const { data, error } = await supabase
     .from('formations')
-    .update({
+ .update({
   nom: nom.trim(),
   prix: Number(prix),
   heures: Number(heures),
   description: description?.trim() || null,
+  capacite_groupe: capacite_groupe ? Number(capacite_groupe) : null,
 })
     .eq('id', id)
     .select()
