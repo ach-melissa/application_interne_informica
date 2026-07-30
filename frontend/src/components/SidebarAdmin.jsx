@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap,
   FolderArchive, UserCircle, ChevronLeft, ChevronRight, LogOut,
+  BarChart3, Settings, Calendar,
 } from 'lucide-react';
 
 const navGroups = [
@@ -10,16 +11,24 @@ const navGroups = [
     label: 'Gestion',
     items: [
       { label: 'Dashboard',    icon: LayoutDashboard, path: '/admin' },
+      { label: 'Statistique',  icon: BarChart3,        path: '/admin/statistique' },
       { label: 'Formations',   icon: BookOpen,         path: '/admin/formations' },
       { label: 'Utilisateurs', icon: Users,            path: '/admin/utilisateurs' },
       { label: 'Professeurs',  icon: GraduationCap,    path: '/admin/profs' },
       { label: 'Pré inscription', icon: UserCircle, path: '/admin/students' },
+      { label: 'Emplois de l\'école', icon: Calendar, path: '/admin/emplois' },
     ],
   },
   {
     label: 'Contenu',
     items: [
       { label: 'Archive', icon: FolderArchive, path: '/admin/archive' },
+    ],
+  },
+  {
+    label: 'Système',
+    items: [
+      { label: 'Paramètre', icon: Settings, path: '/admin/parametre' },
     ],
   },
 ];

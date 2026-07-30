@@ -16,6 +16,7 @@ const COLS = [
   { label: 'Niveau',         Icon: GraduationCap },
   { label: 'Adresse',        Icon: MapPin },
   { label: 'Date naissance', Icon: CalendarDays },
+  { label: 'Attestation',    Icon: FileDown },   
   { label: 'Statut',         Icon: CheckCircle2 },
 ];
 
@@ -42,9 +43,10 @@ useEffect(() => {
   fetchPayments();
 }, [groupId]);
 
-const isEligible = (etudiantId) => {
-  const p = payments.find(p => p.studentId === etudiantId);
-  return !p || p.remaining <= 0;
+const isEligible = (i) => {
+  const p = payments.find(p => p.studentId === i.etudiant?.id);
+  const paid = !p || p.remaining <= 0;
+  return paid && !i.attestation_imprimee;
 };
 
   const toggle = (id) => {
@@ -177,8 +179,15 @@ const toggleAll = () => {
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.email ?? '—'}</td>
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.niveau_scolaire ?? '—'}</td>
                     <td className="px-3 py-2.5 text-slate-500 max-w-[150px] truncate border-b border-[#E2E8F0]">{i.etudiant?.adresse ?? '—'}</td>
-                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
+ <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
                       {i.etudiant?.date_naissance ? new Date(i.etudiant.date_naissance).toLocaleDateString('fr-FR') : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#E2E8F0]">
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                        i.attestation_imprimee ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-sky-600'
+                      }`}>
+                        {i.attestation_imprimee ? 'Oui' : 'Non'}
+                      </span>
                     </td>
                     <td className="px-3 py-2.5 border-b border-[#E2E8F0]">
                       <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}>

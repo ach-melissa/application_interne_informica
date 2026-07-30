@@ -100,6 +100,21 @@ const createEtudiant = async (req, res) => {
     formation_id, source, registered_by,
   } = req.body;
 
+if (nom && prenom && formation_id) {
+    const { data: duplicate, error: dupErr } = await supabase
+      .from('inscriptions')
+      .select('id, etudiant:etudiant_id!inner(nom, prenom)')
+      .eq('formation_id', formation_id)
+      .eq('archived', false)
+      .ilike('etudiant.nom', nom.trim())
+      .ilike('etudiant.prenom', prenom.trim());
+
+    if (dupErr) return res.status(500).json({ error: dupErr.message });
+    if (duplicate?.length > 0) {
+      return res.status(400).json({ error: 'Cet étudiant est déjà inscrit dans cette formation.' });
+    }
+  }
+
   let photo = null;
   let piece_identite = null;
 

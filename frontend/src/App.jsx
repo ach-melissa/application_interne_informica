@@ -20,7 +20,9 @@ import ArchiveFormation from './pages/admin/archive/ArchiveFormation';
 import ArchiveGroupDetail from './pages/admin/archive/ArchiveGroupDetail';
 import ProfDetail from './pages/admin/profs/ProfDetail';
 import AttestationPrintPage from './components/attestations/AttestationPrintPage';
-
+import Statistique from './pages/admin/statistique/Statistique';
+import Parametre from './pages/admin/parametre/Parametre';
+import EmploisEcole from './pages/admin/emplois/EmploisEcole';
 
 // ── Pages prof (nouvelles) ─────────────────────────────────
 import DashboardProf from './pages/prof/dashboard/DashboardProf';
@@ -100,11 +102,21 @@ function App() {
               <Students />
             </PrivateRoute>
           } />
+          <Route path="/admin/statistique" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <Statistique />
+  </PrivateRoute>
+} />
+<Route path="/admin/parametre" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <Parametre />
+  </PrivateRoute>
+} />
         <Route path="/admin/archive" element={
   <PrivateRoute allowedRoles={['admin']}>
     <Archive />
   </PrivateRoute>
-} />
+}/>
 <Route path="/admin/archive/:year" element={
   <PrivateRoute allowedRoles={['admin']}>
     <ArchiveYear />
@@ -155,7 +167,11 @@ function App() {
     </ProfLayout>
   </PrivateRoute>
 } />
-
+<Route path="/admin/emplois" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <EmploisEcole />
+  </PrivateRoute>
+} />
 
           {/* ── Routes comptable (nouvelles) ── */}
           <Route path="/comptable" element={

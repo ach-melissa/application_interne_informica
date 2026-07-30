@@ -133,11 +133,17 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
                   const totalTranches = tranches.length;
 
                   return (
-                    <tr
-                      key={p.studentId}
-                      onClick={() => onSelectStudent(p)}
-                      className={`hover:bg-[#DCEBFA]/30 transition cursor-pointer ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}
-                    >
+<tr
+  key={p.studentId}
+  onClick={() => onSelectStudent(p)}
+  className={`hover:opacity-80 transition cursor-pointer ${
+    p.remaining <= 0
+      ? 'bg-emerald-50'
+      : p.remaining >= p.total
+        ? 'bg-red-50'
+        : 'bg-amber-50'
+  }`}
+>
                       <td className="px-3 py-2 overflow-hidden border-b border-l border-[#E2E8F0]">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
@@ -148,15 +154,17 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
                       </td>
                       <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{p.total.toLocaleString('fr-FR')} DA</td>
                       <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{p.paid.toLocaleString('fr-FR')} DA</td>
-                      <td className="px-3 py-2 whitespace-nowrap border-b border-[#E2E8F0]">
-                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                          p.remaining <= 0
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-amber-50 text-amber-700'
-                        }`}>
-                          {p.remaining.toLocaleString('fr-FR')} DA
-                        </span>
-                      </td>
+<td className="px-3 py-2 whitespace-nowrap border-b border-[#E2E8F0]">
+  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+    p.remaining <= 0
+      ? 'bg-emerald-50 text-emerald-700'
+      : p.remaining >= p.total
+        ? 'bg-red-50 text-red-600'
+        : 'bg-amber-50 text-amber-700'
+  }`}>
+    {p.remaining.toLocaleString('fr-FR')} DA
+  </span>
+</td>
                       <td className="px-3 py-2 whitespace-nowrap border-b border-[#E2E8F0]">
                         {totalTranches === 0 ? (
                           <span className="text-xs text-slate-300">—</span>
