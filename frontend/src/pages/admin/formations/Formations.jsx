@@ -218,10 +218,11 @@ const filteredInscriptions = inscriptions.filter((i) =>
 <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
   <span className="flex items-center gap-1"><Users size={13} className="text-[#0369A1]" /> {f.nb_groupes ?? 0} groupe(s)</span>
   <span className="flex items-center gap-1"><UserCheck size={13} className="text-[#0369A1]" /> {f.nb_etudiants ?? 0} étudiant(s)</span>
-  <span className="flex items-center gap-1">
+ <span className="flex items-center gap-1">
   <Gauge size={13} className="text-[#0369A1]" />
-  {f.nb_etudiants ?? 0} / {f.capacite_groupe ?? 20}
-</span></div>
+  {f.capacite_groupe ?? 20} capacité
+</span>
+</div>
       <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
         {f.heures > 0 && (
           <span className="flex items-center gap-1"><Clock size={13} /> {f.heures}h</span>
