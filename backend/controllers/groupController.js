@@ -44,7 +44,11 @@ const createGroup = async (req, res) => {
 
 const updateGroup = async (req, res) => {
   const { id } = req.params;
-  const updates = req.body;
+  const updates = { ...req.body };
+
+  // Postgres refuse '' pour une colonne `date`
+  if (updates.date_debut === '') updates.date_debut = null;
+  if (updates.date_fin === '') updates.date_fin = null;
 
   const { data, error } = await supabase
     .from('groups')

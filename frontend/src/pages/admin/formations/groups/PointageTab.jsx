@@ -76,17 +76,41 @@ if (group) setFicheInfo({
   }, [groupId]);
   
   // ── Save fiche info (jours/heure) ────────────────────────
-  const saveInfo = async () => {
-    setSavingInfo(true);
-    try {
-      await fetch(`${API}/api/groups/${groupId}`, {
-        method: 'PATCH',
-        headers: getHeaders(),
-        body: JSON.stringify(ficheInfo),
-      });
-    } catch (err) { console.error(err); }
-    finally { setSavingInfo(false); }
-  };
+// ── Save fiche info (dates/jours/heure) ──────────────────
+const saveInfo = async () => {
+  setSavingInfo(true);
+  try {
+    // Postgres refuse '' pour une colonne `date` -> convertir en null
+    const payload = {
+      ...ficheInfo,
+      date_debut: ficheInfo.date_debut || null,
+      date_fin: ficheInfo.date_fin || null,
+    };
+    const res = await fetch(`${API}/api/groups/${groupId}`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('Échec sauvegarde fiche:', err);
+      alert("La fiche n'a pas pu être enregistrée. Réessayez.");
+      return;
+    }
+    const data = await res.json();
+    setFicheInfo({
+      date_debut: data.date_debut ?? '',
+      date_fin: data.date_fin ?? '',
+      jours_formation: data.jours_formation ?? '',
+      heure_formation: data.heure_formation ?? '',
+    });
+  } catch (err) {
+    console.error(err);
+    alert("La fiche n'a pas pu être enregistrée. Réessayez.");
+  } finally {
+    setSavingInfo(false);
+  }
+};
 
   // ── Update durée séance ──────────────────────────────────
 const updateDuree = async (sessionId, duree) => {

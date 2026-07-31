@@ -1,36 +1,61 @@
-import { useEffect, useState } from 'react';
-import { CalendarDays, Sunrise, Sun, Clock, DoorClosed, BookOpen } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { CalendarDays, Clock, DoorClosed, BookOpen } from 'lucide-react';
 
 const JOURS = ['samedi', 'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi'];
 const PERIODES = ['matin', 'midi'];
 const PERIODE_META = {
-  matin: { label: 'Matin',  Icon: Sunrise },
-  midi:  { label: 'A Midi', Icon: Sun },
+  matin: { label: 'Matin' },
+  midi:  { label: 'A Midi'},
 };
+
+const POLL_INTERVAL_MS = 30000; // 30s — ajuste selon ton besoin
 
 const EmploiDuTemps = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isFirstLoad = useRef(true);
+
+  const fetchSchedule = useCallback(async () => {
+    // pas de spinner plein écran pour les refetch silencieux, seulement au premier chargement
+    if (isFirstLoad.current) setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Erreur serveur');
+      const data = await res.json();
+      setSchedules(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      isFirstLoad.current = false;
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchSchedule = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error('Erreur serveur');
-        const data = await res.json();
-        setSchedules(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchSchedule();
-  }, []);
+
+    // Refetch quand l'onglet redevient actif (le prof revient sur la page)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchSchedule();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Refetch périodique en fond, tant que l'onglet est visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchSchedule();
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [fetchSchedule]);
+
 
   // Grouper : { salle -> { jour -> { periode -> [séances] } } }
   const salles = [...new Set(schedules.map(s => s.salle))].sort();
@@ -86,20 +111,17 @@ const EmploiDuTemps = () => {
                 </tr>
                 <tr>
                   {JOURS.map(jour =>
-                    PERIODES.map(p => {
-                      const { label, Icon } = PERIODE_META[p];
-                      return (
-                        <th
-                          key={`${jour}-${p}`}
-                          className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA] text-[#0369A1]/70 font-medium"
-                        >
-                          <span className="flex items-center justify-center gap-1">
-                            <Icon size={11} />
-                            {label}
-                          </span>
-                        </th>
-                      );
-                    })
+PERIODES.map(p => {
+  const { label } = PERIODE_META[p];
+  return (
+    <th
+      key={`${jour}-${p}`}
+      className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA] text-[#0369A1]/70 font-medium"
+    >
+      {label}
+    </th>
+  );
+})
                   )}
                 </tr>
               </thead>
@@ -120,9 +142,7 @@ const EmploiDuTemps = () => {
                             key={`${salle}-${jour}-${periode}`}
                             className="border border-[#F1F5F9] px-2 py-2 text-center align-top min-w-[100px]"
                           >
-                            {seances.length === 0 ? (
-                              <span className="text-slate-300">+</span>
-                            ) : (
+{seances.length === 0 ? null : (
                               seances.map(s => (
                                 <div
                                   key={s.id}

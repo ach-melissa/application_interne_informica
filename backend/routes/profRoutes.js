@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getProfs,
   getProfGroups,
+  getProfGroup,
   getProfGroupStudents,
   updateProfGroupStudent,
   updateProfGroupSchedule,
@@ -20,6 +21,7 @@ const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 router.get('/', verifyToken, requireRole('admin'), getProfs);
 // ── Prof — own groups ──────────────────────────────────────
 router.get('/me/groups', verifyToken, requireRole('prof'), getProfGroups);
+router.get('/me/groups/:groupId', verifyToken, requireRole('prof'), getProfGroup);
 
 // ── Prof — students ────────────────────────────────────────
 router.get(

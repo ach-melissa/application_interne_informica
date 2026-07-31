@@ -100,6 +100,39 @@ const getProfGroups = async (req, res) => {
 };
 
 // ============================================================
+// PROF — détail d'un seul groupe (fiche: formation, prof, dates)
+// ============================================================
+const getProfGroup = async (req, res) => {
+  try {
+    const { data: teacher, error: tErr } = await supabase
+      .from('teachers')
+      .select('id, user:user_id(nom, prenom)')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (tErr || !teacher) {
+      return res.status(404).json({ message: 'Professeur introuvable' });
+    }
+
+    const { data: group, error } = await supabase
+      .from('groups')
+      .select('id, nom, date_debut, date_fin, jours_formation, heure_formation, formations(nom)')
+      .eq('id', req.params.groupId)
+      .eq('teacher_id', teacher.id)
+      .single();
+
+    if (error || !group) {
+      return res.status(403).json({ message: 'Accès refusé' });
+    }
+
+    res.json({ ...group, teacher: { user: teacher.user } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// ============================================================
 // PROF — étudiants confirmés d'un de ses groupes
 // ============================================================
 const getProfGroupStudents = async (req, res) => {
@@ -267,7 +300,7 @@ const getProfGroupAttendance = async (req, res) => {
 
     const { data: sessions, error: sErr } = await supabase
       .from('sessions')
-      .select('id, date, statut')
+      .select('id, date, statut, duree, type_seance, prof_id')
       .eq('group_id', req.params.groupId)
       .order('date', { ascending: true });
 
@@ -315,12 +348,18 @@ const createProfGroupSession = async (req, res) => {
 
     if (!group) return res.status(403).json({ message: 'Accès refusé' });
 
-    const { date } = req.body;
+    const { date, type_seance } = req.body;
     if (!date) return res.status(400).json({ message: 'Date requise' });
 
     const { data, error } = await supabase
       .from('sessions')
-      .insert({ group_id: req.params.groupId, date })
+      .insert({
+        group_id: req.params.groupId,
+        date,
+        type_seance: type_seance === 'remplacement' ? 'remplacement' : 'normale',
+        statut: 'effectuee',
+        prof_id: req.user.id,
+      })
       .select()
       .single();
 
@@ -359,13 +398,18 @@ const updateProfGroupSession = async (req, res) => {
       return res.status(403).json({ message: 'Accès refusé' });
     }
 
-    const { date, duree, emarg_enseignant, emarg_stagiaires, statut } = req.body;
+    if (!isSessionToday(session.date)) {
+      return res.status(403).json({ message: 'Cette séance ne peut plus être modifiée (jour passé)' });
+    }
+
+    const { date, duree, emarg_enseignant, emarg_stagiaires, statut, type_seance } = req.body;
     const patch = {};
     if (date              !== undefined) patch.date              = date;
     if (duree             !== undefined) patch.duree             = duree;
     if (emarg_enseignant  !== undefined) patch.emarg_enseignant  = emarg_enseignant;
     if (emarg_stagiaires  !== undefined) patch.emarg_stagiaires  = emarg_stagiaires;
     if (statut            !== undefined) patch.statut            = statut;
+    if (type_seance       !== undefined) patch.type_seance       = type_seance;
 
     const { data, error } = await supabase
       .from('sessions')
@@ -407,6 +451,10 @@ const deleteProfGroupSession = async (req, res) => {
 
     if (!session || session.groups?.teacher_id !== teacher.id) {
       return res.status(403).json({ message: 'Accès refusé' });
+    }
+
+    if (!isSessionToday(session.date)) {
+      return res.status(403).json({ message: 'Cette séance ne peut plus être supprimée (jour passé)' });
     }
 
     await supabase.from('attendance').delete().eq('session_id', req.params.sessionId);
@@ -577,6 +625,7 @@ const deleteAttendanceRecord = async (req, res) => {
 module.exports = {
   getProfs,
   getProfGroups,
+  getProfGroup,
   getProfGroupStudents,
   updateProfGroupStudent,
   updateProfGroupSchedule,
@@ -588,5 +637,3 @@ module.exports = {
   updateAttendanceRecord,
   deleteAttendanceRecord,
 };
-
-
