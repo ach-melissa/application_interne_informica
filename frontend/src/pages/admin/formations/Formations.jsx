@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, Clock, DollarSign, BookOpen, UserCheck, Phone, Mail, MapPin, CalendarDays, CheckCircle2, GraduationCap, Pencil, Trash2, ChevronRight, ArrowLeft, Gauge } from 'lucide-react';
+import { Plus, Search, Users, Clock, DollarSign, BookOpen, UserCheck, Phone, Mail, MapPin, CalendarDays, CheckCircle2, GraduationCap, Pencil, Trash2, ChevronRight, ArrowLeft, Gauge ,Activity } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddFormationModal from './AddFormationModal';
+
+const statutScolariteMeta = {
+  en_cours:  { label: 'En cours',  cls: 'bg-blue-50 text-blue-600' },
+  abandonne: { label: 'Abandonné', cls: 'bg-red-50 text-red-500' },
+  termine:   { label: 'Terminé',   cls: 'bg-slate-100 text-slate-500' },
+};
+const STATUT_SCOLARITE_OPTS = ['en_cours', 'abandonne', 'termine'];
 const Formations = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [formations, setFormations] = useState([]);
@@ -16,6 +23,7 @@ const Formations = () => {
   const [editingFormation, setEditingFormation] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const navigate = useNavigate();
+
 
   useEffect(() => {
     const fetchFormations = async () => {
@@ -87,6 +95,22 @@ const handleDelete = async (formation) => {
   }
 };
 
+const handleStatutScolariteChange = async (inscriptionId, value) => {
+  const token = localStorage.getItem('token');
+  try {
+const res = await fetch(`${import.meta.env.VITE_API_URL}/api/etudiants/${inscriptionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ statut_scolarite: value }),
+    });
+    if (!res.ok) throw new Error('Erreur serveur');
+    const updated = await res.json();
+    setInscriptions(prev => prev.map(i => i.id === inscriptionId ? { ...i, statut_scolarite: updated.statut_scolarite } : i));
+  } catch (err) {
+    setError(err.message);
+  }
+};
+
   const filtered = formations.filter((f) =>
     f.nom.toLowerCase().includes(search.toLowerCase())
   );
@@ -138,6 +162,7 @@ const filteredInscriptions = inscriptions.filter((i) =>
     { label: 'Formation', Icon: Users,        width: 140 },
     { label: 'Date',      Icon: CalendarDays, width: 90  },
     { label: 'Statut',    Icon: CheckCircle2, width: 100 },
+    { label: 'Scolarité', Icon: Activity, width: 100 },
   ];
 
   const InscriptionsTable = () => (
@@ -194,6 +219,15 @@ const filteredInscriptions = inscriptions.filter((i) =>
                      i.statut === 'pending' ? 'En attente' : 'Non confirmé'}
                   </span>
                 </td>
+<td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
+  <select
+    value={i.statut_scolarite || 'en_cours'}
+    onChange={e => handleStatutScolariteChange(i.id, e.target.value)}
+    className={`text-[11px] font-medium rounded-full pl-2 pr-5 py-0.5 border-none focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer ${statutScolariteMeta[i.statut_scolarite || 'en_cours']?.cls ?? 'bg-slate-100 text-slate-500'}`}
+  >
+    {STATUT_SCOLARITE_OPTS.map(o => <option key={o} value={o}>{statutScolariteMeta[o].label}</option>)}
+  </select>
+</td>
               </tr>
             ))}
           </tbody>

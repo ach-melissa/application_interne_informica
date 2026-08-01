@@ -16,10 +16,10 @@ const getGroupPayments = async (req, res) => {
   const total = group.formation?.prix_etudiant ?? 0;
   const formationId = group.formation_id;
 
-  const { data: inscriptions, error: insErr } = await supabase
-    .from('inscriptions')
-    .select('etudiant_id, etudiant:etudiant_id(id, nom, prenom)')
-    .eq('group_id', groupId);
+const { data: inscriptions, error: insErr } = await supabase
+  .from('inscriptions')
+  .select('etudiant_id, statut_scolarite, etudiant:etudiant_id(id, nom, prenom)')
+  .eq('group_id', groupId);
 
   if (insErr) return res.status(500).json({ error: insErr.message });
 
@@ -41,6 +41,7 @@ const getGroupPayments = async (req, res) => {
     return {
       studentId: i.etudiant_id,
       nom: `${i.etudiant?.nom ?? ''} ${i.etudiant?.prenom ?? ''}`.trim(),
+      statutScolarite: i.statut_scolarite || 'en_cours',
       total,
       paid,
       remaining: total - paid,

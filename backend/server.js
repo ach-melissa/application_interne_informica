@@ -17,6 +17,7 @@ const comptableRoutes = require('./routes/comptableRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/archive', require('./routes/archiveRoutes'));
 app.use('/api/statistiques', require('./routes/statistiqueRoutes'));
+app.use('/api/notifications', notificationRoutes);
 app.listen(process.env.PORT, () => {
   console.log(`Server running on port ${process.env.PORT}`);
 });

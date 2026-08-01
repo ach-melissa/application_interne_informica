@@ -1,18 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {
-  LayoutDashboard,BarChart3, CreditCard, Wallet, Receipt, ChevronLeft, ChevronRight, LogOut,
-} from 'lucide-react';
+import { LayoutDashboard, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 
 const navGroups = [
   {
     label: 'Gestion',
     items: [
-      { label: 'Dashboard', icon: LayoutDashboard, path: '/comptable', exact: true },
-      { label: 'Statistique', icon: BarChart3, path: '/comptable/statistique' },
-      { label: 'Revenu',    icon: CreditCard,       path: '/comptable/paiements' },
-      { label: 'Charges',   icon: Receipt,          path: '/comptable/charges' },
-      { label: 'Salaires',  icon: Wallet,           path: '/comptable/salaires' },
+      { label: 'Dashboard', icon: LayoutDashboard, path: '/superadmin' },
     ],
   },
 ];
@@ -23,7 +17,7 @@ const Tooltip = ({ label }) => (
   </div>
 );
 
-const SidebarComptable = ({ collapsed, setCollapsed }) => {
+const SidebarSuperAdmin = ({ collapsed, setCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -43,8 +37,8 @@ const SidebarComptable = ({ collapsed, setCollapsed }) => {
                 {group.label}
               </p>
             )}
-            {group.items.map(({ label, icon: Icon, path, exact }) => {
-              const isActive = exact ? location.pathname === path : location.pathname.startsWith(path);
+            {group.items.map(({ label, icon: Icon, path }) => {
+              const isActive = path === '/superadmin' ? location.pathname === '/superadmin' : location.pathname.startsWith(path);
               return (
                 <div key={path} className="relative group">
                   <button
@@ -87,7 +81,7 @@ const SidebarComptable = ({ collapsed, setCollapsed }) => {
             {!collapsed && (
               <div className="text-left min-w-0">
                 <p className="text-slate-700 text-sm font-medium leading-none truncate group-hover:text-[#0F2A4A] transition">{user?.prenom} {user?.nom}</p>
-                <p className="text-slate-400 text-xs mt-0.5">Comptable</p>
+                <p className="text-slate-400 text-xs mt-0.5">Super Administrateur</p>
               </div>
             )}
           </button>
@@ -109,4 +103,4 @@ const SidebarComptable = ({ collapsed, setCollapsed }) => {
   );
 };
 
-export default SidebarComptable;
+export default SidebarSuperAdmin;

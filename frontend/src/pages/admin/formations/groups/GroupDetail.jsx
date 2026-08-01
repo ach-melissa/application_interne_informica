@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Search, X, GraduationCap, Phone, Mail, MapPin, CalendarDays, CheckCircle2, ChevronRight } from 'lucide-react';
+import { ArrowLeft, User, Search, X, GraduationCap, Phone, Mail, MapPin, CalendarDays, CheckCircle2, ChevronRight ,Activity  } from 'lucide-react';
 import AdminLayout from '../../../../layouts/AdminLayout';
 import PaymentsTab from './PaymentsTab';
 import PaymentHistoryModal from './PaymentHistoryModal';
@@ -18,6 +18,13 @@ const statutMeta = {
 
 const NIVEAU_OPTS = ['Primaire','Moyen','Secondaire','Bac','Licence','Master','Doctorat','Autre'];
 
+const STATUT_SCOLARITE_OPTS = ['en_cours', 'abandonne', 'termine'];
+const statutScolariteMeta = {
+  en_cours:  { label: 'En cours',  cls: 'bg-blue-50 text-blue-600' },
+  abandonne: { label: 'Abandonné', cls: 'bg-red-50 text-red-500' },
+  termine:   { label: 'Terminé',   cls: 'bg-slate-100 text-slate-500' },
+};
+
 const COLS = [
   { label: 'Étudiant',       Icon: null },
   { label: 'Téléphone',      Icon: Phone },
@@ -26,6 +33,7 @@ const COLS = [
   { label: 'Adresse',        Icon: MapPin },
   { label: 'Date naissance', Icon: CalendarDays },
   { label: 'Statut',         Icon: CheckCircle2 },
+  { label: 'Scolarité', Icon: Activity },
 ];
 
 const GroupDetail = () => {
@@ -44,6 +52,7 @@ const [paymentsRefreshKey, setPaymentsRefreshKey] = useState(0);
   const [search, setSearch]   = useState('');
   const [statut, setStatut]   = useState('');
   const [niveau, setNiveau]   = useState('');
+const [statutScolarite, setStatutScolarite] = useState('');
 
 useEffect(() => {
   const token = localStorage.getItem('token');
@@ -66,11 +75,28 @@ useEffect(() => {
     if (search && !name.includes(search.toLowerCase()) && !i.etudiant?.telephone?.includes(search)) return false;
     if (statut && i.statut !== statut) return false;
     if (niveau && i.etudiant?.niveau_scolaire !== niveau) return false;
+    if (statutScolarite && (i.statut_scolarite || 'en_cours') !== statutScolarite) return false;
     return true;
   });
 
-  const hasFilters = search || statut || niveau;
-  const clearAll = () => { setSearch(''); setStatut(''); setNiveau(''); };
+const hasFilters = search || statut || niveau || statutScolarite;
+const clearAll = () => { setSearch(''); setStatut(''); setNiveau(''); setStatutScolarite(''); };
+
+const handleStatutScolariteChange = async (inscriptionId, value) => {
+  const token = localStorage.getItem('token');
+  try {
+    const res = await fetch(`${API}/api/etudiants/${inscriptionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ statut_scolarite: value }),
+    });
+    if (!res.ok) throw new Error('Erreur serveur');
+    const updated = await res.json();
+    setEtudiants(prev => prev.map(i => i.id === inscriptionId ? { ...i, statut_scolarite: updated.statut_scolarite } : i));
+  } catch (err) {
+    setError(err.message);
+  }
+};
 
   const TABS = [
     { key: 'etudiants', label: 'Étudiants' },
@@ -148,6 +174,17 @@ useEffect(() => {
               {niveau && <button onClick={() => setNiveau('')} className="absolute right-1.5 text-slate-300 hover:text-red-400"><X size={10} /></button>}
             </div>
 
+{/* Statut scolarité filter */}
+<div className="relative flex items-center">
+  <select value={statutScolarite} onChange={e => setStatutScolarite(e.target.value)}
+    className={`text-xs rounded-full py-1.5 pl-3 pr-6 bg-white border focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer
+      ${statutScolarite ? 'border-[#0369A1] text-[#0369A1] font-medium' : 'border-[#E2E8F0] text-slate-500'}`}>
+    <option value="">Scolarité</option>
+    {STATUT_SCOLARITE_OPTS.map(o => <option key={o} value={o}>{statutScolariteMeta[o].label}</option>)}
+  </select>
+  {statutScolarite && <button onClick={() => setStatutScolarite('')} className="absolute right-1.5 text-slate-300 hover:text-red-400"><X size={10} /></button>}
+</div>
+
             {hasFilters && (
               <button onClick={clearAll} className="ml-auto flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50">
                 <X size={11} /> Tout effacer
@@ -207,6 +244,15 @@ useEffect(() => {
                               {sm?.label ?? i.statut}
                             </span>
                           </td>
+                          <td className="px-3 py-2.5 border-b border-[#E2E8F0]">
+  <select
+    value={i.statut_scolarite || 'en_cours'}
+    onChange={e => handleStatutScolariteChange(i.id, e.target.value)}
+    className={`text-[11px] font-medium rounded-full pl-2 pr-5 py-0.5 border-none focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer ${statutScolariteMeta[i.statut_scolarite || 'en_cours']?.cls ?? 'bg-slate-100 text-slate-500'}`}
+  >
+    {STATUT_SCOLARITE_OPTS.map(o => <option key={o} value={o}>{statutScolariteMeta[o].label}</option>)}
+  </select>
+</td>
                         </tr>
                       );
                     })}
@@ -220,8 +266,8 @@ useEffect(() => {
 
 {activeTab === 'paiements'    && <PaymentsTab groupId={groupId} onSelectStudent={setSelectedStudent} refreshKey={paymentsRefreshKey} />}
 {activeTab === 'emploi'       && <ScheduleTab groupId={groupId} />}
-{activeTab === 'pointage'     && <PointageTab groupId={groupId} etudiants={etudiants.map(i => i.etudiant)} group={group} />}
-{activeTab === 'attestations' && <AttestationsTab etudiants={etudiants} formationId={formation_id} formationNom={formation?.nom} groupId={groupId} />}  
+{activeTab === 'pointage' && <PointageTab groupId={groupId} etudiants={etudiants.filter(i => (i.statut_scolarite || 'en_cours') === 'en_cours').map(i => i.etudiant)} group={group} />}
+{activeTab === 'attestations' && <AttestationsTab etudiants={etudiants.filter(i => (i.statut_scolarite || 'en_cours') === 'en_cours')} formationId={formation_id} formationNom={formation?.nom} groupId={groupId} />}
 <PaymentHistoryModal student={selectedStudent} formationId={group?.formation_id} onClose={() => setSelectedStudent(null)} onRefresh={() => setPaymentsRefreshKey(k => k + 1)} />
     </AdminLayout>
   );

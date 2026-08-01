@@ -35,10 +35,11 @@ const [fieldErrors, setFieldErrors] = useState({});
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       login(data.user, data.token);
-      if (data.user.role === 'admin') navigate('/admin');
-      else if (data.user.role === 'prof') navigate('/prof');
-      else if (data.user.role === 'comptable') navigate('/comptable');
-      else setError('Rôle non reconnu, contactez un administrateur');
+if (data.user.role === 'admin') navigate('/admin');
+else if (data.user.role === 'prof') navigate('/prof');
+else if (data.user.role === 'comptable') navigate('/comptable');
+else if (data.user.role === 'super_admin') navigate('/superadmin');
+else setError('Rôle non reconnu, contactez un administrateur');
     } catch (err) {
   setError(err.message || 'Une erreur est survenue, veuillez réessayer');
 } finally {

@@ -105,6 +105,7 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
               <tr>
                 {[
                   { label: 'Étudiant', Icon: User },
+                  { label: 'Scolarité', Icon: CheckCircle2 },
                   { label: 'Total',    Icon: Wallet },
                   { label: 'Payé',     Icon: PiggyBank },
                   { label: 'Restant',  Icon: CheckCircle2 },
@@ -152,6 +153,15 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
                           <span className="font-medium text-slate-700 truncate">{p.nom}</span>
                         </div>
                       </td>
+                      <td className="px-3 py-2 whitespace-nowrap border-b border-[#E2E8F0]">
+  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+    p.statutScolarite === 'abandonne' ? 'bg-red-50 text-red-500' :
+    p.statutScolarite === 'termine' ? 'bg-slate-100 text-slate-500' :
+    'bg-blue-50 text-blue-600'
+  }`}>
+    {p.statutScolarite === 'abandonne' ? 'Abandonné' : p.statutScolarite === 'termine' ? 'Terminé' : 'En cours'}
+  </span>
+</td>
                       <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{p.total.toLocaleString('fr-FR')} DA</td>
                       <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{p.paid.toLocaleString('fr-FR')} DA</td>
 <td className="px-3 py-2 whitespace-nowrap border-b border-[#E2E8F0]">

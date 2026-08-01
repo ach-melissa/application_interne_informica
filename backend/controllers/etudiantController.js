@@ -42,6 +42,7 @@ const updateInscription = async (req, res) => {
   if ('second_try' in req.body)    updates.second_try    = req.body.second_try || null;
   if ('third_try' in req.body)     updates.third_try     = req.body.third_try || null;
   if ('formation_id' in req.body)  updates.formation_id  = req.body.formation_id || null;
+  if ('statut_scolarite' in req.body) updates.statut_scolarite = req.body.statut_scolarite || 'en_cours';
   
 if ('statut' in req.body && req.body.statut !== 'confirmed') {
   updates.group_id = null;

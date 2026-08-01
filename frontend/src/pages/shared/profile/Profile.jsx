@@ -7,6 +7,7 @@ import {
 import AdminLayout from '../../../layouts/AdminLayout';
 import ProfLayout from '../../../layouts/ProfLayout';
 import ComptableLayout from '../../../layouts/ComptableLayout';
+import SuperAdminLayout from '../../../layouts/SuperAdminLayout';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -14,12 +15,14 @@ const ROLE_LABELS = {
   admin: 'Administrateur',
   prof: 'Professeur',
   comptable: 'Comptable',
+  super_admin: 'Super Administrateur',
 };
 
 const ROLE_COLORS = {
   admin: 'bg-[#DCEBFA] text-[#0369A1]',
   prof: 'bg-emerald-50 text-emerald-700',
   comptable: 'bg-purple-50 text-purple-700',
+  super_admin: 'bg-amber-50 text-amber-700',
 };
 
 const getInitials = (user) => {
@@ -402,6 +405,9 @@ const Profile = () => {
   }
   if (user?.role === 'comptable') {
     return <ComptableLayout><ProfileContent user={user} onUpdated={updateUser} /></ComptableLayout>;
+  }
+  if (user?.role === 'super_admin') {
+    return <SuperAdminLayout><ProfileContent user={user} onUpdated={updateUser} /></SuperAdminLayout>;
   }
   return <AdminLayout><ProfileContent user={user} onUpdated={updateUser} /></AdminLayout>;
 };

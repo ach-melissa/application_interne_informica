@@ -35,9 +35,13 @@ import ProfGroups from './pages/prof/formations/ProfGroups';
 import ProfGroupDetail from './pages/prof/formations/ProfGroupDetail';
 // ── Pages comptable (nouvelles) ─────────────────────────────
 import DashboardComptable from './pages/comptable/dashboard/DashboardComptable';
+import StatistiqueComptable from './pages/comptable/statistique/Statistique';
 import Paiements from './pages/comptable/paiements/Paiements';
 import Charges from './pages/comptable/charges/Charges';
 import Salaires from './pages/comptable/salaires/Salaires';
+
+// ── Super admin ── 
+import SuperAdminDashboard from "./pages/superadmin/dashboard/SuperAdminDashboard";
 
 // ── Page partagée (nouvelle) ───────────────────────────────
 import Profile from './pages/shared/profile/Profile';
@@ -179,6 +183,11 @@ function App() {
               <DashboardComptable />
             </PrivateRoute>
           } />
+   <Route path="/comptable/statistique" element={
+     <PrivateRoute allowedRoles={['comptable']}>
+       <StatistiqueComptable />
+     </PrivateRoute>
+   } />
           <Route path="/comptable/paiements" element={
             <PrivateRoute allowedRoles={['comptable']}>
               <Paiements />
@@ -194,10 +203,16 @@ function App() {
               <Salaires />
             </PrivateRoute>
           } />
+{/* ── Super admin ── */}
+<Route path="/superadmin" element={
+  <PrivateRoute allowedRoles={['super_admin']}>
+    <SuperAdminDashboard />
+  </PrivateRoute>
+} />
 
           {/* ── Profil partagé tous rôles (nouvelle) ── */}
           <Route path="/profile" element={
-            <PrivateRoute allowedRoles={['admin', 'prof', 'comptable']}>
+            <PrivateRoute allowedRoles={['admin', 'prof', 'comptable' ,'super_admin']}>
               <Profile />
             </PrivateRoute>
           } />

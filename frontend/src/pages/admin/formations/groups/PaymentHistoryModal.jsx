@@ -288,7 +288,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
             )}
 
             {/* Add payment */}
-            {!readOnly && (
+            {!readOnly && student.statutScolarite !== 'abandonne' && student.statutScolarite !== 'termine' && (
               <div className="flex justify-end gap-2 pt-1">
                 <input
                   type="number"
