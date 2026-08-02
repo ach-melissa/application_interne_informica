@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Pencil, Check, Trash2, Ban, AlertTriangle,
          User, Mail, Phone, Calendar, Shield, UserCheck,
          Archive, RotateCcw, Camera, Loader2 } from 'lucide-react';
@@ -53,10 +53,30 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
     role: user.role ?? 'prof',
   });
 
-  const [photo, setPhoto]     = useState(null);
+ const [photo, setPhoto]     = useState(null);
   const [preview, setPreview] = useState(user.photo_url ?? null);
-
+  const [formations, setFormations] = useState([]);
+  const [selectedFormations, setSelectedFormations] = useState([]);
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
+
+  useEffect(() => {
+    fetch(`${API}/api/formations`, { headers: authHeader() })
+      .then(r => r.json())
+      .then(data => setFormations(data.filter(f => f.statut === 'active')))
+      .catch(() => {});
+
+    if (user.role === 'prof') {
+      fetch(`${API}/api/teachers/by-user/${user.id}`, { headers: authHeader() })
+        .then(r => r.json())
+        .then(data => setSelectedFormations(data.formation_ids ?? []))
+        .catch(() => {});
+    }
+  }, [user.id, user.role]);
+
+  const toggleFormation = (id) => {
+    setSelectedFormations(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   const cancelEdit = () => {
     setEditing(false); setConfirmSave(false); setError(null);
     setPhoto(null); setPreview(user.photo_url ?? null);
@@ -79,6 +99,7 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ''));
+      if (form.role === 'prof') fd.append('formation_ids', JSON.stringify(selectedFormations));
       if (photo === PHOTO_REMOVED) fd.append('remove_photo', 'true');
       else if (photo) fd.append('photo', photo);
 
@@ -229,7 +250,7 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* Info */}
+        {/* Info */}
           <div className="grid grid-cols-2 gap-3">
             <Field icon={User}     label="Nom"            field="nom"            form={form} editing={editing} set={set} />
             <Field icon={User}     label="Prénom"         field="prenom"         form={form} editing={editing} set={set} />
@@ -238,6 +259,33 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
             <Field icon={Calendar} label="Date naissance" field="date_naissance" form={form} editing={editing} set={set} />
             <Field icon={Shield}   label="Rôle"           field="role"           form={form} editing={editing} set={set} opts={ROLES} />
           </div>
+
+          {form.role === 'prof' && (
+            <Row icon={Shield} label="Formations enseignées">
+              {editing ? (
+                formations.length === 0 ? (
+                  <p className="text-xs text-slate-400">Aucune formation active.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto border border-[#F1F5F9] rounded-lg p-2 mt-1">
+                    {formations.map(f => (
+                      <label key={f.id} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedFormations.includes(f.id)}
+                          onChange={() => toggleFormation(f.id)}
+                        />
+                        {f.nom}
+                      </label>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <p className="text-xs text-slate-700 font-medium">
+                  {formations.filter(f => selectedFormations.includes(f.id)).map(f => f.nom).join(', ') || '—'}
+                </p>
+              )}
+            </Row>
+          )}
 
           <div className="border-t border-[#F1F5F9] pt-4 grid grid-cols-2 gap-3">
             <Row icon={UserCheck} label="Nom d'utilisateur">

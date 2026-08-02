@@ -2,6 +2,33 @@ const bcrypt = require('bcryptjs');
 const supabase = require('../supabaseClient');
 
 const SAFE_FIELDS = 'id, nom, prenom, email, nom_utilisateur, telephone, date_naissance, role, created_at, archived, photo_path';
+const syncTeacherFormations = async (userId, formationIds) => {
+  let { data: teacher } = await supabase
+    .from('teachers')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!teacher) {
+    const { data: newTeacher, error } = await supabase
+      .from('teachers')
+      .insert({ user_id: userId })
+      .select('id')
+      .single();
+    if (error) throw error;
+    teacher = newTeacher;
+  }
+
+  await supabase.from('teacher_formations').delete().eq('teacher_id', teacher.id);
+
+  const ids = (formationIds || []).filter(Boolean);
+  if (ids.length > 0) {
+    const { error } = await supabase
+      .from('teacher_formations')
+      .insert(ids.map((formation_id) => ({ teacher_id: teacher.id, formation_id })));
+    if (error) throw error;
+  }
+};
 const AVATAR_BUCKET = 'avatars';
 const SIGNED_URL_EXPIRY = 60 * 60 * 24 * 7; // 7 jours
 
@@ -309,6 +336,14 @@ const createUser = async (req, res) => {
       return res.status(500).json({ message: 'Erreur serveur' });
     }
 
+    if (role === 'prof' && req.body.formation_ids) {
+      try {
+        await syncTeacherFormations(newUser.id, JSON.parse(req.body.formation_ids));
+      } catch (err) {
+        console.error('createUser (formations prof):', err);
+      }
+    }
+
     if (!req.file) {
       return res.status(201).json(await withPhotoUrl(newUser));
     }
@@ -419,6 +454,15 @@ const updateUser = async (req, res) => {
       }
       console.error('updateUser:', error);
       return res.status(500).json({ message: 'Erreur serveur' });
+    }
+
+  const effectiveRole = role !== undefined ? role : data.role;
+    if (effectiveRole === 'prof' && req.body.formation_ids) {
+      try {
+        await syncTeacherFormations(req.params.id, JSON.parse(req.body.formation_ids));
+      } catch (err) {
+        console.error('updateUser (formations prof):', err);
+      }
     }
 
     res.json(await withPhotoUrl(data));

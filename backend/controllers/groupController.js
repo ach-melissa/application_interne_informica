@@ -30,11 +30,17 @@ const getGroupsByFormation = async (req, res) => {
 };
 
 const createGroup = async (req, res) => {
-  const { nom, formation_id, teacher_id } = req.body;
+  const { nom, formation_id, teacher_id, en_promotion, prix_promotion } = req.body;
 
   const { data, error } = await supabase
     .from('groups')
-    .insert({ nom, formation_id, teacher_id: teacher_id || null })
+    .insert({
+      nom,
+      formation_id,
+      teacher_id: teacher_id || null,
+      en_promotion: !!en_promotion,
+      prix_promotion: en_promotion ? (prix_promotion || null) : null,
+    })
     .select()
     .single();
 
@@ -47,9 +53,13 @@ const updateGroup = async (req, res) => {
   const updates = { ...req.body };
 
   // Postgres refuse '' pour une colonne `date`
-  if (updates.date_debut === '') updates.date_debut = null;
+ if (updates.date_debut === '') updates.date_debut = null;
   if (updates.date_fin === '') updates.date_fin = null;
 
+  // Jamais de prix promo si la promo est désactivée
+  if ('en_promotion' in updates) {
+    updates.prix_promotion = updates.en_promotion ? (updates.prix_promotion || null) : null;
+  }
   const { data, error } = await supabase
     .from('groups')
     .update(updates)

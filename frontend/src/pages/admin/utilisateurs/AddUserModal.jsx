@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, Calendar, Shield, Lock, Camera, Trash2, Loader2 } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 
@@ -16,6 +16,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
     nom: '', prenom: '', email: '', nom_utilisateur: '',
     mot_de_passe: '', telephone: '', date_naissance: '', role: 'prof',
   });
+  const [formations, setFormations] = useState([]);
+  const [selectedFormations, setSelectedFormations] = useState([]);
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState(null);
   const [submitting, setSubmit] = useState(false);
@@ -23,14 +25,25 @@ const AddUserModal = ({ onClose, onSuccess }) => {
 
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
 
+  useEffect(() => {
+    fetch(`${API}/api/formations`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then(r => r.json())
+      .then(data => setFormations(data.filter(f => f.statut === 'active')))
+      .catch(() => {});
+  }, []);
+
+  const toggleFormation = (id) => {
+    setSelectedFormations(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
   const handleSubmit = async () => {
     if (!form.nom || !form.prenom || !form.email || !form.nom_utilisateur || !form.mot_de_passe) {
       setError("Nom, prénom, email, nom d'utilisateur et mot de passe sont obligatoires."); return;
     }
     setSubmit(true); setError(null);
     try {
-      const fd = new FormData();
+     const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      if (form.role === 'prof') fd.append('formation_ids', JSON.stringify(selectedFormations));
       if (photo) fd.append('photo', photo);
 
       const res = await fetch(`${API}/api/users`, {
@@ -119,6 +132,28 @@ const AddUserModal = ({ onClose, onSuccess }) => {
               </select>
             </div>
           </div>
+
+          {form.role === 'prof' && (
+            <div>
+              <Label icon={Shield} text="Formations enseignées" />
+              {formations.length === 0 ? (
+                <p className="text-xs text-slate-400">Aucune formation active.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto border border-[#F1F5F9] rounded-lg p-2">
+                  {formations.map(f => (
+                    <label key={f.id} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedFormations.includes(f.id)}
+                        onChange={() => toggleFormation(f.id)}
+                      />
+                      {f.nom}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>

@@ -75,6 +75,10 @@ model groups {
   jours_formation String?
   heure_formation String?
   annee_scolaire  String?
+  date_debut      DateTime?      @db.Date
+  date_fin        DateTime?      @db.Date
+  en_promotion    Boolean?       @default(false)
+  prix_promotion  Decimal?       @db.Decimal
   attestations    attestations[]
   formations      formations     @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   teachers        teachers?      @relation(fields: [teacher_id], references: [id], onUpdate: NoAction)
@@ -85,37 +89,53 @@ model groups {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model inscriptions {
-  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  etudiant_id          String              @db.Uuid
-  formation_id         String              @db.Uuid
-  date_inscription     DateTime?           @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  etudiant_id          String                @db.Uuid
+  formation_id         String                @db.Uuid
+  date_inscription     DateTime?             @default(dbgenerated("CURRENT_DATE")) @db.Date
   first_try            try_status?
   second_try           try_status?
   third_try            try_status?
   registered_by        registered_by_enum?
   source               source_enum?
-  statut               inscription_status? @default(pending)
-  created_at           DateTime?           @default(now()) @db.Timestamp(6)
-  group_id             String?             @db.Uuid
-  archived             Boolean?            @default(false)
+  statut               inscription_status?   @default(pending)
+  created_at           DateTime?             @default(now()) @db.Timestamp(6)
+  group_id             String?               @db.Uuid
+  archived             Boolean?              @default(false)
   annee_scolaire       String?
-  attestation_imprimee Boolean?            @default(false)
+  attestation_imprimee Boolean?              @default(false)
   added_by             String?
+  statut_scolarite     statut_scolarite_enum @default(en_cours)
   attestations         attestations[]
-  etudiants            etudiants           @relation(fields: [etudiant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  formations           formations          @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  groups               groups?             @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  etudiants            etudiants             @relation(fields: [etudiant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  formations           formations            @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  groups               groups?               @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model notifications {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String    @db.Uuid
-  titre      String    @db.VarChar(255)
-  message    String
-  lu         Boolean?  @default(false)
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type                                     String    @db.VarChar(50)
+  statut                                   String    @default("en_attente") @db.VarChar(20)
+  lu                                       Boolean   @default(false)
+  expediteur_id                            String?   @db.Uuid
+  destinataire_role                        String?   @default("admin") @db.VarChar(20)
+  titre                                    String?   @db.VarChar(150)
+  message                                  String?
+  data                                     Json?
+  reponse_message                          String?
+  traite_par                               String?   @db.Uuid
+  traite_le                                DateTime? @db.Timestamptz(6)
+  created_at                               DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                               DateTime  @default(now()) @db.Timestamptz(6)
+  replies                                  Json      @default("[]")
+  lu_admin                                 Boolean   @default(true)
+  users_notifications_expediteur_idTousers users?    @relation("notifications_expediteur_idTousers", fields: [expediteur_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_notifications_traite_parTousers    users?    @relation("notifications_traite_parTousers", fields: [traite_par], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([destinataire_role, statut], map: "idx_notifications_destinataire")
+  @@index([expediteur_id], map: "idx_notifications_expediteur")
+  @@index([type], map: "idx_notifications_type")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -164,16 +184,17 @@ model schedules {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sessions {
-  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  group_id   String          @db.Uuid
-  date       DateTime        @db.Date
-  statut     session_status? @default(planifiee)
-  created_at DateTime?       @default(now()) @db.Timestamp(6)
-  prof_id    String?         @db.Uuid
-  duree      String?
-  attendance attendance[]
-  groups     groups          @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users      users?          @relation(fields: [prof_id], references: [id], onUpdate: NoAction)
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  group_id    String          @db.Uuid
+  date        DateTime        @db.Date
+  statut      session_status? @default(planifiee)
+  created_at  DateTime?       @default(now()) @db.Timestamp(6)
+  prof_id     String?         @db.Uuid
+  duree       String?
+  type_seance String          @default("normale")
+  attendance  attendance[]
+  groups      groups          @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       users?          @relation(fields: [prof_id], references: [id], onUpdate: NoAction)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -188,23 +209,24 @@ model teachers {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model users {
-  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nom             String          @db.VarChar(100)
-  prenom          String          @db.VarChar(100)
-  email           String          @unique @db.VarChar(255)
-  nom_utilisateur String          @unique @db.VarChar(100)
-  mot_de_passe    String          @db.VarChar(255)
-  telephone       String?         @db.VarChar(20)
-  date_naissance  DateTime?       @db.Date
-  role            user_role
-  created_at      DateTime?       @default(now()) @db.Timestamp(6)
-  archived        Boolean?        @default(false)
-  photo_path      String?
-  notifications   notifications[]
-  salaires        salaires[]
-  schedules       schedules[]
-  sessions        sessions[]
-  teachers        teachers[]
+  id                                               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nom                                              String          @db.VarChar(100)
+  prenom                                           String          @db.VarChar(100)
+  email                                            String          @unique @db.VarChar(255)
+  nom_utilisateur                                  String          @unique @db.VarChar(100)
+  mot_de_passe                                     String          @db.VarChar(255)
+  telephone                                        String?         @db.VarChar(20)
+  date_naissance                                   DateTime?       @db.Date
+  role                                             user_role
+  created_at                                       DateTime?       @default(now()) @db.Timestamp(6)
+  archived                                         Boolean?        @default(false)
+  photo_path                                       String?
+  notifications_notifications_expediteur_idTousers notifications[] @relation("notifications_expediteur_idTousers")
+  notifications_notifications_traite_parTousers    notifications[] @relation("notifications_traite_parTousers")
+  salaires                                         salaires[]
+  schedules                                        schedules[]
+  sessions                                         sessions[]
+  teachers                                         teachers[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -305,6 +327,7 @@ enum user_role {
   admin
   comptable
   etudiant
+  super_admin
 }
 
 enum niveau_scolaire_enum {
@@ -377,4 +400,10 @@ enum wilaya_enum {
   Djanet              @map("56 - Djanet")
   El_M_Ghair          @map("57 - El M'Ghair")
   El_Meniaa           @map("58 - El Meniaa")
+}
+
+enum statut_scolarite_enum {
+  en_cours
+  abandonne
+  termine
 }

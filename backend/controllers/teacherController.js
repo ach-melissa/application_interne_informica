@@ -1,16 +1,27 @@
 const supabase = require('../supabaseClient');
 
 const getTeachers = async (req, res) => {
-  const { data, error } = await supabase
+  const { formation_id } = req.query;
+
+  let teacherIds = null;
+  if (formation_id) {
+    const { data: links, error: linkErr } = await supabase
+      .from('teacher_formations')
+      .select('teacher_id')
+      .eq('formation_id', formation_id);
+    if (linkErr) return res.status(500).json({ error: linkErr.message });
+    teacherIds = links.map((l) => l.teacher_id);
+    if (teacherIds.length === 0) return res.json([]);
+  }
+
+  let query = supabase
     .from('teachers')
-    .select(`
-      id,
-      user_id,
-      created_at,
-      user:user_id(id, nom, prenom, email, telephone)
-    `)
+    .select(`id, user_id, created_at, user:user_id(id, nom, prenom, email, telephone)`)
     .order('created_at', { ascending: false });
 
+  if (teacherIds) query = query.in('id', teacherIds);
+
+  const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
 
   const result = data.map((t) => ({
@@ -25,4 +36,27 @@ const getTeachers = async (req, res) => {
   res.json(result);
 };
 
-module.exports = { getTeachers };
+// GET /api/teachers/by-user/:user_id — formation_ids for pre-filling the edit form
+const getTeacherFormationsByUser = async (req, res) => {
+  const { user_id } = req.params;
+
+  const { data: teacher, error: tErr } = await supabase
+    .from('teachers')
+    .select('id')
+    .eq('user_id', user_id)
+    .maybeSingle();
+
+  if (tErr) return res.status(500).json({ error: tErr.message });
+  if (!teacher) return res.json({ teacher_id: null, formation_ids: [] });
+
+  const { data: links, error: lErr } = await supabase
+    .from('teacher_formations')
+    .select('formation_id')
+    .eq('teacher_id', teacher.id);
+
+  if (lErr) return res.status(500).json({ error: lErr.message });
+
+  res.json({ teacher_id: teacher.id, formation_ids: links.map((l) => l.formation_id) });
+};
+
+module.exports = { getTeachers, getTeacherFormationsByUser };
