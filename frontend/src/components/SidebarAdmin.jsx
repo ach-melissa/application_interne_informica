@@ -10,7 +10,7 @@ const navGroups = [
   {
     label: 'Gestion',
     items: [
-      { label: 'Dashboard',    icon: LayoutDashboard, path: '/admin' },
+      { label: 'Tableau de bord',    icon: LayoutDashboard, path: '/admin' },
       { label: 'Statistique',  icon: BarChart3,        path: '/admin/statistique' },
       { label: 'Formations',   icon: BookOpen,         path: '/admin/formations' },
       { label: 'Utilisateurs', icon: Users,            path: '/admin/utilisateurs' },
@@ -48,10 +48,14 @@ const SidebarAdmin = ({ collapsed, setCollapsed }) => {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <aside className={`relative flex flex-col h-full bg-white border-r border-[#E2E8F0] transition-all duration-300 shrink-0 ${collapsed ? 'w-[70px]' : 'w-[210px]'}`}>
+    <aside className={`relative flex flex-col h-full  bg-white border-r border-[#E2E8F0] transition-all duration-300 shrink-0 ${collapsed ? 'w-[70px]' : 'w-[210px]'}`}>
       <div className="h-2" />
 
-      <nav className="flex-1 px-2 py-4 space-y-1">
+     <nav
+  className={`flex-1 px-2 py-4 space-y-1 ${
+    collapsed ? "overflow-hidden" : "overflow-y-auto"
+  }`}
+>
         {navGroups.map((group) => (
           <div key={group.label}>
             {!collapsed && (

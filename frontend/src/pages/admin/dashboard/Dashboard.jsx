@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, BookOpen, CreditCard, UserX, Clock, UserPlus, Layers,
-  User, GraduationCap, CalendarDays, Inbox,
+  User, GraduationCap, CalendarDays, Inbox,LayoutDashboard
 } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddEtudiantModal from '../students/AddEtudiantModal';
@@ -67,8 +67,12 @@ const Dashboard = () => {
 
   return (
     <AdminLayout>
-      <h1 className="text-2xl font-bold text-[#1E293B] mb-6">Tableau de bord</h1>
-
+         <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+              <LayoutDashboard size={22} className="text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-800 ">Tableau de bord</h1>
+          </div>
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {statCards.map((s) => {

@@ -272,12 +272,7 @@ const Statistique = () => {
             <h1 className="text-2xl font-bold text-slate-800">Statistiques</h1>
           </div>
 
-          <div className="flex items-center gap-1.5 text-sm">
-            <Home size={15} className="text-slate-400" />
-            <span className="text-slate-400">Accueil</span>
-            <ChevronRight size={14} className="text-slate-300" />
-            <span className="text-[#0369A1] font-medium">Statistiques</span>
-          </div>
+        
         </div>
 
         {/* ── Barre de filtres ── */}

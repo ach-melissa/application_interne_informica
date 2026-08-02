@@ -126,7 +126,7 @@ const EmploisGlobal = () => {
                               <div className="text-[#0369A1]/60">{cell.heure_debut?.slice(0,5)} - {cell.heure_fin?.slice(0,5)}</div>
                             </div>
                           ) : (
-                            <span className="text-slate-300">+</span>
+                            <span className="text-slate-300"></span>
                           )}
                         </td>
                       );
