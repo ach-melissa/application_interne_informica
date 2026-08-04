@@ -115,36 +115,35 @@ const ProfDetail = () => {
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-            <StatTile icon={Layers} label="Formations" value={formationCount} color="violet" />
-            <StatTile icon={Users}  label="Groupes"    value={groupCount}     color="emerald" />
+{/* Stats + filtre */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+            {formationCount > 0 && (
+              <div className="relative sm:w-56 flex-shrink-0">
+                <BookOpen size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+                <select
+                  value={activeTab}
+                  onChange={(e) => setActiveTab(e.target.value)}
+                  className="appearance-none w-full pl-8 pr-8 py-2.5 rounded-full text-sm font-medium bg-white border border-[#F1F5F9] text-[#0369A1] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+                >
+                  {tabs.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label} ({t.count})
+                    </option>
+                  ))}
+                </select>
+                <ChevronRight size={13} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-[#0369A1] pointer-events-none" />
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+              <StatTile icon={Layers} label="Formations" value={formationCount} color="violet" />
+              <StatTile icon={Users}  label="Groupes"    value={groupCount}     color="emerald" />
+            </div>
           </div>
 
           {formationCount === 0 ? (
             <p className="text-slate-400 text-sm">Aucune formation assignée.</p>
           ) : (
             <>
-              {/* Tabs */}
-              <div className="flex items-center gap-2 mb-6 w-fit max-w-full overflow-x-auto">
-                {tabs.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setActiveTab(t.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition
-                      ${activeTab === t.id
-                        ? 'bg-[#0F2A4A] text-white'
-                        : 'bg-[#DCEBFA] text-[#0369A1] hover:bg-[#c9e2f7]'}`}
-                  >
-                    <BookOpen size={14} />
-                    {t.label}
-                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full
-                      ${activeTab === t.id ? ' text-white' : ' text-[#0369A1]'}`}>
-                      {t.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
 
               {/* Cards */}
               {visibleGroups.length === 0 ? (

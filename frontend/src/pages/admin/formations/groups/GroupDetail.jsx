@@ -130,7 +130,7 @@ const handleStatutScolariteChange = async (inscriptionId, value) => {
         <div>
           <h1 className="text-xl font-bold text-slate-800">{group?.nom ?? 'Groupe'}</h1>
           <p className="text-slate-400 text-xs mt-0.5">
-            Prof : {group?.teacher ? `${group.teacher.nom} ${group.teacher.prenom}` : 'Non assigné'}
+Prof : {group?.teacher?.user ? `${group.teacher.user.nom} ${group.teacher.user.prenom}` : 'Non assigné'}
             {' · '}{etudiants.length} étudiant(s)
           </p>
         </div>

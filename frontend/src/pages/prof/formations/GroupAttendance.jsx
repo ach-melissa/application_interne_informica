@@ -228,10 +228,10 @@ const GroupAttendance = ({ groupId }) => {
   const isEditableToday = (sessionDate) => sessionDate?.slice(0, 10) === todayAlgeria();
 
   // Nombre de stagiaires présents — calculé en direct depuis le pointage, par séance
-  const getNbPresents = (sessionId) =>
-    Object.entries(attendance).filter(([k, v]) => k.startsWith(`${sessionId}|`) && v.statut === 'present').length;
-
-  const teacherName = groupData?.teacher?.user
+const getNbPresents = (sessionId) =>
+  Object.entries(attendance).filter(([k, v]) => k.startsWith(`${sessionId}|`) && (v.statut === 'present' || v.statut === 'retard')).length;
+  
+const teacherName = groupData?.teacher?.user
     ? `${groupData.teacher.user.nom ?? ''} ${groupData.teacher.user.prenom ?? ''}`.trim()
     : (user ? `${user.nom ?? ''} ${user.prenom ?? ''}`.trim() : '—');
 

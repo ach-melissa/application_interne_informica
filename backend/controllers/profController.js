@@ -21,7 +21,7 @@ const getProfs = async (req, res) => {
     .from('teachers')
     .select(`
       id,
-      user:user_id(id, nom, prenom, email, telephone),
+      user:user_id(id, nom, prenom, email, telephone , archived),
 groups(
   id, nom,
   formation:formation_id(id, nom)
@@ -48,6 +48,7 @@ groups(
         prenom: t.user?.prenom ?? '',
         email: t.user?.email ?? '',
         telephone: t.user?.telephone ?? '',
+        archived: t.user?.archived ?? false, 
         formations: [...new Set(groupsWithCounts.map((g) => g.formation?.nom).filter(Boolean))],
         groups: groupsWithCounts,
       };
@@ -80,17 +81,25 @@ const getProfGroups = async (req, res) => {
 
     if (error) return res.status(500).json({ message: 'Erreur serveur' });
 
-    const result = groups.map((g) => {
-      const scheduleMap = {};
-      (g.schedules || []).forEach((s) => {
-        const jour = capitalize(s.jour_semaine);
-        if (!scheduleMap[jour]) scheduleMap[jour] = [];
-        const debut = s.heure_debut?.slice(0, 5);
-        const fin = s.heure_fin?.slice(0, 5);
-        scheduleMap[jour].push(`${debut} - ${fin}`);
-      });
-      return { ...g, schedule: scheduleMap };
-    });
+const result = await Promise.all(
+      groups.map(async (g) => {
+        const scheduleMap = {};
+        (g.schedules || []).forEach((s) => {
+          const jour = capitalize(s.jour_semaine);
+          if (!scheduleMap[jour]) scheduleMap[jour] = [];
+          const debut = s.heure_debut?.slice(0, 5);
+          const fin = s.heure_fin?.slice(0, 5);
+          scheduleMap[jour].push(`${debut} - ${fin}`);
+        });
+
+        const { count } = await supabase
+          .from('inscriptions')
+          .select('*', { count: 'exact', head: true })
+          .eq('group_id', g.id);
+
+        return { ...g, schedule: scheduleMap, nb_etudiants: count ?? 0 };
+      })
+    );
 
     res.json(result);
   } catch (err) {
