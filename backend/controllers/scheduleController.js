@@ -85,14 +85,18 @@ const deleteSchedule = async (req, res) => {
 };
 
 const renameSalle = async (req, res) => {
-  const { oldName, newName } = req.body;
-  if (!oldName || !newName) return res.status(400).json({ error: 'oldName et newName requis' });
+  const { id, newName } = req.body;
+  if (!id || !newName?.trim()) return res.status(400).json({ error: 'id et newName requis' });
   const { data, error } = await supabase
-    .from('schedules')
-    .update({ salle: newName })
-    .eq('salle', oldName)
-    .select();
-  if (error) return res.status(500).json({ error: error.message });
+    .from('salles')
+    .update({ nom: newName.trim() })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) {
+    if (error.code === '23505') return res.status(409).json({ error: `La salle "${newName.trim()}" existe déjà.` });
+    return res.status(500).json({ error: error.message });
+  }
   res.json(data);
 };
 
@@ -111,11 +115,11 @@ const getProfSchedule = async (req, res) => {
   }
 
   // 2) Trouver les groupes assignés à ce prof
-  const { data: groups, error: gErr } = await supabase
-    .from('groups')
-    .select('id')
-    .eq('teacher_id', teacher.id)
-    .eq('archived', false);
+const { data: groups, error: gErr } = await supabase
+  .from('groups')
+  .select('id')
+  .eq('teacher_id', teacher.id)
+  .eq('archived', false);
 
   if (gErr) return res.status(500).json({ error: gErr.message });
 
@@ -181,4 +185,32 @@ users:prof_id (
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-module.exports = { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule,renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules };
+
+const getJours = async (req, res) => {
+  const { data, error } = await supabase.rpc('get_day_enum_values');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+const getSalles = async (req, res) => {
+  const { data, error } = await supabase.from('salles').select('id, nom').order('nom');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+const createSalle = async (req, res) => {
+  const { nom } = req.body;
+  if (!nom?.trim()) return res.status(400).json({ error: 'nom requis' });
+  const { data, error } = await supabase
+    .from('salles')
+    .insert({ nom: nom.trim() })
+    .select()
+    .single();
+  if (error) {
+    if (error.code === '23505') return res.status(409).json({ error: `La salle "${nom.trim()}" existe déjà.` });
+    return res.status(500).json({ error: error.message });
+  }
+  res.json(data);
+};
+
+module.exports = { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule,renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules,getJours,getSalles ,createSalle };

@@ -1,41 +1,10 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
-import { CalendarCheck2, Armchair, ArrowRight, Calculator, Scissors, Monitor, Bot, Globe2, Building2, Network, Sparkles, BookOpenCheck } from 'lucide-react';
+import { CalendarCheck2, Armchair, ArrowRight } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
-
-// Colonnes du planning : jour (day_enum) -> libellé affiché
-const JOURS = [
-  { key: 'samedi', label: 'Samedi' },
-  { key: 'dimanche', label: 'Dimanche' },
-  { key: 'lundi', label: 'Lundi' },
-  { key: 'mardi', label: 'Mardi' },
-  { key: 'mercredi', label: 'Mercredi' },
-  { key: 'jeudi', label: 'Jeudi' },
-];
-// NB : le day_enum de la table `schedules` ne contient pas "vendredi" (weekend = vendredi/samedi).
-// Ajoute { key: 'vendredi', label: 'Vendredi' } en tête si ton enum le prévoit.
 
 const PERIODES = ['matin', 'midi'];
 
-// Style + icône par catégorie, déduits du texte libre stocké dans `contenu`.
-// L'ordre compte : les clés les plus spécifiques sont testées en premier.
-const CATEGORIES = [
-  { test: /compt/i, bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-700', icon: Calculator },
-  { test: /couture/i, bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', icon: Scissors },
-  { test: /robot/i, bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', icon: Bot },
-  { test: /bureau/i, bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: Building2 },
-  { test: /r[ée]seau/i, bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: Network },
-  { test: /\bsi\b|\bfc\b/i, bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: BookOpenCheck },
-  { test: /\bia\b/i, bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', icon: Sparkles },
-  { test: /anglais/i, bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', icon: Globe2 },
-  { test: /\ban\b|\bbn\b/i, bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', icon: BookOpenCheck },
-  { test: /info/i, bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', icon: Monitor },
-];
-const DEFAULT_CATEGORY = { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-600', icon: Monitor };
-
-const getCategory = (contenu) => {
-  if (!contenu) return DEFAULT_CATEGORY;
-  return CATEGORIES.find((c) => c.test.test(contenu)) ?? DEFAULT_CATEGORY;
-};
+const CARD_STYLE = { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' };
 
 const salleSort = (a, b) => a.localeCompare(b, 'fr', { numeric: true, sensitivity: 'base' });
 
@@ -43,14 +12,14 @@ const EmploisEcole = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // Salles ajoutées manuellement (ligne vide en attendant qu'on lui crée des schedules).
-  const [extraSalles, setExtraSalles] = useState([]);
-  const [newSalleName, setNewSalleName] = useState('');
-  // Salle en cours de renommage : nom actuel, ou null si aucune
-  const [renameTarget, setRenameTarget] = useState(null);
-  const [renameValue, setRenameValue] = useState('');
-  const [renameError, setRenameError] = useState(null);
-
+  const [jours, setJours] = useState([]);
+const [salleObjects, setSalleObjects] = useState([]); // [{id, nom}]
+const [newSalleName, setNewSalleName] = useState('');
+const [addSalleError, setAddSalleError] = useState(null);
+const [renameTarget, setRenameTarget] = useState(null); // {id, nom}
+const [renameValue, setRenameValue] = useState('');
+const [renameError, setRenameError] = useState(null);
+const [showAddSalleModal, setShowAddSalleModal] = useState(false);
   useEffect(() => {
     const fetchSchedules = async () => {
       try {
@@ -63,6 +32,15 @@ const EmploisEcole = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('Erreur serveur');
+        const [sallesRes, joursRes] = await Promise.all([
+          fetch(`${import.meta.env.VITE_API_URL}/api/schedules/salles`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        if (sallesRes.ok) setSalleObjects(await sallesRes.json());
+        if (joursRes.ok) {
+          const raw = await joursRes.json();
+          setJours(raw.map((key) => ({ key, label: key.charAt(0).toUpperCase() + key.slice(1) })));
+        }
         setSchedules(await res.json());
       } catch (err) {
         setError(err.message);
@@ -74,44 +52,58 @@ const EmploisEcole = () => {
   }, []);
 
   // Liste des salles déduite des données réelles + celles ajoutées manuellement : plus de limite à 8 salles fixes.
-  const salles = useMemo(() => {
-    const uniques = new Set([...schedules.map((s) => s.salle).filter(Boolean), ...extraSalles]);
-    return [...uniques].sort(salleSort);
-  }, [schedules, extraSalles]);
-
-  const handleAddSalle = (e) => {
-    e.preventDefault();
-    const nom = newSalleName.trim();
-    if (!nom) return;
-    const dejaLa = salles.some((s) => s.toLowerCase() === nom.toLowerCase());
-    if (!dejaLa) setExtraSalles((prev) => [...prev, nom]);
+const salles = useMemo(
+  () => [...salleObjects].sort((a, b) => salleSort(a.nom, b.nom)),
+  [salleObjects]
+);
+const salleDejaExistante = newSalleName.trim() && salleObjects.some(
+  (s) => s.nom.trim().toLowerCase() === newSalleName.trim().toLowerCase()
+);
+const handleAddSalle = async (e) => {
+  e.preventDefault();
+  const nom = newSalleName.trim();
+  if (!nom) return;
+  setAddSalleError(null);
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/salles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ nom }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur serveur');
+    setSalleObjects((prev) => [...prev, data]);
     setNewSalleName('');
-  };
+    setShowAddSalleModal(false);
+  } catch (err) {
+    setAddSalleError(err.message);
+  }
+};
 
-  const openRenameModal = (salle) => {
-    setRenameError(null);
-    setRenameTarget(salle);
-    setRenameValue(salle);
-  };
+const openRenameModal = (salleObj) => {
+  setRenameError(null);
+  setRenameTarget(salleObj);
+  setRenameValue(salleObj.nom);
+};
 
   const closeRenameModal = () => setRenameTarget(null);
 
   const handleRenameSubmit = async (e) => {
     e.preventDefault();
     const nouveauNom = renameValue.trim();
-    if (!nouveauNom || nouveauNom === renameTarget) return setRenameTarget(null);
+    if (!nouveauNom || nouveauNom === renameTarget?.nom) return setRenameTarget(null);
     setRenameError(null);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/salle/rename`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ oldName: renameTarget, newName: nouveauNom }),
+        body: JSON.stringify({ id: renameTarget.id, newName: nouveauNom }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erreur serveur');
-      setSchedules((prev) => prev.map((s) => (s.salle === renameTarget ? { ...s, salle: nouveauNom } : s)));
-      setExtraSalles((prev) => prev.map((s) => (s === renameTarget ? nouveauNom : s)));
+      setSalleObjects((prev) => prev.map((s) => (s.id === renameTarget.id ? { ...s, nom: nouveauNom } : s)));
       setRenameTarget(null);
     } catch (err) {
       setRenameError(err.message);
@@ -137,47 +129,42 @@ const EmploisEcole = () => {
     return [u.prenom, u.nom].filter(Boolean).join(' ');
   };
 
-  const renderCard = (cell, category, timeLabel) => {
-    const Icon = category.icon;
-    const prof = getProfLabel(cell);
-    const groupe = getGroupeLabel(cell);
-    return (
-      <div className={`rounded-xl border ${category.border} ${category.bg} px-2.5 py-2 text-left`}>
-        <div className={`flex items-center gap-1 ${category.text} mb-1`}>
-          <Icon size={12} strokeWidth={2.25} />
-          <span className="text-[10px] font-medium opacity-80">{timeLabel}</span>
-        </div>
-        <div className={`text-[11px] font-semibold leading-tight ${category.text}`}>{cell.contenu}</div>
-        {groupe && <div className={`text-[10px] mt-0.5 font-medium ${category.text} opacity-90`}>{groupe}</div>}
-        {prof && <div className={`text-[10px] opacity-70 ${category.text}`}>{prof}</div>}
-      </div>
-    );
-  };
+const renderCard = (cell, timeLabel) => {
+  const prof = getProfLabel(cell);
+  const groupe = getGroupeLabel(cell);
+  return (
+    <div className={`rounded-xl border ${CARD_STYLE.border} ${CARD_STYLE.bg} px-2.5 py-2 text-left`}>
+      <div className={`text-[10px] font-medium opacity-80 ${CARD_STYLE.text} mb-1`}>{timeLabel}</div>
+      <div className={`text-[11px] font-semibold leading-tight ${CARD_STYLE.text}`}>{cell.contenu}</div>
+      {groupe && <div className={`text-[10px] mt-0.5 font-medium ${CARD_STYLE.text} opacity-90`}>{groupe}</div>}
+      {prof && <div className={`text-[10px] opacity-70 ${CARD_STYLE.text}`}>{prof}</div>}
+    </div>
+  );
+};
 
-  const renderMerged = (matin, midi, category) => {
-    const Icon = category.icon;
-    const groupe = getGroupeLabel(matin);
-    const prof = getProfLabel(matin);
-    return (
-      <div className={`rounded-xl border ${category.border} ${category.bg} px-2.5 py-2.5 text-center`}>
-        <div className={`flex items-center justify-center gap-1 ${category.text} opacity-60 mb-1`}>
-          <div className="h-px flex-1 bg-current" />
-          <ArrowRight size={12} />
-        </div>
-        <div className={`text-[11px] font-semibold ${category.text}`}>{matin.contenu}</div>
-        {groupe && <div className={`text-[10px] font-medium ${category.text} opacity-90`}>{groupe}</div>}
-        {prof && <div className={`text-[10px] opacity-70 ${category.text}`}>{prof}</div>}
-        <div className={`text-[10px] mt-0.5 opacity-70 ${category.text}`}>
-          {matin.heure_debut?.slice(0, 5)} - {midi.heure_fin?.slice(0, 5)}
-        </div>
+const renderMerged = (matin, midi) => {
+  const groupe = getGroupeLabel(matin);
+  const prof = getProfLabel(matin);
+  return (
+    <div className={`rounded-xl border ${CARD_STYLE.border} ${CARD_STYLE.bg} px-2.5 py-2.5 text-center`}>
+      <div className={`flex items-center justify-center gap-1 ${CARD_STYLE.text} opacity-60 mb-1`}>
+        <div className="h-px flex-1 bg-current" />
+        <ArrowRight size={12} />
       </div>
-    );
-  };
+      <div className={`text-[11px] font-semibold ${CARD_STYLE.text}`}>{matin.contenu}</div>
+      {groupe && <div className={`text-[10px] font-medium ${CARD_STYLE.text} opacity-90`}>{groupe}</div>}
+      {prof && <div className={`text-[10px] opacity-70 ${CARD_STYLE.text}`}>{prof}</div>}
+      <div className={`text-[10px] mt-0.5 opacity-70 ${CARD_STYLE.text}`}>
+        {matin.heure_debut?.slice(0, 5)} - {midi.heure_fin?.slice(0, 5)}
+      </div>
+    </div>
+  );
+};
 
   return (
     <AdminLayout>
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-11 h-11 rounded-xl bg-slate-900 flex items-center justify-center">
+        <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
           <CalendarCheck2 size={20} className="text-white" />
         </div>
         <div>
@@ -200,21 +187,13 @@ const EmploisEcole = () => {
 
       {!loading && !error && (
         <>
-          <form onSubmit={handleAddSalle} className="flex items-center gap-2 mb-3">
-            <input
-              type="text"
-              value={newSalleName}
-              onChange={(e) => setNewSalleName(e.target.value)}
-              placeholder="Nom de la nouvelle salle (ex: Salle 09)"
-              className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-slate-800"
-            />
-            <button
-              type="submit"
-              className="bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-slate-700 transition"
-            >
-              + Ajouter une salle
-            </button>
-          </form>
+<button
+            type="button"
+            onClick={() => { setAddSalleError(null); setNewSalleName(''); setShowAddSalleModal(true); }}
+            className="bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-slate-700 transition mb-3"
+          >
+            + Ajouter une salle
+          </button>
 
           <div className="overflow-x-auto rounded-2xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] bg-white">
             <table className="w-full text-xs border-collapse">
@@ -223,7 +202,7 @@ const EmploisEcole = () => {
                 <th className="border border-slate-100 px-3 py-3 bg-slate-900 text-white font-semibold sticky left-0 z-20" rowSpan={2}>
                   Salle
                 </th>
-                {JOURS.map((jour) => (
+                {jours.map((jour) => (
                   <th
                     key={jour.key}
                     colSpan={2}
@@ -234,7 +213,7 @@ const EmploisEcole = () => {
                 ))}
               </tr>
               <tr>
-                {JOURS.map((jour) =>
+                {jours.map((jour) =>
                   PERIODES.map((p) => (
                     <th
                       key={`${jour.key}-${p}`}
@@ -249,19 +228,19 @@ const EmploisEcole = () => {
             <tbody>
               {salles.length === 0 && (
                 <tr>
-                  <td colSpan={1 + JOURS.length * 2} className="text-center text-slate-400 py-10">
+                  <td colSpan={1 + jours.length * 2} className="text-center text-slate-400 py-10">
                     Aucune salle programmée pour le moment.
                   </td>
                 </tr>
               )}
-              {salles.map((salle) => (
+              {salleObjects.slice().sort((a, b) => salleSort(a.nom, b.nom)).map(({ id, nom: salle }) => (
                 <tr key={salle}>
                   <td className="border border-slate-100 px-3 py-3 bg-slate-900 text-white whitespace-nowrap sticky left-0 z-10">
                     <div className="flex flex-col items-center gap-1">
                       <Armchair size={16} />
                       <button
                         type="button"
-                        onClick={() => openRenameModal(salle)}
+                        onClick={() => openRenameModal({ id, nom: salle })}
                         className="text-[11px] font-semibold hover:underline decoration-dotted"
                         title="Renommer la salle"
                       >
@@ -269,7 +248,7 @@ const EmploisEcole = () => {
                       </button>
                     </div>
                   </td>
-                  {JOURS.map((jour) => {
+                  {jours.map((jour) => {
                     const matinList = getCells(salle, jour.key, 'matin');
                     const midiList = getCells(salle, jour.key, 'midi');
                     const merged =
@@ -279,12 +258,11 @@ const EmploisEcole = () => {
                       matinList[0].prof_id === midiList[0].prof_id;
 
                     if (merged) {
-                      const category = getCategory(matinList[0].contenu);
-                      return (
-                        <td key={jour.key} colSpan={2} className="border border-slate-100 p-1.5 min-w-[320px]">
-                          {renderMerged(matinList[0], midiList[0], category)}
-                        </td>
-                      );
+return (
+  <td key={jour.key} colSpan={2} className="border border-slate-100 p-1.5 min-w-[320px]">
+    {renderMerged(matinList[0], midiList[0])}
+  </td>
+);
                     }
 
                     return (
@@ -294,7 +272,7 @@ const EmploisEcole = () => {
                             <div className="flex flex-col gap-1">
                               {matinList.map((cell) => (
                                 <Fragment key={cell.id}>
-                                  {renderCard(cell, getCategory(cell.contenu), `${cell.heure_debut?.slice(0, 5)} - ${cell.heure_fin?.slice(0, 5)}`)}
+                                  {renderCard(cell, `${cell.heure_debut?.slice(0, 5)} - ${cell.heure_fin?.slice(0, 5)}`)}
                                 </Fragment>
                               ))}
                             </div>
@@ -307,7 +285,7 @@ const EmploisEcole = () => {
                             <div className="flex flex-col gap-1">
                               {midiList.map((cell) => (
                                 <Fragment key={cell.id}>
-                                  {renderCard(cell, getCategory(cell.contenu), `${cell.heure_debut?.slice(0, 5)} - ${cell.heure_fin?.slice(0, 5)}`)}
+                                  {renderCard(cell, `${cell.heure_debut?.slice(0, 5)} - ${cell.heure_fin?.slice(0, 5)}`)}
                                 </Fragment>
                               ))}
                             </div>
@@ -349,6 +327,44 @@ const EmploisEcole = () => {
               </button>
               <button type="submit" className="bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-slate-700 transition">
                 Renommer
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {showAddSalleModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <form onSubmit={handleAddSalle} className="bg-white rounded-2xl shadow-xl p-5 w-80">
+            <h2 className="text-sm font-bold text-slate-800 mb-3">Ajouter une salle</h2>
+
+            {addSalleError && (
+              <p className="text-red-500 text-[11px] bg-red-50 border border-red-100 rounded-lg px-2 py-1.5 mb-2">
+                {addSalleError}
+              </p>
+            )}
+
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Nom de la salle</label>
+            <input
+              type="text"
+              value={newSalleName}
+              onChange={(e) => setNewSalleName(e.target.value)}
+              placeholder="Ex: Salle 09"
+              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs mb-1 focus:outline-none focus:ring-2 focus:ring-slate-800"
+              autoFocus
+              required
+            />
+            {newSalleName.trim() && (
+              <p className={`text-[10px] mb-3 ${salleDejaExistante ? 'text-red-500' : 'text-emerald-600'}`}>
+                {salleDejaExistante ? '⚠ Cette salle existe déjà' : '✓ Nom disponible'}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setShowAddSalleModal(false)} className="text-xs font-semibold px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-100">
+                Annuler
+              </button>
+              <button type="submit" disabled={salleDejaExistante} className="bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-50">
+                Ajouter
               </button>
             </div>
           </form>

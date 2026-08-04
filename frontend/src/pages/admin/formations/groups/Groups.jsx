@@ -13,20 +13,21 @@ const Section = ({ children }) => (
   <div className="p-2 grid grid-cols-2 gap-3">{children}</div>
 );
 
-const JOURS = ['samedi', 'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi'];
 const PERIODES = ['matin', 'midi'];
-const SALLES = ['Salle 01', 'Salle 02', 'Salle 03', 'Salle 04', 'Salle 05', 'Salle 06', 'Salle 07', 'Salle 08'];
 
 const GroupScheduleTable = ({ groupId, formation_id, staged, onAddStaged, onRemoveStaged }) => {
   const [cells, setCells] = useState({});
+  const [salles, setSalles] = useState([]);
+  const [jours, setJours] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [jour, setJour] = useState(JOURS[0]);
+  const [jour, setJour] = useState('');
   const [periode, setPeriode] = useState(PERIODES[0]);
   const [salle, setSalle] = useState('');
   const [heureDebut, setHeureDebut] = useState('');
   const [heureFin, setHeureFin] = useState('');
   const [contenu, setContenu] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
   const makeKey = (j, s, p) => `${j}|${s}|${p}`;
   const getHeaders = () => ({
@@ -36,33 +37,46 @@ const GroupScheduleTable = ({ groupId, formation_id, staged, onAddStaged, onRemo
 
   const loadSchedules = () => {
     setLoading(true);
-    fetch(`${import.meta.env.VITE_API_URL}/api/schedules/formation/${formation_id}`, { headers: getHeaders() })
+    fetch(`${import.meta.env.VITE_API_URL}/api/schedules`, { headers: getHeaders() })
       .then(r => r.json())
       .then((data) => {
+        // Un tableau par case : plusieurs créneaux non-chevauchants peuvent
+        // partager la même salle/jour/période (ex: 08h-10h et 10h-12h le matin).
         const map = {};
         data.forEach((row) => {
-          map[makeKey(row.jour_semaine, row.salle, row.periode)] = {
+          const k = makeKey(row.jour_semaine, row.salle, row.periode);
+          if (!map[k]) map[k] = [];
+          map[k].push({
             id: row.id,
             contenu: row.contenu ?? '',
             heure_debut: row.heure_debut ?? '',
             heure_fin: row.heure_fin ?? '',
             isOwn: row.group_id === groupId,
-          };
+          });
         });
         setCells(map);
       })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadSchedules(); }, [formation_id]);
+useEffect(() => {
+  loadSchedules();
+  fetch(`${import.meta.env.VITE_API_URL}/api/schedules/salles`, { headers: getHeaders() })
+    .then(r => r.json())
+    .then((data) => setSalles(data.map((s) => s.nom)));
+  fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeaders() })
+    .then(r => r.json())
+    .then((data) => setJours(data));
+}, []);
 
   // Fusionne les créneaux déjà en base avec ceux en attente (mode brouillon, pas encore de groupId)
-  const displayCells = { ...cells };
+  const displayCells = {};
+  Object.keys(cells).forEach((k) => { displayCells[k] = [...cells[k]]; });
   if (!groupId) {
     staged.forEach((slot) => {
-      displayCells[makeKey(slot.jour_semaine, slot.salle, slot.periode)] = {
-        ...slot, isOwn: true, stagedLocalId: slot._localId,
-      };
+      const k = makeKey(slot.jour_semaine, slot.salle, slot.periode);
+      if (!displayCells[k]) displayCells[k] = [];
+      displayCells[k].push({ ...slot, isOwn: true, stagedLocalId: slot._localId });
     });
   }
 
@@ -70,13 +84,20 @@ const GroupScheduleTable = ({ groupId, formation_id, staged, onAddStaged, onRemo
     if (!salle) return alert('Choisissez une salle libre.');
     if (!heureDebut || !heureFin) return alert('Heure début et heure fin sont obligatoires.');
 
-    if (!groupId) {
+if (!groupId) {
+      const key = makeKey(jour, salle, periode);
+      const existing = displayCells[key] ?? [];
+      const conflict = existing.find((e) => heureDebut < e.heure_fin && heureFin > e.heure_debut);
+      if (conflict) {
+        return alert(`${salle} est déjà occupée ce jour-là de ${conflict.heure_debut} à ${conflict.heure_fin}.`);
+      }
       onAddStaged({
         _localId: `${Date.now()}-${Math.random()}`,
         jour_semaine: jour, salle, periode, contenu,
         heure_debut: heureDebut, heure_fin: heureFin,
       });
       setSalle(''); setContenu(''); setHeureDebut(''); setHeureFin('');
+      setShowForm(false);
       return;
     }
 
@@ -91,6 +112,7 @@ const GroupScheduleTable = ({ groupId, formation_id, staged, onAddStaged, onRemo
       await res.json();
       loadSchedules();
       setSalle(''); setContenu(''); setHeureDebut(''); setHeureFin('');
+      setShowForm(false);
     } catch (err) {
       alert(err.message);
     } finally {
@@ -98,104 +120,96 @@ const GroupScheduleTable = ({ groupId, formation_id, staged, onAddStaged, onRemo
     }
   };
 
-  const handleRemove = async (jourC, salleC, periodeC) => {
-    const k = makeKey(jourC, salleC, periodeC);
-    const cell = displayCells[k];
-    if (!cell?.isOwn) return;
+  const handleRemove = async (entry) => {
+    if (!entry?.isOwn) return;
 
     if (!groupId) {
-      onRemoveStaged(cell.stagedLocalId);
+      onRemoveStaged(entry.stagedLocalId);
       return;
     }
-    if (!cell.id) return;
+    if (!entry.id) return;
     if (!confirm('Retirer ce créneau ?')) return;
-    await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/${cell.id}`, { method: 'DELETE', headers: getHeaders() });
+    await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/${entry.id}`, { method: 'DELETE', headers: getHeaders() });
     loadSchedules();
   };
 
-  if (loading) return <div className="flex justify-center py-6"><div className="w-6 h-6 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" /></div>;
-
-  const salleStatus = SALLES.map((s) => {
-    const cell = displayCells[makeKey(jour, s, periode)];
-    return { salle: s, taken: !!cell, own: cell?.isOwn };
-  });
-
+if (loading) return <div className="flex justify-center py-6"><div className="w-6 h-6 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" /></div>;
   return (
     <div className="space-y-4">
-      <div className="border border-[#F1F5F9] rounded-xl p-3 space-y-2 bg-[#F8FAFC]">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label text="Jour" />
-            <select value={jour} onChange={(e) => { setJour(e.target.value); setSalle(''); }} className={inp}>
-              {JOURS.map((j) => <option key={j} value={j} className="capitalize">{j}</option>)}
-            </select>
+      <p className="text-[10px] text-slate-400">Cliquez une case libre de la grille pour y ajouter un créneau.</p>
+
+      {showForm && (
+        <div className="border border-[#0369A1]/30 rounded-xl p-3 space-y-2 bg-[#F0F9FF]">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-[#0369A1] capitalize">{salle} · {jour} · {periode === 'matin' ? 'Matin' : 'Midi'}</p>
+            <button type="button" onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
           </div>
-          <div>
-            <Label text="Période" />
-            <select value={periode} onChange={(e) => { setPeriode(e.target.value); setSalle(''); }} className={inp}>
-              {PERIODES.map((p) => <option key={p} value={p}>{p === 'matin' ? 'Matin' : 'Midi'}</option>)}
-            </select>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div><Label text="Heure début" /><input type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} className={inp} /></div>
+            <div><Label text="Heure fin" /><input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} className={inp} /></div>
           </div>
+
+          <div><Label text="Contenu" /><input type="text" value={contenu} onChange={(e) => setContenu(e.target.value)} placeholder="Ex: Grammaire, Chapitre 3..." className={inp} /></div>
+
+          <button onClick={handleAdd} disabled={saving || !heureDebut || !heureFin}
+            className="w-full text-xs py-1.5 rounded-lg bg-[#0F2A4A] text-white disabled:opacity-40">
+            {saving ? 'Ajout...' : 'Ajouter au planning'}
+          </button>
         </div>
+      )}
 
-        <div>
-          <Label text="Salle (grisées = déjà occupées)" />
-          <div className="grid grid-cols-4 gap-1.5">
-            {salleStatus.map(({ salle: s, taken, own }) => (
-              <button key={s} type="button" disabled={taken} onClick={() => setSalle(s)}
-                className={`text-[11px] rounded-lg py-1.5 border transition ${
-                  s === salle ? 'bg-[#0369A1] text-white border-[#0369A1]' :
-                  taken ? 'bg-slate-100 text-slate-300 border-slate-100 cursor-not-allowed line-through' :
-                  'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50'
-                }`}
-                title={taken ? (own ? 'Occupée (ce groupe)' : 'Occupée par un autre groupe') : 'Libre'}>
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div><Label text="Heure début" /><input type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} className={inp} /></div>
-          <div><Label text="Heure fin" /><input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} className={inp} /></div>
-        </div>
-
-        <div><Label text="Contenu" /><input type="text" value={contenu} onChange={(e) => setContenu(e.target.value)} placeholder="Ex: Grammaire, Chapitre 3..." className={inp} /></div>
-
-        <button onClick={handleAdd} disabled={saving || !salle || !heureDebut || !heureFin}
-          className="w-full text-xs py-1.5 rounded-lg bg-[#0F2A4A] text-white disabled:opacity-40">
-          {saving ? 'Ajout...' : 'Ajouter au planning'}
-        </button>
-      </div>
-
-      <div className="overflow-x-auto rounded-xl border border-[#F1F5F9]">
+      <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-[10px] border-collapse">
           <thead>
-            <tr className="bg-[#DCEBFA]">
-              <th className="border border-[#F1F5F9] px-2 py-1.5" rowSpan={2} />
-              {JOURS.map((j) => <th key={j} colSpan={2} className="border border-[#F1F5F9] px-2 py-1.5 text-[#0369A1] font-semibold capitalize">{j}</th>)}
-            </tr>
-            <tr className="bg-[#DCEBFA]">
-              {JOURS.map((j) => PERIODES.map((p) => <th key={`${j}-${p}`} className="border border-[#F1F5F9] px-2 py-1.5 text-[#0369A1]/70">{p === 'matin' ? 'Matin' : 'Midi'}</th>))}
-            </tr>
+            <tr >
+              <th className="border border-slate-700 px-2 py-1.5 bg-slate-900" rowSpan={2} />
+{jours.map((j) => <th key={j} colSpan={2} className="border border-slate-700 px-2 py-1.5 bg-slate-900 text-white font-semibold uppercase text-[9px] capitalize">{j}</th>)}
+</tr>
+            <tr >
+{jours.map((j) => PERIODES.map((p) => <th key={`${j}-${p}`} className="border border-slate-200 px-2 py-1.5 bg-white text-slate-500">{p === 'matin' ? 'Matin' : 'Midi'}</th>))}
+</tr>
           </thead>
           <tbody>
-            {SALLES.map((s) => (
+            {salles.map((s) => (
               <tr key={s}>
-                <td className="border border-[#F1F5F9] px-2 py-2 font-semibold text-slate-800 bg-[#DCEBFA]/40 whitespace-nowrap">{s}</td>
-                {JOURS.map((j) => PERIODES.map((p) => {
-                  const cell = displayCells[makeKey(j, s, p)];
+<td className="border border-slate-700 px-2 py-2 font-semibold text-white bg-slate-900 whitespace-nowrap">{s}</td>
+{jours.map((j) => PERIODES.map((p) => {
+                  const entries = displayCells[makeKey(j, s, p)] ?? [];
+                  const isSelected = showForm && jour === j && salle === s && periode === p;
+                  const openForm = () => {
+                    setJour(j); setSalle(s); setPeriode(p);
+                    setHeureDebut(''); setHeureFin(''); setContenu('');
+                    setShowForm(true);
+                  };
                   return (
-                    <td key={makeKey(j, s, p)} className="border border-[#F1F5F9] p-1.5 align-top min-w-[6rem]">
-                      {cell?.contenu ? (
-                        <div className={cell.isOwn ? '' : 'opacity-50'}>
-                          {(cell.heure_debut || cell.heure_fin) && (
-                            <p className="text-[10px] text-[#0369A1] font-medium">{cell.heure_debut?.slice(0, 5)}{cell.heure_fin ? ` → ${cell.heure_fin.slice(0, 5)}` : ''}</p>
-                          )}
-                          <p className="text-xs text-slate-800">{cell.contenu}</p>
-                          {cell.isOwn && <button onClick={() => handleRemove(j, s, p)} className="text-[9px] text-red-400 hover:text-red-600 mt-0.5">Retirer</button>}
-                        </div>
-                      ) : <span className="text-[#F1F5F9] text-lg">—</span>}
+                    <td
+                      key={makeKey(j, s, p)}
+className={`border border-slate-200 p-1.5 align-top min-w-[6rem] ${isSelected ? 'bg-slate-100 ring-2 ring-inset ring-slate-400' : ''}`}
+>
+                      <div className="space-y-1">
+                        {entries.map((entry, idx) => (
+                          <div key={entry.id ?? entry.stagedLocalId ?? idx} className={entry.isOwn ? '' : 'opacity-50'}>
+                            {(entry.heure_debut || entry.heure_fin) && (
+                              <p className="text-[10px] text-slate-500 font-medium">{entry.heure_debut?.slice(0, 5)}{entry.heure_fin ? ` → ${entry.heure_fin.slice(0, 5)}` : ''}</p>
+                            )}
+                            <p className="text-xs text-slate-800">{entry.contenu}</p>
+                            {entry.isOwn && (
+                              <button onClick={() => handleRemove(entry)} className="text-[9px] text-red-400 hover:text-red-600 mt-0.5">
+                                Retirer
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        {/* Toujours cliquable : le backend valide le chevauchement d'heures (409) */}
+                        <button
+                          type="button"
+                          onClick={openForm}
+className="w-full flex justify-center text-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded transition text-sm py-0.5"
+>
+                          +
+                        </button>
+                      </div>
                     </td>
                   );
                 }))}
@@ -284,13 +298,17 @@ const Groups = () => {
     } catch {}
   };
 
- const fetchTeachers = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/teachers?formation_id=${formation_id}`, { headers: { Authorization: `Bearer ${token}` } });
-      setTeachers(await res.json());
-    } catch {}
-  };
+const fetchTeachers = async () => {
+   try {
+     const token = localStorage.getItem('token');
+     const res = await fetch(`${import.meta.env.VITE_API_URL}/api/teachers?formation_id=${formation_id}`, { headers: { Authorization: `Bearer ${token}` } });
+     const data = await res.json();
+     console.log('teachers status:', res.status, data); // ← temporaire
+     setTeachers(data);
+   } catch (err) {
+     console.error('fetchTeachers error:', err); // ← temporaire
+   }
+};
 
   useEffect(() => {
     fetchGroups();
@@ -362,12 +380,16 @@ const Groups = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Supprimer ce groupe ?')) return;
-    const token = localStorage.getItem('token');
-    await fetch(`${import.meta.env.VITE_API_URL}/api/groups/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-    fetchGroups();
-  };
+const handleDelete = async (group) => {
+  if (group.nb_etudiants > 0) {
+    alert(`Ce groupe a ${group.nb_etudiants} étudiant(s) inscrit(s). Retirez-les ou réaffectez-les à un autre groupe avant de le supprimer.`);
+    return;
+  }
+  if (!confirm('Supprimer ce groupe ?')) return;
+  const token = localStorage.getItem('token');
+  await fetch(`${import.meta.env.VITE_API_URL}/api/groups/${group.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+  fetchGroups();
+};
 
   const getAnneesScolaires = () => {
     const now = new Date();
@@ -412,7 +434,7 @@ const Groups = () => {
         </button>
       </div>
 
-      {loading && <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" /></div>}
+      {loading && <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" /></div>}
       {error && <p className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-lg px-4 py-3">Erreur : {error}</p>}
 
       {!loading && !error && (
@@ -445,7 +467,7 @@ const Groups = () => {
                     <button onClick={() => openEdit(g)} className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 hover:shadow-sm active:scale-95 transition">
                       <Pencil size={12} /> Modifier
                     </button>
-                    <button onClick={() => handleDelete(g.id)} className="flex items-center gap-1 text-xs font-medium text-red-500 bg-red-50 border border-red-500/20 px-3 py-1.5 rounded-full hover:bg-red-100 hover:shadow-sm active:scale-95 transition">
+                    <button onClick={() => handleDelete(g)} className="flex items-center gap-1 text-xs font-medium text-red-500 bg-red-50 border border-red-500/20 px-3 py-1.5 rounded-full hover:bg-red-100 hover:shadow-sm active:scale-95 transition">
                       <Trash2 size={12} /> Supprimer
                     </button>
                     <button onClick={() => setArchivingGroup(g.id)} className="text-xs font-medium text-slate-500 bg-slate-100 border border-slate-500/20 px-3 py-1.5 rounded-full hover:bg-slate-200 hover:shadow-sm active:scale-95 transition">

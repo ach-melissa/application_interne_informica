@@ -496,7 +496,14 @@ const deleteUser = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
+
+const getRoles = async (req, res) => {
+  const { data, error } = await supabase.rpc('get_user_roles');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
 module.exports = {
   getMe, updateMe, changeMyPassword, uploadMyPhoto, deleteMyPhoto,
-  getUsers, createUser, updateUser, deleteUser, archiveUser, restoreUser,
+  getUsers, createUser, updateUser, deleteUser, archiveUser, restoreUser,getRoles,
 };

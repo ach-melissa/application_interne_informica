@@ -3,14 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 
-const JOURS = ['samedi', 'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi'];
 const PERIODES = ['matin', 'midi'];
-const SALLES = ['Salle 01', 'Salle 02', 'Salle 03', 'Salle 04', 'Salle 05','Salle 06', 'Salle 07', 'Salle 08'];
 
 const EmploisGlobal = () => {
-  const { id } = useParams(); // formation_id
+  const { id } = useParams(); 
   const navigate = useNavigate();
   const [schedules, setSchedules] = useState([]);
+  const [jours, setJours] = useState([]);
+const [salles, setSalles] = useState([]);
   const [formation, setFormation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,13 +19,17 @@ const EmploisGlobal = () => {
     const fetch_ = async () => {
       try {
         const token = localStorage.getItem('token');
-        const [schedRes, formRes] = await Promise.all([
-          fetch(`${import.meta.env.VITE_API_URL}/api/schedules/formation/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${import.meta.env.VITE_API_URL}/api/formations/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
-        ]);
-        if (!schedRes.ok) throw new Error('Erreur serveur');
-        setSchedules(await schedRes.json());
-        if (formRes.ok) setFormation(await formRes.json());
+const [schedRes, formRes, joursRes, sallesRes] = await Promise.all([
+  fetch(`${import.meta.env.VITE_API_URL}/api/schedules/formation/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
+  fetch(`${import.meta.env.VITE_API_URL}/api/formations/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
+  fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: { Authorization: `Bearer ${token}` } }),
+  fetch(`${import.meta.env.VITE_API_URL}/api/schedules/salles`, { headers: { Authorization: `Bearer ${token}` } }),
+]);
+if (!schedRes.ok) throw new Error('Erreur serveur');
+setSchedules(await schedRes.json());
+if (formRes.ok) setFormation(await formRes.json());
+if (joursRes.ok) setJours(await joursRes.json());
+if (sallesRes.ok) setSalles((await sallesRes.json()).map((s) => s.nom));
       } catch (err) {
         setError(err.message);
       } finally {
@@ -67,7 +71,7 @@ const EmploisGlobal = () => {
 
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
+<div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
@@ -82,24 +86,24 @@ const EmploisGlobal = () => {
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr>
-                <th className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA]" rowSpan={2}></th>
-                {JOURS.map((jour) => (
+<th className="border border-slate-700 px-3 py-2 bg-slate-900" rowSpan={2}></th>
+{jours.map((jour) => (
                   <th
                     key={jour}
                     colSpan={2}
-                    className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA] text-[#0369A1] font-semibold capitalize"
-                  >
+className="border border-slate-700 px-3 py-2 bg-slate-900 text-white font-semibold uppercase text-[11px] capitalize"
+>
                     {jour}
                   </th>
                 ))}
               </tr>
               <tr>
-                {JOURS.map((jour) =>
+                {jours.map((jour) =>
                   PERIODES.map((p) => (
                     <th
                       key={`${jour}-${p}`}
-                      className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA] text-[#0369A1]/70 font-medium"
-                    >
+className="border border-slate-200 px-3 py-2 bg-white text-slate-500 font-semibold uppercase text-[10px]"
+ >
                       {p === 'matin' ? 'Matin' : 'A Midi'}
                     </th>
                   ))
@@ -107,24 +111,24 @@ const EmploisGlobal = () => {
               </tr>
             </thead>
             <tbody>
-              {SALLES.map((salle) => (
+              {salles.map((salle) => (
                 <tr key={salle}>
-                  <td className="border border-[#F1F5F9] px-3 py-3 font-semibold text-slate-800 bg-[#DCEBFA]/40 whitespace-nowrap">
-                    {salle}
+<td className="border border-slate-700 px-3 py-3 font-semibold text-white bg-slate-900 whitespace-nowrap">
+   {salle}
                   </td>
-                  {JOURS.map((jour) =>
+                  {jours.map((jour) =>
                     PERIODES.map((periode) => {
                       const cell = getCell(salle, jour, periode);
                       return (
                         <td
                           key={`${jour}-${periode}`}
-                          className="border border-[#F1F5F9] px-2 py-2 text-center text-slate-500 min-w-[90px]"
-                        >
+className="border border-slate-200 px-2 py-2 text-center text-slate-500 min-w-[90px]"
+ >
                           {cell ? (
-                            <div className="bg-[#DCEBFA] rounded-lg px-2 py-1 text-[#0369A1] font-medium text-[10px]">
-                              <div>{cell.groups?.nom ?? '—'}</div>
-                              <div className="text-[#0369A1]/60">{cell.heure_debut?.slice(0,5)} - {cell.heure_fin?.slice(0,5)}</div>
-                            </div>
+<div className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 font-medium text-[10px]">
+  <div>{cell.groups?.nom ?? '—'}</div>
+  <div className="text-slate-500">{cell.heure_debut?.slice(0,5)} - {cell.heure_fin?.slice(0,5)}</div>
+</div>
                           ) : (
                             <span className="text-slate-300"></span>
                           )}

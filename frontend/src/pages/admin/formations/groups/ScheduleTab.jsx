@@ -7,19 +7,19 @@ const getHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('token')}`,
 });
 
-const SALLES = ['Salle 01', 'Salle 02', 'Salle 03', 'Salle 04', 'Salle 05','Salle 06', 'Salle 07', 'Salle 08'];
-const JOURS  = ['samedi', 'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi'];
 const PERIODES = ['matin', 'midi'];
 const PERIODE_LABEL = { matin: 'Matin', midi: 'A Midi' };
 
 // key = "JOUR|SALLE|PERIODE"
 const makeKey = (jour, salle, periode) => `${jour}|${salle}|${periode}`;
 
-const ScheduleTab = ({ groupId, readOnly = false }) => {
+const ScheduleTab = ({ groupId, readOnly = true }) => {
   // Map of key → { id, contenu, heure_debut, heure_fin }
   const [cells, setCells] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+const [salles, setSalles] = useState([]);
+  const [jours, setJours] = useState([]);
 
   // Editing state
   const [editingKey, setEditingKey] = useState(null);
@@ -28,13 +28,19 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
   const inputRef = useRef(null);
 
   // ── Fetch ────────────────────────────────────────────────────────────────
-  const fetchSchedule = async () => {
+const fetchSchedule = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/api/schedules/group/${groupId}`, { headers: getHeaders() });
+      const [res, sallesRes, joursRes] = await Promise.all([
+        fetch(`${API}/api/schedules/group/${groupId}`, { headers: getHeaders() }),
+        fetch(`${API}/api/schedules/salles`, { headers: getHeaders() }),
+        fetch(`${API}/api/schedules/jours`, { headers: getHeaders() }),
+      ]);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erreur de chargement');
+      if (sallesRes.ok) setSalles((await sallesRes.json()).map((s) => s.nom));
+      if (joursRes.ok) setJours(await joursRes.json());
       const map = {};
       data.forEach((row) => {
         const k = makeKey(row.jour_semaine, row.salle, row.periode);
@@ -130,9 +136,24 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
     }
   };
 
+  // ── Shared cell content renderer (used by both read-only and editable views) ──
+  const renderCellBody = (cell) => {
+    if (!cell?.contenu) return null;
+    return (
+      <div className="space-y-0.5">
+        {(cell.heure_debut || cell.heure_fin) && (
+          <p className="text-[10px] text-slate-500 font-medium">
+            {cell.heure_debut?.slice(0, 5)}{cell.heure_fin ? ` → ${cell.heure_fin.slice(0, 5)}` : ''}
+          </p>
+        )}
+        <p className="text-xs text-slate-800 leading-snug">{cell.contenu}</p>
+      </div>
+    );
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
+<div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
@@ -142,31 +163,29 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
         <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-[#F1F5F9] shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
         <table className="w-full text-xs border-collapse">
           <thead>
             {/* Row 1: empty + jour headers (each spanning 2 periodes) */}
-            <tr className="bg-[#DCEBFA]">
-              <th className="border border-[#F1F5F9] px-3 py-2.5 text-[#0369A1] font-medium w-24 min-w-[6rem]" rowSpan={2} />
-              {JOURS.map((jour) => (
+            <tr >
+<th className="border border-slate-700 px-3 py-2.5 bg-slate-900 font-medium w-24 min-w-[6rem]" rowSpan={2} />
+{jours.map((jour) => (
                 <th
                   key={jour}
                   colSpan={2}
-                  className="border border-[#F1F5F9] px-3 py-2.5 text-center text-[#0369A1] font-semibold whitespace-nowrap capitalize"
-                >
-                  {jour}
+className="border border-slate-700 px-3 py-2.5 bg-slate-900 text-center text-white font-semibold whitespace-nowrap capitalize uppercase text-[11px]">
+                 {jour}
                 </th>
               ))}
             </tr>
             {/* Row 2: Matin / A Midi per jour */}
-            <tr className="bg-[#DCEBFA]">
-              {JOURS.map((jour) =>
+            <tr >
+              {jours.map((jour) =>
                 PERIODES.map((p) => (
                   <th
                     key={`${jour}-${p}`}
-                    className="border border-[#F1F5F9] px-2 py-1.5 text-center text-[#0369A1]/70 font-normal whitespace-nowrap"
-                  >
-                    {PERIODE_LABEL[p]}
+className="border border-slate-200 px-2 py-2 bg-white text-center text-slate-500 font-semibold uppercase text-[10px] whitespace-nowrap" >
+          {PERIODE_LABEL[p]}
                   </th>
                 ))
               )}
@@ -174,14 +193,14 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
           </thead>
 
           <tbody>
-            {SALLES.map((salle, si) => (
-              <tr key={salle} className={si % 2 === 0 ? 'bg-white' : 'bg-[#F8FCFF]'}>
+            {salles.map((salle, si) => (
+              <tr key={salle} >
                 {/* Salle label */}
-                <td className="border border-[#F1F5F9] px-3 py-2 font-medium text-slate-800 whitespace-nowrap bg-[#DCEBFA]/40">
-                  {salle}
+<td className="border border-slate-700 px-3 py-3 font-semibold text-white whitespace-nowrap bg-slate-900">
+   {salle}
                 </td>
 
-                {JOURS.map((jour) =>
+                {jours.map((jour) =>
                   PERIODES.map((periode) => {
                     const k = makeKey(jour, salle, periode);
                     const cell = cells[k];
@@ -190,8 +209,8 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
                     return (
                       <td
                         key={k}
-                        className="border border-[#F1F5F9] p-0 align-top min-w-[7rem] w-[7rem]"
-                      >
+className="border border-slate-200 p-0 align-top min-w-[7rem] w-[7rem]"
+>
                         {isEditing ? (
                           /* ── Edit mode ── */
                           <div className="p-1.5 space-y-1 bg-[#fffef9]">
@@ -201,8 +220,8 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
                               value={editValues.contenu}
                               onChange={(e) => setEditValues((v) => ({ ...v, contenu: e.target.value }))}
                               placeholder="Contenu..."
-                              className="w-full border border-[#0369A1]/40 rounded-md px-1.5 py-1 text-xs bg-white outline-none"
-                              onKeyDown={(e) => {
+className="w-full border border-slate-400 rounded-md px-1.5 py-1 text-xs bg-white outline-none"
+onKeyDown={(e) => {
                                 if (e.key === 'Enter') saveEdit(jour, salle, periode);
                                 if (e.key === 'Escape') cancelEdit();
                               }}
@@ -212,15 +231,15 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
                                 type="time"
                                 value={editValues.heure_debut}
                                 onChange={(e) => setEditValues((v) => ({ ...v, heure_debut: e.target.value }))}
-                                className="flex-1 border border-[#F1F5F9] rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
-                              />
+className="flex-1 border border-slate-200 rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
+/>
                               <span className="text-slate-400 self-center">→</span>
                               <input
                                 type="time"
                                 value={editValues.heure_fin}
                                 onChange={(e) => setEditValues((v) => ({ ...v, heure_fin: e.target.value }))}
-                                className="flex-1 border border-[#F1F5F9] rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
-                              />
+className="flex-1 border border-slate-200 rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
+       />
                             </div>
                             <div className="flex justify-between items-center pt-0.5">
                               <button
@@ -236,8 +255,8 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
                                 <button
                                   onClick={() => saveEdit(jour, salle, periode)}
                                   disabled={saving}
-                                  className="text-[#0369A1] hover:text-[#065e8f] transition disabled:opacity-40"
-                                >
+className="text-slate-900 hover:text-slate-600 transition disabled:opacity-40"
+ >
                                   {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                                 </button>
                               </div>
@@ -246,37 +265,19 @@ const ScheduleTab = ({ groupId, readOnly = false }) => {
                         ) : readOnly ? (
                           /* ── Read-only display (no click handler) ── */
                           <div className="w-full h-full min-h-[3.5rem] text-left px-2 py-1.5">
-                            {cell?.contenu ? (
-                              <div className="space-y-0.5">
-                                {(cell.heure_debut || cell.heure_fin) && (
-                                  <p className="text-[10px] text-[#0369A1] font-medium">
-                                    {cell.heure_debut?.slice(0, 5)}{cell.heure_fin ? ` → ${cell.heure_fin.slice(0, 5)}` : ''}
-                                  </p>
-                                )}
-                                <p className="text-xs text-slate-800 leading-snug">{cell.contenu}</p>
-                              </div>
-                            ) : (
-                              <span className="text-[#F1F5F9] text-lg leading-none">—</span>
-                            )}
+                            {renderCellBody(cell)}
                           </div>
                         ) : (
                           /* ── Display mode ── */
                           <button
                             onClick={() => startEdit(jour, salle, periode)}
-                            className="w-full h-full min-h-[3.5rem] text-left px-2 py-1.5 hover:bg-[#DCEBFA]/40 transition group"
-                          >
+className="w-full h-full min-h-[3.5rem] text-left px-2 py-1.5 hover:bg-slate-50 transition group"
+>
                             {cell?.contenu ? (
-                              <div className="space-y-0.5">
-                                {(cell.heure_debut || cell.heure_fin) && (
-                                  <p className="text-[10px] text-[#0369A1] font-medium">
-                                    {cell.heure_debut?.slice(0, 5)}{cell.heure_fin ? ` → ${cell.heure_fin.slice(0, 5)}` : ''}
-                                  </p>
-                                )}
-                                <p className="text-xs text-slate-800 leading-snug">{cell.contenu}</p>
-                              </div>
+                              renderCellBody(cell)
                             ) : (
-                              <span className="text-[#F1F5F9] group-hover:text-slate-300 transition text-lg leading-none">+</span>
-                            )}
+<span className="text-slate-200 group-hover:text-slate-400 transition text-lg leading-none">+</span>
+)}
                           </button>
                         )}
                       </td>

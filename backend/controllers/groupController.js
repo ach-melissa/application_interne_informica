@@ -75,12 +75,18 @@ const deleteGroup = async (req, res) => {
   const { id } = req.params;
 
   // Remettre group_id à null pour les étudiants de ce groupe
-  const { error: unassignError } = await supabase
+// Bloquer la suppression si des étudiants sont encore inscrits à ce groupe
+  const { count, error: countError } = await supabase
     .from('inscriptions')
-    .update({ group_id: null })
+    .select('*', { count: 'exact', head: true })
     .eq('group_id', id);
 
-  if (unassignError) return res.status(500).json({ error: unassignError.message });
+  if (countError) return res.status(500).json({ error: countError.message });
+  if (count > 0) {
+    return res.status(400).json({
+      error: `Ce groupe a ${count} étudiant(s) inscrit(s). Retirez-les ou réaffectez-les à un autre groupe avant de le supprimer.`,
+    });
+  }
 
   // Nettoyer les données liées avant la suppression réelle
   const { error: schedErr } = await supabase.from('schedules').delete().eq('group_id', id);

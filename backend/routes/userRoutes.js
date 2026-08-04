@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const {
   getMe, updateMe, changeMyPassword, uploadMyPhoto, deleteMyPhoto, getUsers,
-  createUser, updateUser, deleteUser, archiveUser, restoreUser,
+  createUser, updateUser, deleteUser, archiveUser, restoreUser,getRoles,
 } = require('../controllers/userController');
 
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
@@ -24,4 +24,6 @@ router.patch('/:id', verifyToken, requireRole('admin'), upload.single('photo'), 
 router.patch('/:id/archive', verifyToken, requireRole('admin'), archiveUser);
 router.patch('/:id/restore', verifyToken, requireRole('admin'), restoreUser);
 router.delete('/:id', verifyToken, requireRole('admin'), deleteUser);
+router.get('/roles', verifyToken, getRoles);
+
 module.exports = router;

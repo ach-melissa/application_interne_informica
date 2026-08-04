@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, Calendar, Shield, Lock, Camera, Trash2, Loader2 } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 
-const ROLES = ['admin','prof','comptable'];
-const roleMeta = { admin: 'Admin', prof: 'Prof', comptable: 'Comptable' };
+
+const roleMeta = { admin: 'Admin', super_admin: 'Super Admin', prof: 'Prof', comptable: 'Comptable' };
 const inp = 'w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors';
 const Label = ({ icon: Icon, text }) => (
   <p className="flex items-center gap-1 text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">
@@ -22,7 +22,14 @@ const AddUserModal = ({ onClose, onSuccess }) => {
   const [preview, setPreview] = useState(null);
   const [submitting, setSubmit] = useState(false);
   const [error, setError]       = useState(null);
+const [roles, setRoles] = useState([]);
 
+useEffect(() => {
+  fetch(`${API}/api/users/roles`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+    .then(r => r.json())
+    .then(setRoles)
+    .catch(() => {});
+}, []);
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
 
   useEffect(() => {
@@ -127,9 +134,9 @@ const AddUserModal = ({ onClose, onSuccess }) => {
             <div><Label icon={Lock} text="Mot de passe *" /><input type="password" value={form.mot_de_passe} onChange={set('mot_de_passe')} className={inp} /></div>
             <div className="col-span-2">
               <Label icon={Shield} text="Rôle" />
-              <select value={form.role} onChange={set('role')} className={inp}>
-                {ROLES.map(r => <option key={r} value={r}>{roleMeta[r]}</option>)}
-              </select>
+<select value={form.role} onChange={set('role')} className={inp}>
+  {roles.map(r => <option key={r} value={r}>{roleMeta[r] ?? r}</option>)}
+</select>
             </div>
           </div>
 

@@ -25,8 +25,13 @@ const Archive = () => {
 
   return (
     <AdminLayout>
-      <h1 className="text-xl font-bold text-slate-800 mb-1">Archive</h1>
-      <p className="text-slate-400 text-xs mb-6">Sélectionnez une année scolaire</p>
+<div className="flex items-center gap-3 mb-1">
+  <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+    <FolderArchive size={22} className="text-white" />
+  </div>
+  <h1 className="text-xl font-bold text-slate-800">Archive</h1>
+</div>
+<p className="text-slate-400 text-xs mb-6 ml-14">Sélectionnez une année scolaire</p>
 
       {loading && (
         <div className="flex items-center justify-center py-20">

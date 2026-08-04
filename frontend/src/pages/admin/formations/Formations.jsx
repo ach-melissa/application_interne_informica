@@ -21,7 +21,10 @@ const Formations = () => {
   const [error, setError] = useState(null);
   const [selectedFormation, setSelectedFormation] = useState(null);
   const [editingFormation, setEditingFormation] = useState(null);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+const [selectedGroup, setSelectedGroup] = useState(null);
+const [filterFormationId, setFilterFormationId] = useState('');
+const [filterDateFrom, setFilterDateFrom] = useState('');
+const [filterDateTo, setFilterDateTo] = useState('');
   const navigate = useNavigate();
 
 
@@ -66,8 +69,8 @@ if (!res.ok) throw new Error('Erreur serveur');
     setSelectedFormation(formation);
     try {
 const token = localStorage.getItem('token');
-const res = await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions?formation_id=${formation.id}`, {
-  headers: { Authorization: `Bearer ${token}` }
+const res = await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions?formation_id=${formation.id}&statut=confirmed`, {
+   headers: { Authorization: `Bearer ${token}` }
 });
 if (!res.ok) throw new Error('Erreur serveur');
       const data = await res.json();
@@ -81,7 +84,12 @@ if (!res.ok) throw new Error('Erreur serveur');
 
 
 const handleDelete = async (formation) => {
-  if (!window.confirm(`Supprimer définitivement "${formation.nom}" ? Cette action est irréversible.`)) return;
+  const nbGroupes = formation.nb_groupes ?? 0;
+  const nbEtudiants = formation.nb_etudiants ?? 0;
+  const message = (nbGroupes > 0 || nbEtudiants > 0)
+    ? `Supprimer "${formation.nom}" supprimera aussi définitivement ${nbGroupes} groupe(s) et ${nbEtudiants} inscription(s) d'étudiants. Cette action est irréversible. Continuer ?`
+    : `Supprimer définitivement "${formation.nom}" ? Cette action est irréversible.`;
+  if (!window.confirm(message)) return;
   try {
     const token = localStorage.getItem('token');
     const res = await fetch(`${import.meta.env.VITE_API_URL}/api/formations/${formation.id}`, {
@@ -147,38 +155,52 @@ Object.values(languageGroups).forEach((items) => {
 
   const nonLangueFormations = filtered.filter((f) => f.categorie !== 'langues');
 
-const filteredInscriptions = inscriptions.filter((i) =>
-    `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase().includes(search.toLowerCase()) ||
-    i.etudiant?.telephone?.includes(search) ||
-    i.formation?.nom?.toLowerCase().includes(search.toLowerCase())
-  );
+const filteredInscriptions = inscriptions.filter((i) => {
+    const matchesSearch =
+      `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase().includes(search.toLowerCase()) ||
+      i.etudiant?.telephone?.includes(search) ||
+      i.formation?.nom?.toLowerCase().includes(search.toLowerCase());
 
-  const COLS = [
-    { label: 'Étudiant',  Icon: null,         width: 150 },
-    { label: 'Tél.',      Icon: Phone,        width: 100 },
-    { label: 'Email',     Icon: Mail,         width: 160 },
-    { label: 'Niveau',    Icon: GraduationCap,width: 90  },
-    { label: 'Adresse',   Icon: MapPin,       width: 140 },
-    { label: 'Formation', Icon: Users,        width: 140 },
-    { label: 'Date',      Icon: CalendarDays, width: 90  },
-    { label: 'Statut',    Icon: CheckCircle2, width: 100 },
-    { label: 'Scolarité', Icon: Activity, width: 100 },
-  ];
+    const matchesFormation =
+      !filterFormationId || i.formation?.nom === filterFormationId;
+
+    const matchesDate = (() => {
+      if (!filterDateFrom && !filterDateTo) return true;
+      if (!i.date_inscription) return false;
+      const d = new Date(i.date_inscription);
+      if (filterDateFrom && d < new Date(filterDateFrom)) return false;
+      if (filterDateTo && d > new Date(`${filterDateTo}T23:59:59`)) return false;
+      return true;
+    })();
+
+    const matchesStatut = i.statut === 'confirmed';
+
+    return matchesSearch && matchesFormation && matchesDate && matchesStatut;
+  });
+
+const COLS = [
+  { label: 'Étudiant',  Icon: null,         width: 150 },
+  { label: 'Tél.',      Icon: Phone,        width: 100 },
+  { label: 'Email',     Icon: Mail,         width: 180 },
+  { label: 'Niveau',    Icon: GraduationCap,width: 90  },
+  { label: 'Adresse',   Icon: MapPin,       width: 160 },
+  { label: 'Formation', Icon: Users,        width: 160 },
+  { label: 'Date',      Icon: CalendarDays, width: 100 },
+  { label: 'Statut',    Icon: CheckCircle2, width: 100 },
+  { label: 'Scolarité', Icon: Activity,     width: 120 },
+];
 
   const InscriptionsTable = () => (
-    <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
-      <div className="overflow-x-auto">
-        <table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
-          <colgroup>
-            {COLS.map(c => <col key={c.label} style={{ width: `${c.width}px` }} />)}
-          </colgroup>
+<div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden inline-block max-w-full">
+   <div className="overflow-x-auto">
+<table className="text-xs">
           <thead className="bg-[#DCEBFA]">
             <tr>
               {COLS.map(({ label, Icon }, i) => (
-                <th key={label} className={`text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] overflow-hidden ${i === 0 ? 'border-l border-[#E2E8F0]' : ''}`}>
+                <th key={label} className={`text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0]  ${i === 0 ? 'border-l border-[#E2E8F0]' : ''}`}>
                   <div className="flex items-center gap-1">
                     {Icon && <Icon size={11} className="text-[#0369A1] flex-shrink-0" />}
-                    <span className="truncate">{label}</span>
+                    <span >{label}</span>
                   </div>
                 </th>
               ))}
@@ -189,27 +211,27 @@ const filteredInscriptions = inscriptions.filter((i) =>
               <tr><td colSpan={COLS.length} className="text-center py-10 text-slate-400 bg-white">Aucun étudiant trouvé.</td></tr>
             ) : filteredInscriptions.map((i, idx) => (
               <tr key={i.id} className={`hover:bg-[#DCEBFA]/30 transition ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
-                <td className="px-3 py-2 overflow-hidden border-b border-l border-[#E2E8F0]">
+                <td className="px-3 py-2  border-b border-l border-[#E2E8F0]">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
                       {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}
                     </div>
-                    <span className="font-medium text-slate-700 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
+                    <span className="font-medium text-slate-700 ">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
                   </div>
                 </td>
-                <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.telephone ?? '—'}</td>
-                <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.email ?? '—'}</td>
-                <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.niveau_scolaire ?? '—'}</td>
-                <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.adresse ?? '—'}</td>
-                <td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.telephone ?? '—'}</td>
+                <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.email ?? '—'}</td>
+                <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.niveau_scolaire ?? '—'}</td>
+                <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.adresse ?? '—'}</td>
+                <td className="px-3 py-2  border-b border-[#E2E8F0]">
                   {i.formation?.nom
-                    ? <span className="bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium truncate block max-w-full">{i.formation.nom}</span>
+                    ? <span className="bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium  block ">{i.formation.nom}</span>
                     : <span className="text-slate-300">—</span>}
                 </td>
-                <td className="px-3 py-2 text-slate-400 truncate border-b border-[#E2E8F0]">
+                <td className="px-3 py-2 text-slate-400 whitespace-nowrap border-b border-[#E2E8F0]">
                   {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
                 </td>
-                <td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                <td className="px-3 py-2 n border-b border-[#E2E8F0]">
                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
                     i.statut === 'confirmed' ? 'bg-emerald-50 text-emerald-600' :
                     i.statut === 'pending' ? 'bg-amber-50 text-amber-700' :
@@ -219,11 +241,11 @@ const filteredInscriptions = inscriptions.filter((i) =>
                      i.statut === 'pending' ? 'En attente' : 'Non confirmé'}
                   </span>
                 </td>
-<td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
+<td className="px-3 py-2  border-b border-[#E2E8F0]">
   <select
     value={i.statut_scolarite || 'en_cours'}
     onChange={e => handleStatutScolariteChange(i.id, e.target.value)}
-    className={`text-[11px] font-medium rounded-full pl-2 pr-5 py-0.5 border-none focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer ${statutScolariteMeta[i.statut_scolarite || 'en_cours']?.cls ?? 'bg-slate-100 text-slate-500'}`}
+    className={`w-full text-[11px] font-medium rounded-full pl-2 pr-5 py-0.5 border-none focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer ${statutScolariteMeta[i.statut_scolarite || 'en_cours']?.cls ?? 'bg-slate-100 text-slate-500'}`}
   >
     {STATUT_SCOLARITE_OPTS.map(o => <option key={o} value={o}>{statutScolariteMeta[o].label}</option>)}
   </select>
@@ -308,11 +330,13 @@ const filteredInscriptions = inscriptions.filter((i) =>
   return (
     <AdminLayout>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Formations</h1>
-         
-        </div>
+<div className="flex items-center justify-between mb-6">
+  <div className="flex items-center gap-3">
+    <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+      <BookOpen size={22} className="text-white" />
+    </div>
+    <h1 className="text-xl font-bold text-slate-800">Formations</h1>
+  </div>
         {view === 'formations' && (
          <button
   onClick={() => setShowAddModal(true)}
@@ -436,15 +460,51 @@ className="text-[11px] font-medium h-9 flex items-center justify-center rounded-
       {/* VIEW: Tout les inscriptions confirmés */}
 {view === 'all_inscriptions' && !loadingInscriptions && !error && (
         <>
-          <div className="relative mb-6 max-w-xs">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <div className="relative max-w-xs">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Rechercher (nom, formation, téléphone)..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+              />
+            </div>
+
+<select
+  value={filterFormationId}
+  onChange={(e) => setFilterFormationId(e.target.value)}
+  className="px-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+>
+  <option value="">Toutes les formations</option>
+  {formations.map((f) => (
+    <option key={f.id} value={f.nom}>{f.nom}</option>
+  ))}
+</select>
+
             <input
-              type="text"
-              placeholder="Rechercher (nom, formation, téléphone)..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="px-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
             />
+            <span className="text-slate-400 text-xs">→</span>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="px-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+            />
+
+            {(filterFormationId || filterDateFrom || filterDateTo) && (
+              <button
+                onClick={() => { setFilterFormationId(''); setFilterDateFrom(''); setFilterDateTo(''); }}
+                className="text-xs text-slate-400 hover:text-red-500 underline"
+              >
+                Réinitialiser
+              </button>
+            )}
           </div>
           <InscriptionsTable />
         </>

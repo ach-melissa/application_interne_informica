@@ -60,12 +60,17 @@ const Profs = () => {
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Professeurs</h1>
-          <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {profs.length} professeurs</p>
-        </div>
-      </div>
+<div className="flex items-center justify-between mb-4">
+  <div className="flex items-center gap-3">
+    <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+      <GraduationCap size={22} className="text-white" />
+    </div>
+    <div>
+      <h1 className="text-xl font-bold text-slate-800">Professeurs</h1>
+      <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {profs.length} professeurs</p>
+    </div>
+  </div>
+</div>
 
       {/* Stats strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">

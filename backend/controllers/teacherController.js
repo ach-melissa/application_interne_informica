@@ -1,18 +1,7 @@
 const supabase = require('../supabaseClient');
 
 const getTeachers = async (req, res) => {
-  const { formation_id } = req.query;
-
-  let teacherIds = null;
-  if (formation_id) {
-    const { data: links, error: linkErr } = await supabase
-      .from('teacher_formations')
-      .select('teacher_id')
-      .eq('formation_id', formation_id);
-    if (linkErr) return res.status(500).json({ error: linkErr.message });
-    teacherIds = links.map((l) => l.teacher_id);
-    if (teacherIds.length === 0) return res.json([]);
-  }
+  const teacherIds = null;
 
   let query = supabase
     .from('teachers')

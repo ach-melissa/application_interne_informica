@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Search, Plus, X, CheckCircle2, Phone, PhoneCall, Users,
-  Radio, UserCheck, CalendarDays, Megaphone, MapPin,
+  Radio, UserCheck, CalendarDays, Megaphone, MapPin, UserCircle,
 } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddEtudiantModal from './AddEtudiantModal';
@@ -139,11 +139,16 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Étudiants</h1>
-          <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {etudiants.length} inscriptions</p>
-        </div>
+<div className="flex items-center justify-between mb-4">
+  <div className="flex items-center gap-3">
+    <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+      <UserCircle size={22} className="text-white" />
+    </div>
+    <div>
+      <h1 className="text-xl font-bold text-slate-800">Étudiants</h1>
+      <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {etudiants.length} inscriptions</p>
+    </div>
+  </div>
         <button onClick={() => setShowAdd(true)}
           className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-lg text-xs font-medium
             shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">

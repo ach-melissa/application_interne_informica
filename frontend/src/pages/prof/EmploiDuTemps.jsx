@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { CalendarDays, Clock, DoorClosed, BookOpen, Plus, X } from 'lucide-react';
 
-const JOURS = ['samedi', 'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi'];
+
 const PERIODES = ['matin', 'midi'];
 const PERIODE_META = {
   matin: { label: 'Matin' },
@@ -15,6 +15,8 @@ const EmploiDuTemps = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const isFirstLoad = useRef(true);
+  const [jours, setJours] = useState([]);
+  const [salles, setSalles] = useState([]);
 
   // ── Demande de salle ──
   const [showModal, setShowModal] = useState(false);
@@ -30,24 +32,28 @@ const EmploiDuTemps = () => {
     message: '',
   });
 
-  const fetchSchedule = useCallback(async () => {
-    if (isFirstLoad.current) setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Erreur serveur');
-      const data = await res.json();
-      setSchedules(Array.isArray(data) ? data : []);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-      isFirstLoad.current = false;
-    }
-  }, []);
+const fetchSchedule = useCallback(async () => {
+  if (isFirstLoad.current) setLoading(true);
+  try {
+    const token = localStorage.getItem('token');
+    const [res, joursRes, sallesRes] = await Promise.all([
+      fetch(`${import.meta.env.VITE_API_URL}/api/schedules/me`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${import.meta.env.VITE_API_URL}/api/schedules/salles`, { headers: { Authorization: `Bearer ${token}` } }),
+    ]);
+    if (!res.ok) throw new Error('Erreur serveur');
+    const data = await res.json();
+    setSchedules(Array.isArray(data) ? data : []);
+    if (joursRes.ok) setJours(await joursRes.json());
+    if (sallesRes.ok) setSalles((await sallesRes.json()).map((s) => s.nom));
+    setError(null);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+    isFirstLoad.current = false;
+  }
+}, []);
 
   useEffect(() => {
     fetchSchedule();
@@ -64,14 +70,12 @@ const EmploiDuTemps = () => {
     };
   }, [fetchSchedule]);
 
-  const salles = [...new Set(schedules.map((s) => s.salle))].sort();
-
   const groupesUniques = Array.from(
     new Map(schedules.filter((s) => s.groups).map((s) => [s.groups.id ?? s.group_id, s.groups])).values()
   );
 
-  const getSeances = (salle, jour, periode) =>
-    schedules.filter((s) => s.salle === salle && s.jour_semaine === jour && s.periode === periode);
+  const getCell = (salle, jour, periode) =>
+    schedules.find((s) => s.salle === salle && s.jour_semaine === jour && s.periode === periode);
 
   const resetForm = () => {
     setForm({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', groupe_id: '', message: '' });
@@ -134,7 +138,7 @@ const EmploiDuTemps = () => {
 
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
+<div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
@@ -145,7 +149,7 @@ const EmploiDuTemps = () => {
       )}
 
       {!loading && !error && (
-        schedules.length === 0 ? (
+        salles.length === 0 ? (
           <div className="bg-white rounded-2xl border border-[#F1F5F9] shadow-[0_2px_10px_rgba(15,42,74,0.08)] py-16 text-center">
             <CalendarDays size={28} className="mx-auto text-slate-200 mb-2" />
             <p className="text-sm text-[#94A3B8]">Aucune séance assignée.</p>
@@ -155,26 +159,26 @@ const EmploiDuTemps = () => {
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr>
-                  <th className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA]" rowSpan={2}></th>
-                  {JOURS.map((jour) => (
+<th className="border border-slate-700 px-3 py-2 bg-slate-900" rowSpan={2}></th>
+ {jours.map((jour) => (
                     <th
                       key={jour}
                       colSpan={2}
-                      className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA] text-[#0369A1] font-semibold capitalize"
-                    >
+className="border border-slate-700 px-3 py-2 bg-slate-900 text-white font-semibold uppercase text-[11px] capitalize"
+>
                       {jour}
                     </th>
                   ))}
                 </tr>
                 <tr>
-                  {JOURS.map((jour) =>
+                  {jours.map((jour) =>
                     PERIODES.map((p) => {
                       const { label } = PERIODE_META[p];
                       return (
                         <th
                           key={`${jour}-${p}`}
-                          className="border border-[#F1F5F9] px-3 py-2 bg-[#DCEBFA] text-[#0369A1]/70 font-medium"
-                        >
+className="border border-slate-200 px-3 py-2 bg-white text-slate-500 font-semibold uppercase text-[10px]"
+>
                           {label}
                         </th>
                       );
@@ -185,40 +189,35 @@ const EmploiDuTemps = () => {
               <tbody>
                 {salles.map((salle) => (
                   <tr key={salle}>
-                    <td className="border border-[#F1F5F9] px-3 py-3 font-semibold text-slate-800 bg-[#DCEBFA]/40 whitespace-nowrap">
-                      <span className="flex items-center justify-center gap-1.5">
-                        <DoorClosed size={12} className="text-[#0369A1]" />
+<td className="border border-slate-700 px-3 py-3 font-semibold text-white bg-slate-900 whitespace-nowrap">
+  <span className="flex items-center justify-center gap-1.5">
+    <DoorClosed size={12} className="text-white" />
                         {salle}
                       </span>
                     </td>
-                    {JOURS.map((jour) =>
+                    {jours.map((jour) =>
                       PERIODES.map((periode) => {
-                        const seances = getSeances(salle, jour, periode);
+                        const s = getCell(salle, jour, periode);
                         return (
                           <td
                             key={`${salle}-${jour}-${periode}`}
-                            className="border border-[#F1F5F9] px-2 py-2 text-center align-top min-w-[100px]"
-                          >
-                            {seances.length === 0 ? null : (
-                              seances.map((s) => (
-                                <div
-                                  key={s.id}
-                                  className="bg-[#DCEBFA] rounded-lg px-2 py-1.5 mb-1 text-[10px] text-left"
-                                >
-                                  <p className="font-semibold text-[#0369A1] leading-tight flex items-center gap-1">
-                                    <BookOpen size={10} className="flex-shrink-0" />
-                                    {s.groups?.nom}
-                                  </p>
-                                  <p className="text-[#0369A1]/60 leading-tight flex items-center gap-1 mt-0.5">
-                                    <Clock size={10} className="flex-shrink-0" />
-                                    {s.heure_debut?.slice(0, 5)} – {s.heure_fin?.slice(0, 5)}
-                                  </p>
-                                  {s.contenu && (
-                                    <p className="text-[#94A3B8] leading-tight truncate mt-0.5">{s.contenu}</p>
-                                  )}
-                                </div>
-                              ))
-                            )}
+className="border border-slate-200 px-2 py-2 text-center align-top min-w-[100px]"
+>
+                            {s ? (
+<div className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] text-left">
+  <p className="font-semibold text-slate-700 leading-tight flex items-center gap-1">
+     <BookOpen size={10} className="flex-shrink-0" />
+                                  {s.groups?.nom}
+                                </p>
+<p className="text-slate-500 leading-tight flex items-center gap-1 mt-0.5">
+   <Clock size={10} className="flex-shrink-0" />
+                                  {s.heure_debut?.slice(0, 5)} – {s.heure_fin?.slice(0, 5)}
+                                </p>
+                                {s.contenu && (
+                                  <p className="text-[#94A3B8] leading-tight truncate mt-0.5">{s.contenu}</p>
+                                )}
+                              </div>
+                            ) : null}
                           </td>
                         );
                       })
@@ -262,7 +261,7 @@ const EmploiDuTemps = () => {
                       className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm capitalize"
                     >
                       <option value="">Choisir…</option>
-                      {JOURS.map((j) => <option key={j} value={j} className="capitalize">{j}</option>)}
+                      {jours.map((j) => <option key={j} value={j} className="capitalize">{j}</option>)}
                     </select>
                   </div>
                   <div>

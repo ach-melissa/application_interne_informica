@@ -6,12 +6,12 @@ const PHOTO_REMOVED = '__REMOVE__';
 const API = import.meta.env.VITE_API_URL;
 const authHeader = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
-const ROLES = ['admin','prof','comptable'];
+
 const roleMeta = {
-  admin:     { cls: 'bg-[#DCEBFA] text-[#0369A1]',    label: 'Admin' },
-  prof:      { cls: 'bg-emerald-50 text-emerald-700', label: 'Prof' },
-  comptable: { cls: 'bg-violet-50 text-violet-700',   label: 'Comptable' },
-  etudiant:  { cls: 'bg-orange-50 text-orange-700',   label: 'Étudiant' },
+  admin:       { cls: 'bg-[#DCEBFA] text-[#0369A1]',     label: 'Admin' },
+  super_admin: { cls: 'bg-rose-50 text-rose-700',        label: 'Super Admin' },
+  prof:        { cls: 'bg-emerald-50 text-emerald-700',  label: 'Prof' },
+  comptable:   { cls: 'bg-violet-50 text-violet-700',    label: 'Comptable' },
 };
 
 const inp = 'w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors';
@@ -45,6 +45,14 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
   const [confirmSave, setConfirmSave]     = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError]             = useState(null);
+const [roles, setRoles] = useState([]);
+
+useEffect(() => {
+  fetch(`${API}/api/users/roles`, { headers: authHeader() })
+    .then(r => r.json())
+    .then(setRoles)
+    .catch(() => {});
+}, []);
 
   const [form, setForm] = useState({
     nom: user.nom ?? '', prenom: user.prenom ?? '',
@@ -54,7 +62,7 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
   });
 
  const [photo, setPhoto]     = useState(null);
-  const [preview, setPreview] = useState(user.photo_url ?? null);
+ const [preview, setPreview] = useState(user.photo_path ?? null);
   const [formations, setFormations] = useState([]);
   const [selectedFormations, setSelectedFormations] = useState([]);
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
@@ -79,7 +87,7 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
 
   const cancelEdit = () => {
     setEditing(false); setConfirmSave(false); setError(null);
-    setPhoto(null); setPreview(user.photo_url ?? null);
+    setPhoto(null); setPreview(user.photo_path ?? null);
   };
 
   const handlePhoto = ev => {
@@ -257,7 +265,7 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
             <Field icon={Mail}     label="Email"          field="email"          form={form} editing={editing} set={set} />
             <Field icon={Phone}    label="Téléphone"      field="telephone"      form={form} editing={editing} set={set} />
             <Field icon={Calendar} label="Date naissance" field="date_naissance" form={form} editing={editing} set={set} />
-            <Field icon={Shield}   label="Rôle"           field="role"           form={form} editing={editing} set={set} opts={ROLES} />
+<Field icon={Shield}   label="Rôle"           field="role"           form={form} editing={editing} set={set} opts={roles} />
           </div>
 
           {form.role === 'prof' && (

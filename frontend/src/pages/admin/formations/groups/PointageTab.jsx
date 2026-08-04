@@ -184,8 +184,8 @@ setNewDate('');
   const firstDate = sessions.length > 0 ? formatDate(sessions[0].date) : '—';
   const lastDate  = sessions.length > 0 ? formatDate(sessions[sessions.length - 1].date) : '—';
 
-  const getNbPresents = (sessionId) =>
-    Object.entries(attendance).filter(([k, v]) => k.startsWith(sessionId) && v.statut === 'present').length;
+const getNbPresents = (sessionId) =>
+  Object.entries(attendance).filter(([k, v]) => k.startsWith(`${sessionId}|`) && (v.statut === 'present' || v.statut === 'retard')).length;
 
   if (loading) return (
     <div className="flex justify-center py-16">

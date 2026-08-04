@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddUserModal from './AddUserModal';
 import UserDetailsModal from './UserDetailsModal';
-import { Plus, Search, Shield, X, CheckCircle2, CalendarDays, User, Mail, Phone } from 'lucide-react';
+import { Plus, Search, Shield, X, CheckCircle2, CalendarDays, User, Mail, Phone ,Users  } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 
-const ROLES = ['admin','prof','comptable','etudiant'];
+
 const roleMeta = {
   admin:     { cls: 'bg-[#DCEBFA] text-[#0369A1]',     label: 'Admin' },
+   super_admin: { cls: 'bg-rose-50 text-rose-700',        label: 'Super Admin' },
   prof:      { cls: 'bg-emerald-50 text-emerald-700',  label: 'Prof' },
   comptable: { cls: 'bg-violet-50 text-violet-700',    label: 'Comptable' },
-  etudiant:  { cls: 'bg-orange-50 text-orange-700',    label: 'Étudiant' },
 };
 const statutMeta = {
   active:   { cls: 'bg-emerald-50 text-emerald-700', label: 'Actif' },
@@ -18,9 +18,9 @@ const statutMeta = {
 };
 const Avatar = ({ user, size = 7 }) => {
   const s = `w-${size} h-${size}`;
-  return user.photo_url
-    ? <img src={user.photo_url} alt="" className={`${s} rounded-full object-cover flex-shrink-0 shadow-sm`} />
-    : <div className={`${s} rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0 shadow-sm`}>
+  return user.photo_path
+    ? <img src={user.photo_path} alt="" className={`${s} rounded-full object-cover flex-shrink-0 shadow-sm`} />
+   : <div className={`${s} rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0 shadow-sm`}>
         {user.prenom?.[0]}{user.nom?.[0]}
       </div>;
 };
@@ -46,6 +46,14 @@ const Utilisateurs = () => {
   const [dateTo, setDateTo]       = useState('');
   const [showAdd, setShowAdd]   = useState(false);
   const [selected, setSelected] = useState(null);
+const [roles, setRoles] = useState([]);
+
+useEffect(() => {
+  fetch(`${API}/api/users/roles`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+    .then(r => r.json())
+    .then(setRoles)
+    .catch(() => {});
+}, []);
 
   const fetchUsers = () => {
     const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
@@ -85,11 +93,16 @@ const Utilisateurs = () => {
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Utilisateurs</h1>
-          <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {users.length} utilisateurs</p>
-        </div>
+<div className="flex items-center justify-between mb-4">
+  <div className="flex items-center gap-3">
+    <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+      <Users size={22} className="text-white" />
+    </div>
+    <div>
+      <h1 className="text-xl font-bold text-slate-800">Utilisateurs</h1>
+      <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {users.length} utilisateurs</p>
+    </div>
+  </div>
         <button onClick={() => setShowAdd(true)}
           className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-lg text-xs font-medium
             shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
@@ -105,7 +118,7 @@ const Utilisateurs = () => {
             className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40" />
         </div>
         <div className="w-px h-5 bg-[#E2E8F0]" />
-        <FilterSel icon={Shield}       label="Rôle"   value={roleFilter}   onChange={setRole}   opts={ROLES}                          display={o => roleMeta[o]?.label ?? o} />
+        <FilterSel icon={Shield}       label="Rôle"   value={roleFilter}   onChange={setRole}   opts={roles}                          display={o => roleMeta[o]?.label ?? o} />
         <FilterSel icon={CheckCircle2} label="Statut" value={statutFilter} onChange={setStatut} opts={['active', 'inactive']} display={o => statutMeta[o]?.label ?? o} />
         <div className="w-px h-5 bg-[#E2E8F0]" />
 
