@@ -13,8 +13,28 @@ const Section = ({ children }) => (
   <div className="p-2 grid grid-cols-2 gap-3">{children}</div>
 );
 
-const PERIODES = ['matin', 'midi'];
+const Toggle = ({ checked, onChange, label }) => (
+  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative w-9 h-5 rounded-full transition-colors duration-200 flex-shrink-0 ${
+        checked ? 'bg-[#0369A1]' : 'bg-slate-200'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+          checked ? 'translate-x-4' : 'translate-x-0'
+        }`}
+      />
+    </button>
+    <span className="text-xs text-slate-600">{label}</span>
+  </label>
+);
 
+const PERIODES = ['matin', 'midi'];
 const GroupScheduleTable = ({ groupId, formation_id, staged, onAddStaged, onRemoveStaged }) => {
   const [cells, setCells] = useState({});
   const [salles, setSalles] = useState([]);
@@ -80,17 +100,18 @@ useEffect(() => {
     });
   }
 
-  const handleAdd = async () => {
+const handleAdd = async () => {
     if (!salle) return alert('Choisissez une salle libre.');
     if (!heureDebut || !heureFin) return alert('Heure début et heure fin sont obligatoires.');
 
-if (!groupId) {
-      const key = makeKey(jour, salle, periode);
-      const existing = displayCells[key] ?? [];
-      const conflict = existing.find((e) => heureDebut < e.heure_fin && heureFin > e.heure_debut);
-      if (conflict) {
-        return alert(`${salle} est déjà occupée ce jour-là de ${conflict.heure_debut} à ${conflict.heure_fin}.`);
-      }
+    const key = makeKey(jour, salle, periode);
+    const existing = displayCells[key] ?? [];
+    const conflict = existing.find((e) => heureDebut < e.heure_fin && heureFin > e.heure_debut);
+    if (conflict) {
+      return alert(`${salle} est déjà occupée ce jour-là de ${conflict.heure_debut} à ${conflict.heure_fin}.`);
+    }
+
+    if (!groupId) {
       onAddStaged({
         _localId: `${Date.now()}-${Math.random()}`,
         jour_semaine: jour, salle, periode, contenu,
@@ -119,7 +140,6 @@ if (!groupId) {
       setSaving(false);
     }
   };
-
   const handleRemove = async (entry) => {
     if (!entry?.isOwn) return;
 
@@ -150,8 +170,7 @@ if (loading) return <div className="flex justify-center py-6"><div className="w-
             <div><Label text="Heure fin" /><input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} className={inp} /></div>
           </div>
 
-          <div><Label text="Contenu" /><input type="text" value={contenu} onChange={(e) => setContenu(e.target.value)} placeholder="Ex: Grammaire, Chapitre 3..." className={inp} /></div>
-
+          
           <button onClick={handleAdd} disabled={saving || !heureDebut || !heureFin}
             className="w-full text-xs py-1.5 rounded-lg bg-[#0F2A4A] text-white disabled:opacity-40">
             {saving ? 'Ajout...' : 'Ajouter au planning'}
@@ -175,8 +194,9 @@ if (loading) return <div className="flex justify-center py-6"><div className="w-
               <tr key={s}>
 <td className="border border-slate-700 px-2 py-2 font-semibold text-white bg-slate-900 whitespace-nowrap">{s}</td>
 {jours.map((j) => PERIODES.map((p) => {
-                  const entries = displayCells[makeKey(j, s, p)] ?? [];
+                const entries = displayCells[makeKey(j, s, p)] ?? [];
                   const isSelected = showForm && jour === j && salle === s && periode === p;
+                  const hasOwn = entries.some((e) => e.isOwn);
                   const openForm = () => {
                     setJour(j); setSalle(s); setPeriode(p);
                     setHeureDebut(''); setHeureFin(''); setContenu('');
@@ -189,11 +209,11 @@ className={`border border-slate-200 p-1.5 align-top min-w-[6rem] ${isSelected ? 
 >
                       <div className="space-y-1">
                         {entries.map((entry, idx) => (
-                          <div key={entry.id ?? entry.stagedLocalId ?? idx} className={entry.isOwn ? '' : 'opacity-50'}>
-                            {(entry.heure_debut || entry.heure_fin) && (
-                              <p className="text-[10px] text-slate-500 font-medium">{entry.heure_debut?.slice(0, 5)}{entry.heure_fin ? ` → ${entry.heure_fin.slice(0, 5)}` : ''}</p>
+                 <div key={entry.id ?? entry.stagedLocalId ?? idx} className={entry.isOwn ? 'text-[#0369A1] ' : 'opacity-50'}>
+                          {(entry.heure_debut || entry.heure_fin) && (
+                              <p className={`text-[10px] font-medium ${entry.isOwn ? 'text-[#0369A1]' : 'text-slate-500'}`}>{entry.heure_debut?.slice(0, 5)}{entry.heure_fin ? ` → ${entry.heure_fin.slice(0, 5)}` : ''}</p>
                             )}
-                            <p className="text-xs text-slate-800">{entry.contenu}</p>
+                            <p className={`text-xs ${entry.isOwn ? 'text-[#0369A1] font-medium' : 'text-slate-800'}`}>{entry.contenu}</p>
                             {entry.isOwn && (
                               <button onClick={() => handleRemove(entry)} className="text-[9px] text-red-400 hover:text-red-600 mt-0.5">
                                 Retirer
@@ -523,10 +543,13 @@ const handleDelete = async (group) => {
                   </select>
                 </div>
 
-                <div className="col-span-2 flex items-center gap-2">
-                  <input type="checkbox" checked={form.en_promotion} onChange={(e) => setForm({ ...form, en_promotion: e.target.checked, prix_promotion: '' })} />
-                  <span className="text-xs text-slate-600">En promotion (prix différent pour ce groupe)</span>
-                </div>
+               <div className="col-span-2">
+  <Toggle
+    checked={form.en_promotion}
+    onChange={(val) => setForm({ ...form, en_promotion: val, prix_promotion: '' })}
+    label="En promotion (prix différent pour ce groupe)"
+  />
+</div>
                 {form.en_promotion && (
                   <div className="col-span-2">
                     <Label icon={Users} text="Prix pour ce groupe (DA)" />

@@ -67,7 +67,7 @@ const Dashboard = () => {
 
   return (
     <AdminLayout>
-         <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-6">
             <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
               <LayoutDashboard size={22} className="text-white" />
             </div>

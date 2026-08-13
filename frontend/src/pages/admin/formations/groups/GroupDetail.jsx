@@ -265,7 +265,7 @@ Prof : {group?.teacher?.user ? `${group.teacher.user.nom} ${group.teacher.user.p
       )}
 
 {activeTab === 'paiements'    && <PaymentsTab groupId={groupId} onSelectStudent={setSelectedStudent} refreshKey={paymentsRefreshKey} />}
-{activeTab === 'emploi'       && <ScheduleTab groupId={groupId} />}
+{activeTab === 'emploi'       && <ScheduleTab groupId={groupId} groupName={group?.nom} formationNom={formation?.nom} />}
 {activeTab === 'pointage' && <PointageTab groupId={groupId} etudiants={etudiants.filter(i => (i.statut_scolarite || 'en_cours') === 'en_cours').map(i => i.etudiant)} group={group} />}
 {activeTab === 'attestations' && <AttestationsTab etudiants={etudiants.filter(i => (i.statut_scolarite || 'en_cours') === 'en_cours')} formationId={formation_id} formationNom={formation?.nom} groupId={groupId} />}
 <PaymentHistoryModal student={selectedStudent} formationId={group?.formation_id} onClose={() => setSelectedStudent(null)} onRefresh={() => setPaymentsRefreshKey(k => k + 1)} />

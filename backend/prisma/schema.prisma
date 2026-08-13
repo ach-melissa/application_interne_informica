@@ -44,23 +44,24 @@ model etudiants {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model formations {
-  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nom             String            @db.VarChar(255)
-  prix            Decimal           @db.Decimal(10, 2)
-  heures          Int
-  teacher_id      String?           @db.Uuid
-  statut          formation_status? @default(active)
-  created_at      DateTime?         @default(now()) @db.Timestamp(6)
-  prix_etudiant   Decimal?          @db.Decimal
-  tarif_mensuel   Decimal?          @db.Decimal
-  description     String?
-  categorie       String?           @db.VarChar
-  capacite_groupe Int?              @default(20)
-  attestations    attestations[]
-  teachers        teachers?         @relation(fields: [teacher_id], references: [id], onUpdate: NoAction)
-  groups          groups[]
-  inscriptions    inscriptions[]
-  payments        payments[]
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nom                String               @db.VarChar(255)
+  prix               Decimal              @db.Decimal(10, 2)
+  heures             Int
+  teacher_id         String?              @db.Uuid
+  statut             formation_status?    @default(active)
+  created_at         DateTime?            @default(now()) @db.Timestamp(6)
+  prix_etudiant      Decimal?             @db.Decimal
+  tarif_mensuel      Decimal?             @db.Decimal
+  description        String?
+  categorie          String?              @db.VarChar
+  capacite_groupe    Int?                 @default(20)
+  attestations       attestations[]
+  teachers           teachers?            @relation(fields: [teacher_id], references: [id], onUpdate: NoAction)
+  groups             groups[]
+  inscriptions       inscriptions[]
+  payments           payments[]
+  teacher_formations teacher_formations[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -178,8 +179,10 @@ model schedules {
   periode      String    @default("matin")
   contenu      String?
   prof_id      String?   @db.Uuid
+  salle_id     String?   @db.Uuid
   groups       groups    @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users        users?    @relation(fields: [prof_id], references: [id], onUpdate: NoAction)
+  salles       salles?   @relation(fields: [salle_id], references: [id], onUpdate: NoAction)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -199,12 +202,13 @@ model sessions {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model teachers {
-  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String       @db.Uuid
-  created_at DateTime?    @default(now()) @db.Timestamp(6)
-  formations formations[]
-  groups     groups[]
-  users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String               @db.Uuid
+  created_at         DateTime?            @default(now()) @db.Timestamp(6)
+  formations         formations[]
+  groups             groups[]
+  teacher_formations teacher_formations[]
+  users              users                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -241,6 +245,26 @@ model attestations {
   formations     formations?   @relation(fields: [formation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   groups         groups?       @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   inscriptions   inscriptions? @relation(fields: [inscription_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model salles {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nom        String      @unique
+  created_at DateTime?   @default(now()) @db.Timestamp(6)
+  schedules  schedules[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model teacher_formations {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacher_id   String     @db.Uuid
+  formation_id String     @db.Uuid
+  created_at   DateTime?  @default(now()) @db.Timestamp(6)
+  formations   formations @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  teachers     teachers   @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([teacher_id, formation_id])
 }
 
 enum attendance_status {
@@ -326,7 +350,6 @@ enum user_role {
   prof
   admin
   comptable
-  etudiant
   super_admin
 }
 

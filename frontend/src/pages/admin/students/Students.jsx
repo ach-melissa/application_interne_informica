@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Search, Plus, X, CheckCircle2, Phone, PhoneCall, Users,
-  Radio, UserCheck, CalendarDays, Megaphone, MapPin, UserCircle,
+  Radio, UserCheck, CalendarDays, Megaphone, MapPin, UserCircle, UserX, Clock,
 } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddEtudiantModal from './AddEtudiantModal';
@@ -28,6 +28,29 @@ const tryMeta = {
   injoignable: 'bg-slate-100 text-slate-500',
   P_bureau:    'bg-[#DCEBFA] text-[#0369A1]',
   ferme:       'bg-violet-50 text-violet-700',
+};
+
+const STAT_COLORS = {
+  blue:    { bg: 'bg-[#DCEBFA]', text: 'text-[#0369A1]' },
+  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+  red:     { bg: 'bg-red-50',     text: 'text-red-500' },
+  amber:   { bg: 'bg-amber-50',   text: 'text-amber-600' },
+  orange:  { bg: 'bg-orange-50',  text: 'text-orange-600' },
+};
+
+const StatTile = ({ icon: Icon, label, value, color = 'blue' }) => {
+  const c = STAT_COLORS[color] ?? STAT_COLORS.blue;
+  return (
+    <div className="flex items-center gap-3 bg-white rounded-xl border border-[#F1F5F9] px-4 py-3">
+      <div className={`w-9 h-9 rounded-full ${c.bg} flex items-center justify-center flex-shrink-0`}>
+        <Icon size={16} className={c.text} />
+      </div>
+      <div>
+        <p className="text-lg font-bold text-slate-800 leading-none">{value}</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">{label}</p>
+      </div>
+    </div>
+  );
 };
 
 const TrySelect = ({ value, onChange, disabled }) => (
@@ -106,6 +129,9 @@ useEffect(() => {
 
   const setFilter = (k, v) => setFilters(f => ({ ...f, [k]: v || undefined }));
 
+  // Unique "Ajouté par" values found in the data, for the filter dropdown
+  const addedByOpts = [...new Set(etudiants.map(e => e.added_by).filter(Boolean))];
+
   const filtered = etudiants.filter(i => {
     const name = `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase();
     if (search && !name.includes(search.toLowerCase()) && !i.etudiant?.telephone?.includes(search)) return false;
@@ -114,6 +140,7 @@ useEffect(() => {
     if (filters.registered_by && i.registered_by    !== filters.registered_by)  return false;
     if (filters.formation     && i.formation?.nom   !== filters.formation)      return false;
 if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         return false;
+    if (filters.added_by      && i.added_by         !== filters.added_by)       return false;
     if (dateFrom && i.date_inscription && new Date(i.date_inscription) < new Date(dateFrom)) return false;
     if (dateTo   && i.date_inscription && new Date(i.date_inscription) > new Date(dateTo))   return false;
     return true;
@@ -122,19 +149,25 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
   const activeCount = Object.values(filters).filter(Boolean).length + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
   const clearAll = () => { setFilters({}); setDateFrom(''); setDateTo(''); setSearch(''); };
 
+  // Stat counts — "sans groupe" assumes a `group_id` field on the inscription; adjust field name if different.
+  const nonConfirmedCount = etudiants.filter(e => e.statut === 'non_confirmed').length;
+  const confirmedCount = etudiants.filter(e => e.statut === 'confirmed').length;
+  const confirmedNoGroupCount = etudiants.filter(e => e.statut === 'confirmed' && !e.group_id).length;
+  const pendingCount = etudiants.filter(e => e.statut === 'pending').length;
+
   const COLS = [
   { label: 'Étudiant',    Icon: null,        width: 130 },
-  { label: 'Tél.',        Icon: Phone,       width: 80  },
-  { label: 'Wilaya',      Icon: MapPin,      width: 110 },
-  { label: 'Formation',   Icon: Users,       width: 140 },
-  { label: 'Date',        Icon: CalendarDays,width: 75  },
+  { label: 'Tél.',        Icon: Phone,       width: 90  },
+  { label: 'Wilaya',      Icon: MapPin,      width: 100 },
+  { label: 'Formation',   Icon: Users,       width: 130 },
+  { label: 'Date',        Icon: CalendarDays,width: 80  },
   { label: '1er appel',   Icon: PhoneCall,   width: 90  },
-  { label: '2ème appel',  Icon: PhoneCall,   width: 90  },
-  { label: '3ème appel',  Icon: PhoneCall,   width: 90  },
-  { label: 'Source',      Icon: Megaphone,   width: 100 },
-  { label: 'Rapporteur',  Icon: UserCheck,   width: 80  },
-  { label: 'Ajouté par',  Icon: UserCheck,   width: 90  },
-  { label: 'Statut',      Icon: CheckCircle2,width: 96  },
+  { label: '2ème appel',  Icon: PhoneCall,   width: 98  },
+  { label: '3ème appel',  Icon: PhoneCall,   width: 98  },
+  { label: 'Source',      Icon: Megaphone,   width: 98  },
+  { label: 'Rapporteur',  Icon: UserCheck,   width: 98  },
+  { label: 'Ajouté par',  Icon: UserCheck,   width: 98  },
+  { label: 'Statut',      Icon: CheckCircle2,width: 103 },
 ];
 
   return (
@@ -156,6 +189,14 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
         </button>
       </div>
 
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <StatTile icon={CheckCircle2} label="Confirmés" value={confirmedCount} color="blue" />
+        <StatTile icon={UserX}        label="Non confirmés" value={nonConfirmedCount} color="red" />
+        <StatTile icon={Clock}        label="En attente" value={pendingCount} color="amber" />
+        <StatTile icon={Users}        label="Confirmés sans groupe" value={confirmedNoGroupCount} color="orange" />
+      </div>
+
       {/* Filter bar */}
       <div className="mb-4 flex flex-wrap gap-2 items-center">
         <div className="relative min-w-[160px] flex-1 max-w-[220px]">
@@ -168,9 +209,10 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
 
         <FilterSelect icon={CheckCircle2} label="Statut"         value={filters.statut || ''}        onChange={v => setFilter('statut', v)}        opts={STATUT_OPTS}               display={o => statutMeta[o]?.label ?? o} />
         <FilterSelect icon={Radio}        label="Source"          value={filters.source || ''}        onChange={v => setFilter('source', v)}        opts={SOURCE_OPTS} />
-        <FilterSelect icon={UserCheck}    label="Enregistré par"  value={filters.registered_by || ''} onChange={v => setFilter('registered_by', v)} opts={REGISTERED_OPTS} />
+        <FilterSelect icon={UserCheck}    label="Rapporteur"  value={filters.registered_by || ''} onChange={v => setFilter('registered_by', v)} opts={REGISTERED_OPTS} />
      <FilterSelect icon={Users}   label="Formation" value={filters.formation || ''} onChange={v => setFilter('formation', v)} opts={formations.map(f => f.nom)} />
 <FilterSelect icon={MapPin}  label="Wilaya"    value={filters.wilaya || ''}    onChange={v => setFilter('wilaya', v)}    opts={wilayas} />
+<FilterSelect icon={UserCheck} label="Ajouté par" value={filters.added_by || ''} onChange={v => setFilter('added_by', v)} opts={addedByOpts} />
         <div className="w-px h-5 bg-[#E2E8F0]" />
 
         <div className="flex items-center gap-1.5 bg-white rounded-full px-3 py-1 border border-[#E2E8F0]">
@@ -217,7 +259,7 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={10} className="text-center py-10 text-slate-400 bg-white">Aucun étudiant trouvé.</td></tr>
+                  <tr><td colSpan={COLS.length} className="text-center py-10 text-slate-400 bg-white">Aucun étudiant trouvé.</td></tr>
                 ) : filtered.map((i, idx) => {
                   const sm = statutMeta[i.statut];
                   return (

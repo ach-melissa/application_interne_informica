@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Image, Search, X, CheckCircle2, User, Wallet, PiggyBank, FileText } from 'lucide-react';
 
+const API = import.meta.env.VITE_API_URL;
+
 const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
   const [payments, setPayments] = useState([]);
+const [promoDraft, setPromoDraft] = useState({});   // { [inscriptionId]: prixString while typing }
+const [promoModal, setPromoModal] = useState(null); // the full payment object `p`, or null
+  const [promoPrice, setPromoPrice] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [bonsModal, setBonsModal] = useState(null);
@@ -28,6 +33,48 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
     };
     fetchPayments();
   }, [groupId, refreshKey]);
+
+ const savePromo = async (p, enPromotion, prix) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API}/api/etudiants/${p.inscriptionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ en_promotion: enPromotion, prix_promotion: enPromotion ? prix : null }),
+      });
+      if (!res.ok) throw new Error('Erreur mise à jour promo');
+      const newTotal = enPromotion ? Number(prix) : p.total;
+      setPayments(prev => prev.map(x => x.studentId === p.studentId
+        ? { ...x, enPromotion, prixPromotion: enPromotion ? Number(prix) : null,
+            total: newTotal, remaining: newTotal - x.paid }
+        : x));
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleTogglePromo = (p) => {
+    if (p.enPromotion) {
+      savePromo(p, false, null);
+    } else {
+      setPromoPrice('');
+      setPromoModal(p);
+    }
+  };
+
+  const handleConfirmPromo = () => {
+    if (!promoPrice || Number(promoPrice) <= 0) {
+      alert('Le prix de la promotion est obligatoire.');
+      return;
+    }
+    savePromo(promoModal, true, promoPrice);
+    setPromoModal(null);
+  };
+
+  const handleCancelPromo = (p) => {
+    setPromoDraft(prev => { const n = { ...prev }; delete n[p.inscriptionId]; return n; });
+    setPromoEditing(null);
+  };
 
   const filtered = payments.filter(p => {
     if (search && !p.nom.toLowerCase().includes(search.toLowerCase())) return false;
@@ -102,10 +149,11 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-[#DCEBFA]">
-              <tr>
+             <tr>
                 {[
                   { label: 'Étudiant', Icon: User },
                   { label: 'Scolarité', Icon: CheckCircle2 },
+                  { label: 'Promo',    Icon: Wallet },
                   { label: 'Total',    Icon: Wallet },
                   { label: 'Payé',     Icon: PiggyBank },
                   { label: 'Restant',  Icon: CheckCircle2 },
@@ -162,6 +210,24 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
     {p.statutScolarite === 'abandonne' ? 'Abandonné' : p.statutScolarite === 'termine' ? 'Terminé' : 'En cours'}
   </span>
 </td>
+<td className="px-3 py-2 whitespace-nowrap border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePromo(p)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${
+                              p.enPromotion ? 'bg-[#0369A1]' : 'bg-slate-200'
+                            }`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                              p.enPromotion ? 'translate-x-5' : 'translate-x-1'
+                            }`} />
+                          </button>
+                          {p.enPromotion && (
+                            <span className="text-[11px] text-[#0369A1] font-medium">{p.prixPromotion?.toLocaleString('fr-FR')} DA</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{p.total.toLocaleString('fr-FR')} DA</td>
                       <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{p.paid.toLocaleString('fr-FR')} DA</td>
 <td className="px-3 py-2 whitespace-nowrap border-b border-[#E2E8F0]">
@@ -243,6 +309,36 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+     {/* Promo price modal */}
+      {promoModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setPromoModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-xs mx-4 p-5 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h2 className="text-sm font-semibold text-slate-800 mb-1">Activer la promo</h2>
+            <p className="text-xs text-slate-400 mb-4">{promoModal.nom}</p>
+
+            <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Prix promotionnel (DA) *</label>
+            <input
+              type="number"
+              autoFocus
+              value={promoPrice}
+              onChange={e => setPromoPrice(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleConfirmPromo()}
+              placeholder="Ex: 8000"
+              className="w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors mb-4"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setPromoModal(null)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">
+                Annuler
+              </button>
+              <button onClick={handleConfirmPromo} className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium">
+                Confirmer
+              </button>
             </div>
           </div>
         </div>

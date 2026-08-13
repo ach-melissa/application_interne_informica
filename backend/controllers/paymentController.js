@@ -5,20 +5,20 @@ const upload = multer({ storage: multer.memoryStorage() });
 const getGroupPayments = async (req, res) => {
   const { groupId } = req.params;
 
-  const { data: group, error: groupErr } = await supabase
+ const { data: group, error: groupErr } = await supabase
     .from('groups')
-    .select('id, formation_id, formation:formation_id(prix_etudiant)')
+    .select('id, formation_id, en_promotion, prix_promotion, formation:formation_id(prix, prix_etudiant)')
     .eq('id', groupId)
     .single();
 
   if (groupErr) return res.status(500).json({ error: groupErr.message });
 
-  const total = group.formation?.prix_etudiant ?? 0;
+  const baseTotal = Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
   const formationId = group.formation_id;
 
 const { data: inscriptions, error: insErr } = await supabase
   .from('inscriptions')
-  .select('etudiant_id, statut_scolarite, etudiant:etudiant_id(id, nom, prenom)')
+  .select('id, etudiant_id, statut_scolarite, en_promotion, prix_promotion, etudiant:etudiant_id(id, nom, prenom)')
   .eq('group_id', groupId);
 
   if (insErr) return res.status(500).json({ error: insErr.message });
@@ -38,10 +38,20 @@ const { data: inscriptions, error: insErr } = await supabase
     const studentPayments = payments.filter((p) => p.etudiant_id === i.etudiant_id);
     const paid = studentPayments.reduce((sum, p) => sum + Number(p.montant), 0);
 
-    return {
+    let total = baseTotal;
+    if (i.en_promotion && i.prix_promotion != null) {
+      total = Number(i.prix_promotion);
+    } else if (group.en_promotion && group.prix_promotion != null) {
+      total = Number(group.prix_promotion);
+    }
+
+   return {
       studentId: i.etudiant_id,
+      inscriptionId: i.id,
       nom: `${i.etudiant?.nom ?? ''} ${i.etudiant?.prenom ?? ''}`.trim(),
       statutScolarite: i.statut_scolarite || 'en_cours',
+      enPromotion: i.en_promotion ?? false,
+      prixPromotion: i.prix_promotion != null ? Number(i.prix_promotion) : null,
       total,
       paid,
       remaining: total - paid,

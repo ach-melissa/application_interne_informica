@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard,BarChart3, CreditCard, Wallet, Receipt, ChevronLeft, ChevronRight, LogOut,
+  LayoutDashboard, BarChart3, CreditCard, Wallet, Receipt, ChevronLeft, ChevronRight, LogOut,
 } from 'lucide-react';
 
 const navGroups = [
@@ -23,6 +23,16 @@ const Tooltip = ({ label }) => (
   </div>
 );
 
+const FadeLabel = ({ collapsed, children, className = '' }) => (
+  <span
+    className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${
+      collapsed ? 'max-w-0 opacity-0' : 'max-w-[160px] opacity-100 delay-100'
+    } ${className}`}
+  >
+    {children}
+  </span>
+);
+
 const SidebarComptable = ({ collapsed, setCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,17 +42,17 @@ const SidebarComptable = ({ collapsed, setCollapsed }) => {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <aside className={`relative flex flex-col h-full bg-white border-r border-[#E2E8F0] transition-all duration-300 shrink-0 ${collapsed ? 'w-[70px]' : 'w-[210px]'}`}>
+    <aside className={`relative flex flex-col h-full bg-white border-r border-[#E2E8F0] transition-[width] duration-300 ease-in-out shrink-0 ${collapsed ? 'w-[70px]' : 'w-[210px]'}`}>
       <div className="h-2" />
 
-      <nav className="flex-1 px-2 py-4 space-y-1">
+      <nav className="flex-1 px-2 py-4 space-y-1 overflow-x-hidden overflow-y-auto sidebar-scroll">
         {navGroups.map((group) => (
           <div key={group.label}>
-            {!collapsed && (
-              <p className="px-3 pt-3 pb-1.5 text-[11px] font-medium text-slate-400 uppercase tracking-wide">
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-8 opacity-100 delay-100'}`}>
+              <p className="px-3 pt-3 pb-1.5 text-[11px] font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
                 {group.label}
               </p>
-            )}
+            </div>
             {group.items.map(({ label, icon: Icon, path, exact }) => {
               const isActive = exact ? location.pathname === path : location.pathname.startsWith(path);
               return (
@@ -54,7 +64,7 @@ const SidebarComptable = ({ collapsed, setCollapsed }) => {
                       ${isActive ? 'text-[#0369A1] font-medium' : 'text-slate-500 hover:text-[#0369A1] hover:bg-[#F8FAFC]'}`}
                   >
                     <Icon size={18} className="shrink-0" />
-                    {!collapsed && <span className="text-sm">{label}</span>}
+                    <FadeLabel collapsed={collapsed} className="text-sm">{label}</FadeLabel>
                   </button>
                   {collapsed && <Tooltip label={label} />}
                 </div>
@@ -84,12 +94,10 @@ const SidebarComptable = ({ collapsed, setCollapsed }) => {
                 <span className="text-[#0369A1] text-xs font-bold">{initials}</span>
               </div>
             )}
-            {!collapsed && (
-              <div className="text-left min-w-0">
-                <p className="text-slate-700 text-sm font-medium leading-none truncate group-hover:text-[#0F2A4A] transition">{user?.prenom} {user?.nom}</p>
-                <p className="text-slate-400 text-xs mt-0.5">Comptable</p>
-              </div>
-            )}
+            <FadeLabel collapsed={collapsed} className="text-left min-w-0">
+              <p className="text-slate-700 text-sm font-medium leading-none truncate group-hover:text-[#0F2A4A] transition">{user?.prenom} {user?.nom}</p>
+              <p className="text-slate-400 text-xs mt-0.5">Comptable</p>
+            </FadeLabel>
           </button>
           {collapsed && <Tooltip label="Mon Profil" />}
         </div>
@@ -100,7 +108,7 @@ const SidebarComptable = ({ collapsed, setCollapsed }) => {
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-[#0369A1] transition ${collapsed ? 'justify-center' : ''}`}
           >
             <LogOut size={18} className="shrink-0" />
-            {!collapsed && <span className="text-sm font-medium">Déconnexion</span>}
+            <FadeLabel collapsed={collapsed} className="text-sm font-medium">Déconnexion</FadeLabel>
           </button>
           {collapsed && <Tooltip label="Déconnexion" />}
         </div>

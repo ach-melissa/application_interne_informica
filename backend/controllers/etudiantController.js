@@ -43,7 +43,8 @@ const updateInscription = async (req, res) => {
   if ('third_try' in req.body)     updates.third_try     = req.body.third_try || null;
   if ('formation_id' in req.body)  updates.formation_id  = req.body.formation_id || null;
   if ('statut_scolarite' in req.body) updates.statut_scolarite = req.body.statut_scolarite || 'en_cours';
-  
+  if ('en_promotion' in req.body)     updates.en_promotion     = !!req.body.en_promotion;
+  if ('prix_promotion' in req.body)   updates.prix_promotion   = req.body.en_promotion ? (req.body.prix_promotion || null) : null;
 if ('statut' in req.body && req.body.statut !== 'confirmed') {
   updates.group_id = null;
 }

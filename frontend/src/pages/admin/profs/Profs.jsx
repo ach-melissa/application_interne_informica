@@ -72,24 +72,24 @@ const Profs = () => {
   </div>
 </div>
 
-{/* Stats strip + recherche */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                <div className="relative sm:w-64 flex-shrink-0">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Rechercher un professeur..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
-          <StatTile icon={GraduationCap} label="Professeurs" value={profs.length} color="blue" />
-          <StatTile icon={Users}         label="Groupes assignés" value={totalGroupes} color="emerald" />
-          <StatTile icon={Layers}        label="Formations couvertes" value={totalFormations} color="violet" />
-        </div>
-      </div>
+{/* Stats strip */}
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+  <StatTile icon={GraduationCap} label="Professeurs" value={profs.length} color="blue" />
+  <StatTile icon={Users}         label="Groupes assignés" value={totalGroupes} color="emerald" />
+  <StatTile icon={Layers}        label="Formations couvertes" value={totalFormations} color="violet" />
+</div>
+
+{/* Recherche */}
+<div className="relative sm:w-64 mb-6">
+  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+  <input
+    type="text"
+    placeholder="Rechercher un professeur..."
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+  />
+</div>
 
       {loading && (
         <div className="flex items-center justify-center py-20">

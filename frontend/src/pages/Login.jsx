@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
 import logo from '../assets/images/logo_informica.png';
 import bgImage from '../assets/images/newback.png';
 
@@ -14,7 +13,8 @@ const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
-
+const identifierRef = useRef(null);
+const passwordRef = useRef(null);
  const handleSubmit = async (e) => {
   e.preventDefault();
   setError('');
@@ -65,23 +65,30 @@ else setError('Rôle non reconnu, contactez un administrateur');
       <img src={logo} alt="Infomica" className="h-32 w-auto mb-2 object-contain drop-shadow-md" />
       <p className="text-xs text-gray-600 uppercase tracking-widest mb-8">Portail de connexion</p>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl mb-5 w-full max-w-md">
-          {error}
-        </div>
-      )}
-
+    
       <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
       <div>
         <div className="relative">
           <InputIcon d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-        <input
+      <input
+  ref={identifierRef}
   type="text"
   value={identifier}
-  onChange={(e) => { setIdentifier(e.target.value); setFieldErrors((p) => ({ ...p, identifier: '' })); }}
+  onChange={(e) => {
+    setIdentifier(e.target.value);
+    setFieldErrors(p => ({ ...p, identifier: '' }));
+  }}
+  onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      passwordRef.current.focus();
+    }
+  }}
   placeholder="Email ou nom d'utilisateur"
   className={`w-full border bg-white shadow-sm rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${
-    fieldErrors.identifier ? 'border-red-300 focus:ring-red-400' : 'border-gray-200 focus:ring-blue-950'
+    fieldErrors.identifier 
+      ? 'border-red-300 focus:ring-red-400' 
+      : 'border-gray-200 focus:ring-blue-950'
   }`}
 />
  </div>
@@ -91,14 +98,26 @@ else setError('Rôle non reconnu, contactez un administrateur');
   <div className="relative">
     <InputIcon d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
     <input
-      type={showPassword ? 'text' : 'password'}
-      value={password}
-      onChange={(e) => { setPassword(e.target.value); setFieldErrors((p) => ({ ...p, password: '' })); }}
-      placeholder="••••••••"
-      className={`w-full border bg-white shadow-sm rounded-xl pl-10 pr-11 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${
-        fieldErrors.password ? 'border-red-300 focus:ring-red-400' : 'border-gray-200 focus:ring-blue-950'
-      }`}
-    />
+  ref={passwordRef}
+  type={showPassword ? 'text' : 'password'}
+  value={password}
+  onChange={(e) => {
+    setPassword(e.target.value);
+    setFieldErrors(p => ({ ...p, password: '' }));
+  }}
+  onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  }}
+  placeholder="••••••••"
+  className={`w-full border bg-white shadow-sm rounded-xl pl-10 pr-11 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${
+    fieldErrors.password 
+      ? 'border-red-300 focus:ring-red-400' 
+      : 'border-gray-200 focus:ring-blue-950'
+  }`}
+/>
     <button type="button" tabIndex={-1} onClick={() => setShowPassword(!showPassword)}
       className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600">
       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
@@ -108,6 +127,8 @@ else setError('Rôle non reconnu, contactez un administrateur');
         } />
       </svg>
     </button>
+     
+
   </div>
   {fieldErrors.password && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.password}</p>}
 </div>
@@ -116,6 +137,11 @@ else setError('Rôle non reconnu, contactez un administrateur');
          className="w-full bg-blue-950 hover:bg-blue-900 text-white py-3 rounded-xl font-semibold text-sm ...">
           {loading ? 'Connexion...' : 'Se connecter'}
         </button>
+         {error && (
+        <div className="  text-red-600 text-sm  py-3 rounded-xl mb-5 w-full text-center ">
+          {error}
+        </div>
+      )}
       </form>
     </div>
 

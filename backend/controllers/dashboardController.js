@@ -52,12 +52,23 @@ const getDashboardStats = async (req, res) => {
         count: countMap[f.id] ?? 0,
       }))
       .sort((a, b) => (b.count / b.capacite) - (a.count / a.capacite));
+    // Un groupe peut avoir plusieurs créneaux le même jour (matin + midi) —
+    // on garde un seul créneau par groupe (le plus tôt) pour l'affichage dashboard.
+    const groupsAujourdhuiMap = {};
+    (groupsAujourdhui ?? []).forEach((g) => {
+      const existing = groupsAujourdhuiMap[g.group_id];
+      if (!existing || (g.heure_debut ?? '') < (existing.heure_debut ?? '')) {
+        groupsAujourdhuiMap[g.group_id] = g;
+      }
+    });
+    const groupsAujourdhuiDedup = Object.values(groupsAujourdhuiMap);
+
     res.json({
       formationsActives: formationsActivesCount ?? 0,
       inscriptionsEnAttente: inscriptionsEnAttente ?? 0,
       sansGroupe: pendingData?.length ?? 0,
       paiementsIncomplets: incomplets,
-      groupsAujourdhui: groupsAujourdhui ?? [],
+      groupsAujourdhui: groupsAujourdhuiDedup,
       formationsEnAttenteGroupe,
     });
   } catch (err) {
