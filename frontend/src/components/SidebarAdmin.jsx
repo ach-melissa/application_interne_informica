@@ -1,22 +1,24 @@
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap,
   FolderArchive, UserCircle, ChevronLeft, ChevronRight, LogOut,
-  BarChart3, Settings, Calendar,
+  BarChart3, Settings, Calendar, ClipboardList,
 } from 'lucide-react';
 
 const navGroups = [
   {
     label: 'Gestion',
     items: [
-      { label: 'Tableau de bord',    icon: LayoutDashboard, path: '/admin' },
-      { label: 'Statistique',  icon: BarChart3,        path: '/admin/statistique' },
-      { label: 'Formations',   icon: BookOpen,         path: '/admin/formations' },
-      { label: 'Utilisateurs', icon: Users,            path: '/admin/utilisateurs' },
-      { label: 'Professeurs',  icon: GraduationCap,    path: '/admin/profs' },
-      { label: 'Pré inscription', icon: UserCircle, path: '/admin/students' },
-      { label: 'Emplois de l\'école', icon: Calendar, path: '/admin/emplois' },
+      { label: 'Tableau de bord',     icon: LayoutDashboard, path: '/admin' },
+      { label: 'Formations',          icon: BookOpen,        path: '/admin/formations' },
+      { label: 'Utilisateurs',        icon: Users,           path: '/admin/utilisateurs' },
+      { label: 'Professeurs',         icon: GraduationCap,   path: '/admin/profs' },
+      { label: 'Pré inscription',     icon: UserCircle,      path: '/admin/students' },
+      { label: "Emplois de l'école",  icon: Calendar,        path: '/admin/emplois' },
+      { label: 'Demandes de salles',  icon: ClipboardList,   path: '/admin/demandes-salles' },
+      { label: 'Statistique',         icon: BarChart3,       path: '/admin/statistique' },
     ],
   },
   {
@@ -33,13 +35,22 @@ const navGroups = [
   },
 ];
 
-const Tooltip = ({ label }) => (
-  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-[#0369A1] text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-    {label}
-  </div>
-);
+// Fixed-position tooltip, positioned via JS so it can never be clipped by
+// an ancestor's overflow-hidden (which is what was hiding it before).
+const Tooltip = ({ label, anchorRect }) => {
+  if (!anchorRect) return null;
+  const top = anchorRect.top + anchorRect.height / 2;
+  const left = anchorRect.right + 12;
+  return (
+    <div
+      style={{ position: 'fixed', top, left, transform: 'translateY(-50%)' }}
+      className="px-2.5 py-1.5 bg-[#0369A1] text-white text-xs rounded-lg whitespace-nowrap pointer-events-none z-[9999] shadow-md"
+    >
+      {label}
+    </div>
+  );
+};
 
-// Wrapper that fades + slides text in/out smoothly instead of popping via conditional render
 const FadeLabel = ({ collapsed, children, className = '' }) => (
   <span
     className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${
@@ -50,6 +61,30 @@ const FadeLabel = ({ collapsed, children, className = '' }) => (
   </span>
 );
 
+const NavItem = ({ label, Icon, path, isActive, collapsed, onClick }) => {
+  const [rect, setRect] = useState(null);
+
+  const handleEnter = (e) => {
+    if (collapsed) setRect(e.currentTarget.getBoundingClientRect());
+  };
+  const handleLeave = () => setRect(null);
+
+  return (
+    <div className="relative" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+      <button
+        onClick={onClick}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150
+          ${collapsed ? 'justify-center' : ''}
+          ${isActive ? 'text-[#0369A1] font-medium' : 'text-slate-500 hover:text-[#0369A1] hover:bg-[#F8FAFC]'}`}
+      >
+        <Icon size={18} className="shrink-0" />
+        <FadeLabel collapsed={collapsed} className="text-sm">{label}</FadeLabel>
+      </button>
+      {collapsed && rect && <Tooltip label={label} anchorRect={rect} />}
+    </div>
+  );
+};
+
 const SidebarAdmin = ({ collapsed, setCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -59,32 +94,33 @@ const SidebarAdmin = ({ collapsed, setCollapsed }) => {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <aside className={`relative flex flex-col h-full bg-white border-r border-[#E2E8F0] transition-[width] duration-300 ease-in-out shrink-0 ${collapsed ? 'w-[70px]' : 'w-[210px]'}`}>
+    <aside
+  className={`absolute left-0 top-0 flex flex-col h-full bg-white border-r border-[#E2E8F0] transition-[width] duration-300 ease-in-out z-30 ${
+    collapsed ? 'w-[70px]' : 'w-[210px] shadow-xl'
+  }`}
+>
       <div className="h-2" />
 
-      <nav className="flex-1 px-2  space-y-1 overflow-x-hidden overflow-y-auto">
+      <nav className="flex-1 px-2 space-y-1 overflow-y-auto">
         {navGroups.map((group) => (
           <div key={group.label}>
-           <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-8 opacity-100 delay-100'}`}>
-  <p className="px-3 pt-3 pb-1.5 text-[11px] font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
-    {group.label}
-  </p>
-</div>
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-8 opacity-100 delay-100'}`}>
+              <p className="px-3 pt-3 pb-1.5 text-[11px] font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                {group.label}
+              </p>
+            </div>
             {group.items.map(({ label, icon: Icon, path }) => {
               const isActive = path === '/admin' ? location.pathname === '/admin' : location.pathname.startsWith(path);
               return (
-                <div key={path} className="relative group">
-                  <button
-                    onClick={() => navigate(path)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150
-                      ${collapsed ? 'justify-center' : ''}
-                      ${isActive ? 'text-[#0369A1] font-medium' : 'text-slate-500 hover:text-[#0369A1] hover:bg-[#F8FAFC]'}`}
-                  >
-                    <Icon size={18} className="shrink-0" />
-                    <FadeLabel collapsed={collapsed} className="text-sm">{label}</FadeLabel>
-                  </button>
-                  {collapsed && <Tooltip label={label} />}
-                </div>
+                <NavItem
+                  key={path}
+                  label={label}
+                  Icon={Icon}
+                  path={path}
+                  isActive={isActive}
+                  collapsed={collapsed}
+                  onClick={() => navigate(path)}
+                />
               );
             })}
           </div>
@@ -116,7 +152,6 @@ const SidebarAdmin = ({ collapsed, setCollapsed }) => {
               <p className="text-slate-400 text-xs mt-0.5">Administrateur</p>
             </FadeLabel>
           </button>
-          {collapsed && <Tooltip label="Mon Profil" />}
         </div>
 
         <div className="relative group">
@@ -127,7 +162,6 @@ const SidebarAdmin = ({ collapsed, setCollapsed }) => {
             <LogOut size={18} className="shrink-0" />
             <FadeLabel collapsed={collapsed} className="text-sm font-medium">Déconnexion</FadeLabel>
           </button>
-          {collapsed && <Tooltip label="Déconnexion" />}
         </div>
       </div>
     </aside>

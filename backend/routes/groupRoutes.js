@@ -9,8 +9,14 @@ const {
   getUnassignedStudents,
   archiveGroup,
   restoreGroup,
+  getGroupPeriods,
+  setGroupPeriods,
+  getMyGroups,
 } = require('../controllers/groupController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
+
+// route prof — doit être déclarée avant le router.use(admin) ci-dessous
+router.get('/me', verifyToken, requireRole('prof'), getMyGroups);
 
 router.use(verifyToken, requireRole('admin'));
 
@@ -22,4 +28,7 @@ router.patch('/:id/archive', archiveGroup);
 router.patch('/:id/restore', restoreGroup);
 router.get('/:id/etudiants', getGroupEtudiants);
 router.get('/formation/:formation_id/unassigned', getUnassignedStudents);
+router.get('/:id/periods', getGroupPeriods);
+router.put('/:id/periods', setGroupPeriods);
+
 module.exports = router;

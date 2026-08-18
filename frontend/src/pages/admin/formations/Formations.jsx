@@ -370,7 +370,7 @@ const COLS = [
                 : 'bg-[#DCEBFA] text-[#0369A1] hover:bg-[#c9e2f7]'
             }`}
           >
-            Tout les inscriptions
+            Toutes les inscriptions
           </button>
         </div>
       )}

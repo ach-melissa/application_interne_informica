@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate ,useSearchParams} from 'react-router-dom';
 import { ArrowLeft, User, Search, X, GraduationCap, Phone, Mail, MapPin, CalendarDays, CheckCircle2, ChevronRight ,Activity  } from 'lucide-react';
 import AdminLayout from '../../../../layouts/AdminLayout';
 import PaymentsTab from './PaymentsTab';
@@ -45,6 +45,7 @@ const GroupDetail = () => {
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
   const [activeTab, setActiveTab] = useState('etudiants');
+  const [searchParams] = useSearchParams();
   const [selectedStudent, setSelectedStudent] = useState(null);
 const [paymentsRefreshKey, setPaymentsRefreshKey] = useState(0);
 
@@ -69,7 +70,20 @@ useEffect(() => {
     .catch(err => setError(err.message))
     .finally(() => setLoading(false));
 }, [groupId]);
+const TABS = [
+    { key: 'etudiants', label: 'Étudiants' },
+    { key: 'paiements', label: 'Paiements' },
+    { key: 'emploi',    label: 'Emploi du temps' },
+    { key: 'pointage',  label: 'Pointage' },
+    { key: 'attestations', label: 'Attestations' }, 
+  ];
 
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && TABS.some(t => t.key === tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
   const filtered = etudiants.filter(i => {
     const name = `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase();
     if (search && !name.includes(search.toLowerCase()) && !i.etudiant?.telephone?.includes(search)) return false;
@@ -98,13 +112,7 @@ const handleStatutScolariteChange = async (inscriptionId, value) => {
   }
 };
 
-  const TABS = [
-    { key: 'etudiants', label: 'Étudiants' },
-    { key: 'paiements', label: 'Paiements' },
-    { key: 'emploi',    label: 'Emploi du temps' },
-    { key: 'pointage',  label: 'Pointage' },
-    { key: 'attestations', label: 'Attestations' }, 
-  ];
+  
 
   return (
     <AdminLayout>

@@ -60,8 +60,6 @@ const GroupScheduleTable = ({ groupId, formation_id, staged, onAddStaged, onRemo
     fetch(`${import.meta.env.VITE_API_URL}/api/schedules`, { headers: getHeaders() })
       .then(r => r.json())
       .then((data) => {
-        // Un tableau par case : plusieurs créneaux non-chevauchants peuvent
-        // partager la même salle/jour/période (ex: 08h-10h et 10h-12h le matin).
         const map = {};
         data.forEach((row) => {
           const k = makeKey(row.jour_semaine, row.salle, row.periode);
@@ -79,17 +77,16 @@ const GroupScheduleTable = ({ groupId, formation_id, staged, onAddStaged, onRemo
       .finally(() => setLoading(false));
   };
 
-useEffect(() => {
-  loadSchedules();
-  fetch(`${import.meta.env.VITE_API_URL}/api/schedules/salles`, { headers: getHeaders() })
-    .then(r => r.json())
-    .then((data) => setSalles(data.map((s) => s.nom)));
-  fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeaders() })
-    .then(r => r.json())
-    .then((data) => setJours(data));
-}, []);
+  useEffect(() => {
+    loadSchedules();
+    fetch(`${import.meta.env.VITE_API_URL}/api/schedules/salles`, { headers: getHeaders() })
+      .then(r => r.json())
+      .then((data) => setSalles(data.map((s) => s.nom)));
+    fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeaders() })
+      .then(r => r.json())
+      .then((data) => setJours(data));
+  }, []);
 
-  // Fusionne les créneaux déjà en base avec ceux en attente (mode brouillon, pas encore de groupId)
   const displayCells = {};
   Object.keys(cells).forEach((k) => { displayCells[k] = [...cells[k]]; });
   if (!groupId) {
@@ -100,7 +97,7 @@ useEffect(() => {
     });
   }
 
-const handleAdd = async () => {
+  const handleAdd = async () => {
     if (!salle) return alert('Choisissez une salle libre.');
     if (!heureDebut || !heureFin) return alert('Heure début et heure fin sont obligatoires.');
 
@@ -153,7 +150,7 @@ const handleAdd = async () => {
     loadSchedules();
   };
 
-if (loading) return <div className="flex justify-center py-6"><div className="w-6 h-6 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <div className="flex justify-center py-6"><div className="w-6 h-6 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" /></div>;
   return (
     <div className="space-y-4">
       <p className="text-[10px] text-slate-400">Cliquez une case libre de la grille pour y ajouter un créneau.</p>
@@ -170,7 +167,6 @@ if (loading) return <div className="flex justify-center py-6"><div className="w-
             <div><Label text="Heure fin" /><input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} className={inp} /></div>
           </div>
 
-          
           <button onClick={handleAdd} disabled={saving || !heureDebut || !heureFin}
             className="w-full text-xs py-1.5 rounded-lg bg-[#0F2A4A] text-white disabled:opacity-40">
             {saving ? 'Ajout...' : 'Ajouter au planning'}
@@ -181,22 +177,21 @@ if (loading) return <div className="flex justify-center py-6"><div className="w-
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-[10px] border-collapse">
           <thead>
-            <tr >
+            <tr>
               <th className="border border-slate-700 px-2 py-1.5 bg-slate-900" rowSpan={2} />
-{jours.map((j) => <th key={j} colSpan={2} className="border border-slate-700 px-2 py-1.5 bg-slate-900 text-white font-semibold uppercase text-[9px] capitalize">{j}</th>)}
-</tr>
-            <tr >
-{jours.map((j) => PERIODES.map((p) => <th key={`${j}-${p}`} className="border border-slate-200 px-2 py-1.5 bg-white text-slate-500">{p === 'matin' ? 'Matin' : 'Midi'}</th>))}
-</tr>
+              {jours.map((j) => <th key={j} colSpan={2} className="border border-slate-700 px-2 py-1.5 bg-slate-900 text-white font-semibold uppercase text-[9px] capitalize">{j}</th>)}
+            </tr>
+            <tr>
+              {jours.map((j) => PERIODES.map((p) => <th key={`${j}-${p}`} className="border border-slate-200 px-2 py-1.5 bg-white text-slate-500">{p === 'matin' ? 'Matin' : 'Midi'}</th>))}
+            </tr>
           </thead>
           <tbody>
             {salles.map((s) => (
               <tr key={s}>
-<td className="border border-slate-700 px-2 py-2 font-semibold text-white bg-slate-900 whitespace-nowrap">{s}</td>
-{jours.map((j) => PERIODES.map((p) => {
-                const entries = displayCells[makeKey(j, s, p)] ?? [];
+                <td className="border border-slate-700 px-2 py-2 font-semibold text-white bg-slate-900 whitespace-nowrap">{s}</td>
+                {jours.map((j) => PERIODES.map((p) => {
+                  const entries = displayCells[makeKey(j, s, p)] ?? [];
                   const isSelected = showForm && jour === j && salle === s && periode === p;
-                  const hasOwn = entries.some((e) => e.isOwn);
                   const openForm = () => {
                     setJour(j); setSalle(s); setPeriode(p);
                     setHeureDebut(''); setHeureFin(''); setContenu('');
@@ -205,12 +200,12 @@ if (loading) return <div className="flex justify-center py-6"><div className="w-
                   return (
                     <td
                       key={makeKey(j, s, p)}
-className={`border border-slate-200 p-1.5 align-top min-w-[6rem] ${isSelected ? 'bg-slate-100 ring-2 ring-inset ring-slate-400' : ''}`}
->
+                      className={`border border-slate-200 p-1.5 align-top min-w-[6rem] ${isSelected ? 'bg-slate-100 ring-2 ring-inset ring-slate-400' : ''}`}
+                    >
                       <div className="space-y-1">
                         {entries.map((entry, idx) => (
-                 <div key={entry.id ?? entry.stagedLocalId ?? idx} className={entry.isOwn ? 'text-[#0369A1] ' : 'opacity-50'}>
-                          {(entry.heure_debut || entry.heure_fin) && (
+                          <div key={entry.id ?? entry.stagedLocalId ?? idx} className={entry.isOwn ? 'text-[#0369A1] ' : 'opacity-50'}>
+                            {(entry.heure_debut || entry.heure_fin) && (
                               <p className={`text-[10px] font-medium ${entry.isOwn ? 'text-[#0369A1]' : 'text-slate-500'}`}>{entry.heure_debut?.slice(0, 5)}{entry.heure_fin ? ` → ${entry.heure_fin.slice(0, 5)}` : ''}</p>
                             )}
                             <p className={`text-xs ${entry.isOwn ? 'text-[#0369A1] font-medium' : 'text-slate-800'}`}>{entry.contenu}</p>
@@ -221,12 +216,11 @@ className={`border border-slate-200 p-1.5 align-top min-w-[6rem] ${isSelected ? 
                             )}
                           </div>
                         ))}
-                        {/* Toujours cliquable : le backend valide le chevauchement d'heures (409) */}
                         <button
                           type="button"
                           onClick={openForm}
-className="w-full flex justify-center text-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded transition text-sm py-0.5"
->
+                          className="w-full flex justify-center text-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded transition text-sm py-0.5"
+                        >
                           +
                         </button>
                       </div>
@@ -253,7 +247,9 @@ const Groups = () => {
   const [showModal, setShowModal] = useState(false);
   const [editGroup, setEditGroup] = useState(null);
   const [isNewGroup, setIsNewGroup] = useState(false);
-  const [form, setForm] = useState({ nom: '', teacher_id: '', en_promotion: false, prix_promotion: '' });
+  const [form, setForm] = useState({ nom: '', teacher_id: '', en_promotion: false, prix_promotion: '', date_debut: '' });
+  const [periods, setPeriods] = useState([]); // [{ jours_offset, montant }]
+  const [useDefaultPeriods, setUseDefaultPeriods] = useState(true);
   const [saving, setSaving] = useState(false);
   const [unassignedStudents, setUnassignedStudents] = useState([]);
   const [stagedStudents, setStagedStudents] = useState([]);
@@ -318,17 +314,16 @@ const Groups = () => {
     } catch {}
   };
 
-const fetchTeachers = async () => {
-   try {
-     const token = localStorage.getItem('token');
-     const res = await fetch(`${import.meta.env.VITE_API_URL}/api/teachers?formation_id=${formation_id}`, { headers: { Authorization: `Bearer ${token}` } });
-     const data = await res.json();
-     console.log('teachers status:', res.status, data); // ← temporaire
-     setTeachers(data);
-   } catch (err) {
-     console.error('fetchTeachers error:', err); // ← temporaire
-   }
-};
+  const fetchTeachers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/teachers?formation_id=${formation_id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      setTeachers(data);
+    } catch (err) {
+      console.error('fetchTeachers error:', err);
+    }
+  };
 
   useEffect(() => {
     fetchGroups();
@@ -336,9 +331,25 @@ const fetchTeachers = async () => {
     fetchTeachers();
   }, [formation_id]);
 
+  const copyFromTemplate = async () => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/formations/${formation_id}/periods`, { headers: { Authorization: `Bearer ${token}` } });
+    const template = await res.json();
+    
+    if (!template.length) { alert("Cette formation n'a pas d'échéancier par défaut."); return []; }
+  const copied = template
+    .slice()
+    .sort((a, b) => Number(a.jours_offset) - Number(b.jours_offset))
+    .map(t => ({ _id: crypto.randomUUID(), jours_offset: t.jours_offset, montant: t.montant }));
+    setPeriods(copied);
+    return copied;
+  };
+
   const openAdd = () => {
     setEditGroup(null);
-    setForm({ nom: '', teacher_id: '', en_promotion: false, prix_promotion: '' });
+    setForm({ nom: '', teacher_id: '', en_promotion: false, prix_promotion: '', date_debut: '' });
+    setPeriods([]);
+    setUseDefaultPeriods(true);
     setShowModal(true);
     setStagedStudents([]);
     setStagedSchedules([]);
@@ -348,28 +359,90 @@ const fetchTeachers = async () => {
 
   const openEdit = (g) => {
     setEditGroup(g);
-    setForm({ nom: g.nom, teacher_id: g.teacher_id ?? '', en_promotion: g.en_promotion ?? false, prix_promotion: g.prix_promotion ?? '' });
+    setForm({
+      nom: g.nom, teacher_id: g.teacher_id ?? '', en_promotion: g.en_promotion ?? false,
+      prix_promotion: g.prix_promotion ?? '', date_debut: g.date_debut?.slice(0, 10) ?? '',
+    });
     setShowModal(true);
     setStagedStudents([]);
     setStagedSchedules([]);
     fetchUnassignedStudents();
     setIsNewGroup(false);
+
+    const token = localStorage.getItem('token');
+    fetch(`${import.meta.env.VITE_API_URL}/api/groups/${g.id}/periods`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => {
+        setUseDefaultPeriods(data.use_default_periods);
+      const sorted = (data.periods ?? [])
+          .slice()
+          .sort((a, b) => Number(a.jours_offset) - Number(b.jours_offset))
+          .map(p => ({ _id: crypto.randomUUID(), jours_offset: p.jours_offset, montant: p.montant }));
+        setPeriods(sorted);
+      })
+      .catch(() => { setUseDefaultPeriods(true); setPeriods([]); });
   };
+
+  const addPeriod = () => setPeriods(prev => [...prev, { _id: crypto.randomUUID(), jours_offset: 0, montant: '' }]);
+  const removePeriod = (id) => setPeriods(prev => prev.filter(p => p._id !== id));
+const updatePeriodField = (id, field, value) => setPeriods(prev => prev.map(p => p._id === id ? { ...p, [field]: value } : p));
+  const targetTotal = form.en_promotion && form.prix_promotion
+    ? Number(form.prix_promotion)
+    : Number(formation?.prix_etudiant ?? formation?.prix ?? 0);
+  const periodsTotal = periods.reduce((s, p) => s + (Number(p.montant) || 0), 0);
+  const periodsMismatch = !useDefaultPeriods && periods.length > 0 && Math.abs(periodsTotal - targetTotal) > 0.01;
+
+ const cumulativeDates = (() => {
+  if (!form.date_debut) return [];
+  let current = new Date(form.date_debut);
+  return periods.map((p) => {
+    current = new Date(current);
+    current.setDate(current.getDate() + Number(p.jours_offset || 0));
+    return current.toLocaleDateString('fr-FR');
+  });
+})();
 
   const handleSave = async () => {
     if (!form.nom.trim()) return;
+    if (!useDefaultPeriods && periods.length > 0 && Math.abs(periodsTotal - targetTotal) > 0.01) {
+      alert(`Le total des tranches (${periodsTotal.toLocaleString('fr-FR')} DA) doit être égal au prix du groupe (${targetTotal.toLocaleString('fr-FR')} DA).`);
+      return;
+    }
     setSaving(true);
     try {
       const url = editGroup ? `${import.meta.env.VITE_API_URL}/api/groups/${editGroup.id}` : `${import.meta.env.VITE_API_URL}/api/groups`;
       const method = editGroup ? 'PATCH' : 'POST';
       const body = editGroup
-        ? { nom: form.nom, teacher_id: form.teacher_id || null, en_promotion: form.en_promotion, prix_promotion: form.en_promotion ? form.prix_promotion || null : null }
-        : { nom: form.nom, formation_id, teacher_id: form.teacher_id || null, en_promotion: form.en_promotion, prix_promotion: form.en_promotion ? form.prix_promotion || null : null };
+        ? { nom: form.nom, teacher_id: form.teacher_id || null, en_promotion: form.en_promotion, prix_promotion: form.en_promotion ? form.prix_promotion || null : null, date_debut: form.date_debut || null }
+        : { nom: form.nom, formation_id, teacher_id: form.teacher_id || null, en_promotion: form.en_promotion, prix_promotion: form.en_promotion ? form.prix_promotion || null : null, date_debut: form.date_debut || null };
 
       const token = localStorage.getItem('token');
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
       if (!res.ok) throw new Error('Erreur serveur');
       const saved = await res.json();
+
+      // Échéancier : s'applique à la création ET à la modification.
+      if (!useDefaultPeriods) {
+        const periodsRes = await fetch(`${import.meta.env.VITE_API_URL}/api/groups/${saved.id}/periods`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ periods: periods.filter(p => p.montant !== '' && p.montant != null) }),
+        });
+        if (!periodsRes.ok) {
+          const err = await periodsRes.json().catch(() => ({}));
+          throw new Error(err.error || "Erreur lors de l'enregistrement de l'échéancier.");
+        }
+      } else if (editGroup) {
+        const periodsRes = await fetch(`${import.meta.env.VITE_API_URL}/api/groups/${saved.id}/periods`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ periods: [] }),
+        });
+        if (!periodsRes.ok) {
+          const err = await periodsRes.json().catch(() => ({}));
+          throw new Error(err.error || "Erreur lors de la réinitialisation de l'échéancier.");
+        }
+      }
 
       if (isNewGroup) {
         for (const slot of stagedSchedules) {
@@ -400,16 +473,16 @@ const fetchTeachers = async () => {
     }
   };
 
-const handleDelete = async (group) => {
-  if (group.nb_etudiants > 0) {
-    alert(`Ce groupe a ${group.nb_etudiants} étudiant(s) inscrit(s). Retirez-les ou réaffectez-les à un autre groupe avant de le supprimer.`);
-    return;
-  }
-  if (!confirm('Supprimer ce groupe ?')) return;
-  const token = localStorage.getItem('token');
-  await fetch(`${import.meta.env.VITE_API_URL}/api/groups/${group.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-  fetchGroups();
-};
+  const handleDelete = async (group) => {
+    if (group.nb_etudiants > 0) {
+      alert(`Ce groupe a ${group.nb_etudiants} étudiant(s) inscrit(s). Retirez-les ou réaffectez-les à un autre groupe avant de le supprimer.`);
+      return;
+    }
+    if (!confirm('Supprimer ce groupe ?')) return;
+    const token = localStorage.getItem('token');
+    await fetch(`${import.meta.env.VITE_API_URL}/api/groups/${group.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    fetchGroups();
+  };
 
   const getAnneesScolaires = () => {
     const now = new Date();
@@ -543,20 +616,80 @@ const handleDelete = async (group) => {
                   </select>
                 </div>
 
-               <div className="col-span-2">
-  <Toggle
-    checked={form.en_promotion}
-    onChange={(val) => setForm({ ...form, en_promotion: val, prix_promotion: '' })}
-    label="En promotion (prix différent pour ce groupe)"
-  />
-</div>
+                <div className="col-span-2">
+                  <Toggle
+                    checked={form.en_promotion}
+                    onChange={(val) => setForm({ ...form, en_promotion: val, prix_promotion: '' })}
+                    label="En promotion (prix différent pour ce groupe)"
+                  />
+                </div>
                 {form.en_promotion && (
                   <div className="col-span-2">
                     <Label icon={Users} text="Prix pour ce groupe (DA)" />
                     <input type="number" value={form.prix_promotion} onChange={(e) => setForm({ ...form, prix_promotion: e.target.value })} className={inp} />
                   </div>
                 )}
+
+                <div className="col-span-2">
+                  <Label text="Date de début" />
+                  <input type="date" value={form.date_debut} onChange={(e) => setForm({ ...form, date_debut: e.target.value })} className={inp} />
+                </div>
               </Section>
+
+              <div className="border-t border-[#F1F5F9] pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-slate-600">Échéancier de paiement</p>
+                  <span className="text-[11px] text-slate-400">Prix du groupe : {targetTotal.toLocaleString('fr-FR')} DA</span>
+                </div>
+
+                <Toggle
+                  checked={useDefaultPeriods}
+                  onChange={(val) => {
+                    setUseDefaultPeriods(val);
+                    if (!val && periods.length === 0) copyFromTemplate();
+                  }}
+                  label="Utiliser l'échéancier par défaut de la formation"
+                />
+
+                {!useDefaultPeriods && (
+  <div className="mt-2 space-y-1.5">
+    <p className="text-[10px] text-slate-400 bg-[#F0F9FF] border border-[#DCEBFA] rounded-lg px-2.5 py-1.5">
+      💡 Le nombre de jours de chaque tranche se compte depuis la tranche précédente (P1 se compte depuis la date de début). Ex : P1 = 0 (immédiat), P2 = 30 (30 jours après P1).
+    </p>
+    {periods.length === 0 && (
+      <p className="text-[11px] text-slate-400">Aucune période — ajoutez-en une ou copiez le modèle.</p>
+    )}
+              {periods.map((p, idx) => (
+  <div key={p._id} className="flex items-center gap-2 bg-[#F8FAFC] rounded-lg px-2.5 py-1.5">
+    <span className="text-[10px] text-slate-400 w-8 flex-shrink-0">P{idx + 1}</span>
+    <input
+      type="number"
+      value={p.jours_offset}
+      onChange={(e) => updatePeriodField(p._id, 'jours_offset', e.target.value)}
+      placeholder={idx === 0 ? 'Jours après le début (0 = immédiat)' : 'Jours après P' + idx}
+      className="flex-1 bg-white border border-[#E2E8F0] rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+    />
+    <input type="number" value={p.montant} onChange={(e) => updatePeriodField(p._id, 'montant', e.target.value)} placeholder="Montant"
+      className="flex-1 bg-white border border-[#E2E8F0] rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40" />
+    <span className="text-[10px] text-slate-400 w-16 flex-shrink-0 text-right">{cumulativeDates[idx] ?? '—'}</span>
+    <button type="button" onClick={() => removePeriod(p._id)} className="text-slate-300 hover:text-red-400 flex-shrink-0"><X size={13} /></button>
+  </div>
+))}
+
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="flex gap-1.5">
+                        <button type="button" onClick={addPeriod} className="text-[11px] font-medium text-[#0369A1] bg-[#DCEBFA] px-2.5 py-1 rounded-full hover:bg-[#c9e2f7] transition">+ Période</button>
+                       </div>
+                      <span className={`text-[11px] font-medium ${periodsMismatch ? 'text-red-500' : 'text-emerald-600'}`}>
+                        Total : {periodsTotal.toLocaleString('fr-FR')} / {targetTotal.toLocaleString('fr-FR')} DA
+                      </span>
+                    </div>
+                    {periodsMismatch && (
+                      <p className="text-[10px] text-red-500">Le total des tranches doit être exactement égal au prix du groupe.</p>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div>
                 <Label icon={GraduationCap} text="Étudiants confirmés non affectés" />
@@ -616,7 +749,7 @@ const handleDelete = async (group) => {
                 <button onClick={() => setShowModal(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">
                   {isNewGroup ? 'Annuler' : 'Fermer'}
                 </button>
-                <button onClick={handleSave} disabled={saving || !form.nom.trim()} className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium">
+                <button onClick={handleSave} disabled={saving || !form.nom.trim() || periodsMismatch} className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium">
                   {saving ? 'Enregistrement...' : isNewGroup ? 'Ajouter' : 'Modifier'}
                 </button>
               </div>

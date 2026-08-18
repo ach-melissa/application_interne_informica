@@ -8,7 +8,7 @@ router.get('/', verifyToken, notifCtrl.listerNotifications);
 router.get('/mes-demandes', verifyToken, notifCtrl.mesDemandes);
 router.patch('/:id/lu', verifyToken, notifCtrl.marquerLu);
 router.patch('/:id/traiter', verifyToken, requireRole('admin'), notifCtrl.traiterNotification);
-router.patch('/:id/choisir-salle', verifyToken, requireRole('prof'), notifCtrl.choisirSalle);
+router.patch('/:id/modifier-salle', verifyToken, requireRole('admin'), notifCtrl.modifierSalleAssignee);
 router.post('/:id/repondre', verifyToken, notifCtrl.repondreNotification);
 
 module.exports = router;

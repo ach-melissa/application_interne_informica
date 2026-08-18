@@ -7,6 +7,8 @@ import InscriptionForm from './pages/InscriptionForm/InscriptionForm';
 // ── Pages admin (inchangées) ───────────────────────────────
 import Login from './pages/Login';
 import Dashboard from './pages/admin/dashboard/Dashboard';
+import DemandesSalles from './pages/admin/demandeSalles/DemandesSalles';
+import DetailDemandeSalle from './pages/admin/demandeSalles/DetailDemandeSalle';
 import Formations from './pages/admin/formations/Formations';
 import Groups from './pages/admin/formations/groups/Groups';
 import GroupDetail from './pages/admin/formations/groups/GroupDetail';
@@ -26,7 +28,8 @@ import EmploisEcole from './pages/admin/emplois/EmploisEcole';
 
 // ── Pages prof (nouvelles) ─────────────────────────────────
 import DashboardProf from './pages/prof/dashboard/DashboardProf';
-
+import MesDemandesSalles from './pages/prof/demandesSalles/MesDemandesSalles';
+import DetailMaDemande from './pages/prof/demandesSalles/DetailMaDemande';
 import EmploiDuTemps from './pages/prof/EmploiDuTemps';
 import ProfLayout from './layouts/ProfLayout';
 
@@ -171,9 +174,34 @@ function App() {
     </ProfLayout>
   </PrivateRoute>
 } />
+<Route path="/prof/mes-demandes-salles" element={
+  <PrivateRoute allowedRoles={['prof']}>
+    <ProfLayout>
+      <MesDemandesSalles />
+    </ProfLayout>
+  </PrivateRoute>
+} />
+<Route path="/prof/mes-demandes-salles/:id" element={
+  <PrivateRoute allowedRoles={['prof']}>
+    <ProfLayout>
+      <DetailMaDemande />
+    </ProfLayout>
+  </PrivateRoute>
+} />
 <Route path="/admin/emplois" element={
   <PrivateRoute allowedRoles={['admin']}>
     <EmploisEcole />
+  </PrivateRoute>
+} />
+<Route path="/admin/demandes-salles" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <DemandesSalles />
+  </PrivateRoute>
+} />
+
+<Route path="/admin/demandes-salles/:id" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <DetailDemandeSalle />
   </PrivateRoute>
 } />
 

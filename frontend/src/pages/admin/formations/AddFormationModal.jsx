@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, BookOpen, DollarSign, Clock, FileText, Users } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
@@ -26,6 +26,22 @@ const [form, setForm] = useState({
 });
   const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }));
 
+  const [periods, setPeriods] = useState([]);
+
+  useEffect(() => {
+    if (isEdit) {
+      fetch(`${API}/api/formations/${formation.id}/periods`, { headers: getHeaders() })
+        .then(r => r.json())
+        .then(data => setPeriods(data.map(p => ({ jours_offset: p.jours_offset, montant: p.montant }))))
+        .catch(() => {});
+    }
+  }, [isEdit, formation]);
+
+const periodsTotal = periods.reduce((s, p) => s + (Number(p.montant) || 0), 0);
+  const periodsMismatch = periods.length > 0 && form.prix && Math.abs(periodsTotal - Number(form.prix)) > 0.01;
+  const addPeriod = () => setPeriods(prev => [...prev, { jours_offset: 0, montant: '' }]);
+  const removePeriod = (idx) => setPeriods(prev => prev.filter((_, i) => i !== idx));
+  const updatePeriod = (idx, field, value) => setPeriods(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
   const handleSubmit = async () => {
     if (!form.nom.trim() || !form.prix || !form.heures) {
       setError('Nom, prix et heures sont obligatoires.');
@@ -42,8 +58,18 @@ const res = await fetch(
     body: JSON.stringify(form),
   }
 );
-      const data = await res.json();
+     const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      const validPeriods = periods.filter(p => p.montant !== '' && p.montant !== null);
+      if (validPeriods.length > 0) {
+        await fetch(`${API}/api/formations/${data.id}/periods`, {
+          method: 'PUT',
+          headers: getHeaders(),
+          body: JSON.stringify({ periods: validPeriods }),
+        });
+      }
+
       onSuccess?.(data);
       onClose();
     } catch (err) {
@@ -89,15 +115,68 @@ const res = await fetch(
               <Label icon={FileText} text="Description" />
               <textarea value={form.description} onChange={set('description')} rows={3} className={`${inp} resize-none`} placeholder="Optionnel" />
             </div>
-         <div>
+       <div>
   <Label icon={Users} text="Capacité (étudiants)" />
   <input type="number" min="1" value={form.capacite_groupe} onChange={set('capacite_groupe')} className={inp} placeholder="Ex: 20" />
 </div>
           </Section>
 
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="border-t border-[#F1F5F9] pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-xs font-semibold text-slate-600">Échéancier de paiement par défaut</p>
+                <p className="text-[10px] text-slate-400">Proposé à la création d'un groupe — modifiable ensuite pour chaque groupe.</p>
+              </div>
+              <button type="button" onClick={addPeriod} className="text-[11px] font-medium text-[#0369A1] bg-[#DCEBFA] px-2.5 py-1 rounded-full hover:bg-[#c9e2f7] transition flex-shrink-0">
+                + Période
+              </button>
+            </div>
+
+            {periods.length === 0 ? (
+              <p className="text-[11px] text-slate-400">Aucune période — paiement libre sans échéancier.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {periods.map((p, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-[#F8FAFC] rounded-lg px-2.5 py-1.5">
+                    <span className="text-[10px] text-slate-400 w-10 flex-shrink-0">P{idx + 1}</span>
+                    <div className="flex-1">
+                      <input
+                        type="number"
+                        value={p.jours_offset}
+                        onChange={e => updatePeriod(idx, 'jours_offset', e.target.value)}
+                        placeholder="Jour (ex: 0, 15, 30)"
+                        className="w-full bg-white border border-[#E2E8F0] rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        type="number"
+                        value={p.montant}
+                        onChange={e => updatePeriod(idx, 'montant', e.target.value)}
+                        placeholder="Montant (DA)"
+                        className="w-full bg-white border border-[#E2E8F0] rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+                      />
+                    </div>
+                    <button type="button" onClick={() => removePeriod(idx)} className="text-slate-300 hover:text-red-400 flex-shrink-0">
+                      <X size={13} />
+                    </button>
+                  </div>
+                )
+                )}
+
+                <div className="flex items-center justify-end pt-1">
+                  <span className={`text-[11px] font-medium ${periodsMismatch ? 'text-red-500' : 'text-emerald-600'}`}>
+                    Total : {periodsTotal.toLocaleString('fr-FR')} / {Number(form.prix || 0).toLocaleString('fr-FR')} DA
+                  </span>
+                </div>
+              </div>
+              
+            )}
+          </div>
+
+      <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
-            <button onClick={handleSubmit} disabled={submitting}
+            <button onClick={handleSubmit} disabled={submitting || periodsMismatch}
               className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium">
               {submitting ? 'Enregistrement...' : isEdit ? 'Modifier' : 'Ajouter'}
             </button>

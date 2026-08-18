@@ -1,5 +1,5 @@
 const supabase = require('../supabaseClient');
-
+const { resolveGroupPeriods } = require('../utils/periods');
 const getGroupsByFormation = async (req, res) => {
   const { formation_id } = req.query;
 
@@ -30,16 +30,16 @@ const getGroupsByFormation = async (req, res) => {
 };
 
 const createGroup = async (req, res) => {
-  const { nom, formation_id, teacher_id, en_promotion, prix_promotion } = req.body;
+  const { nom, formation_id, teacher_id, en_promotion, prix_promotion, date_debut } = req.body;
 
   const { data, error } = await supabase
     .from('groups')
     .insert({
-      nom,
-      formation_id,
-      teacher_id: teacher_id || null,
+      nom, formation_id, teacher_id: teacher_id || null,
       en_promotion: !!en_promotion,
       prix_promotion: en_promotion ? (prix_promotion || null) : null,
+      date_debut: date_debut || null,
+      use_default_periods: true,
     })
     .select()
     .single();
@@ -68,6 +68,9 @@ const updateGroup = async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+  if (updates.use_default_periods === true) {
+  await supabase.from('group_payment_periods').delete().eq('group_id', id);
+}
   res.json(data);
 };
 
@@ -177,4 +180,124 @@ const getUnassignedStudents = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-module.exports = { getGroupsByFormation, createGroup, updateGroup, deleteGroup, getGroupEtudiants, getUnassignedStudents, archiveGroup, restoreGroup };
+const getGroupPeriods = async (req, res) => {
+  const { id } = req.params;
+
+ const { data: group, error: gErr } = await supabase
+  .from('groups')
+  .select('en_promotion, prix_promotion, date_debut, formation:formation_id(prix, prix_etudiant)')
+  .eq('id', id)
+  .single();
+if (gErr) return res.status(500).json({ error: gErr.message });
+  const { data: formationPeriods } = await supabase
+    .from('formation_payment_periods')
+    .select('numero, jours_offset, montant')
+    .eq('formation_id', group.formation_id)
+    .order('numero', { ascending: true });
+
+  let groupPeriods = [];
+  if (!group.use_default_periods) {
+    const { data } = await supabase
+      .from('group_payment_periods')
+      .select('numero, jours_offset, montant')
+      .eq('group_id', id)
+      .order('numero', { ascending: true });
+    groupPeriods = data ?? [];
+  }
+
+  const resolved = resolveGroupPeriods(group, formationPeriods ?? [], groupPeriods);
+  const expected_total = group.en_promotion && group.prix_promotion != null
+    ? Number(group.prix_promotion)
+    : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
+
+  res.json({
+    use_default_periods: group.use_default_periods,
+    date_debut: group.date_debut,
+    expected_total,
+    periods: resolved,
+  });
+};
+
+const setGroupPeriods = async (req, res) => {
+  const { id } = req.params;
+  const { periods } = req.body; // [{ jours_offset, montant }] — empty array = revert to default
+
+  if (!Array.isArray(periods)) return res.status(400).json({ error: 'periods doit être un tableau.' });
+
+  if (periods.length === 0) {
+    await supabase.from('group_payment_periods').delete().eq('group_id', id);
+    const { error } = await supabase.from('groups').update({ use_default_periods: true }).eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json([]);
+  }
+
+  for (const p of periods) {
+    if (p.jours_offset === undefined || p.jours_offset === null || isNaN(p.jours_offset) || Number(p.jours_offset) < 0) {
+      return res.status(400).json({ error: 'Chaque période doit avoir un nombre de jours valide.' });
+    }
+    if (p.montant === undefined || p.montant === null || isNaN(p.montant) || Number(p.montant) <= 0) {
+      return res.status(400).json({ error: 'Chaque période doit avoir un montant valide.' });
+    }
+  }
+
+const { data: group, error: gErr } = await supabase
+    .from('groups')
+    .select('en_promotion, prix_promotion, date_debut, formation:formation_id(prix, prix_etudiant)')
+    .eq('id', id)
+    .single();
+  if (gErr) return res.status(500).json({ error: gErr.message });
+
+  const expectedTotal = group.en_promotion && group.prix_promotion != null
+    ? Number(group.prix_promotion)
+    : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
+
+  const sum = periods.reduce((s, p) => s + Number(p.montant), 0);
+  if (Math.abs(sum - expectedTotal) > 0.01) {
+    return res.status(400).json({
+      error: `Le total des tranches (${sum.toLocaleString('fr-FR')} DA) doit être égal au prix du groupe (${expectedTotal.toLocaleString('fr-FR')} DA).`,
+    });
+  }
+
+ const { error: delErr } = await supabase.from('group_payment_periods').delete().eq('group_id', id);
+  if (delErr) return res.status(500).json({ error: delErr.message });
+
+  if (!group.date_debut) {
+    return res.status(400).json({ error: "Impossible de calculer l'échéancier : ce groupe n'a pas de date de début." });
+  }
+
+  let currentDate = new Date(group.date_debut);
+  const rows = periods.map((p, idx) => {
+    currentDate = new Date(currentDate);
+    currentDate.setDate(currentDate.getDate() + Number(p.jours_offset));
+    return {
+      group_id: id,
+      numero: idx + 1,
+      jours_offset: Number(p.jours_offset),
+      montant: Number(p.montant),
+      due_date: currentDate.toISOString().slice(0, 10),
+    };
+  });
+
+  const { data, error } = await supabase.from('group_payment_periods').insert(rows).select();
+  if (error) return res.status(500).json({ error: error.message });
+  const { error: updErr } = await supabase.from('groups').update({ use_default_periods: false }).eq('id', id);
+  if (updErr) return res.status(500).json({ error: updErr.message });
+
+  res.json(data);
+};
+const getMyGroups = async (req, res) => {
+  const { data: teacher, error: tErr } = await supabase
+    .from('teachers').select('id').eq('user_id', req.user.id).single();
+  if (tErr || !teacher) return res.status(404).json({ error: 'Professeur introuvable' });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from('groups')
+    .select('id, nom, formation_id, date_fin, formations:formation_id(id, nom)')
+    .eq('teacher_id', teacher.id)
+    .eq('archived', false)
+    .or(`date_fin.is.null,date_fin.gte.${today}`);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};module.exports = { getGroupsByFormation, createGroup, updateGroup, deleteGroup, getGroupEtudiants, getUnassignedStudents, archiveGroup, restoreGroup, getGroupPeriods, setGroupPeriods, getMyGroups };

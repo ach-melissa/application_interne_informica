@@ -1,10 +1,28 @@
 const supabase = require('../supabaseClient');
+const todayStr = () => new Date().toISOString().slice(0, 10);
 
+// Cache une séance si son groupe est terminé ou si le créneau est expiré,
+// et ajoute un badge "à venir" pour les remplacements/changements pas encore effectifs.
+const filtrerCreneauxActifs = (schedules) => {
+  const today = todayStr();
+  return schedules
+    .filter((s) => !s.expire_le || s.expire_le >= today)
+    .filter((s) => !s.groups || !s.groups.date_fin || s.groups.date_fin >= today)
+    .map((s) => {
+      let badge = null;
+      if (s.type_special === 'remplacement' && s.expire_le) {
+        badge = s.expire_le === today ? "Remplacement aujourd'hui" : `Remplacement prévu le ${s.expire_le}`;
+      } else if (s.type_special === 'changement' && s.applicable_depuis && s.applicable_depuis > today) {
+        badge = `Nouvel horaire à partir du ${s.applicable_depuis}`;
+      }
+      return { ...s, badge };
+    });
+};
 const getGroupSchedule = async (req, res) => {
   const { groupId } = req.params;
   const { data, error } = await supabase
     .from('schedules')
-    .select('id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin')
+   .select('id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin, type_special, expire_le, applicable_depuis')
     .eq('group_id', groupId);
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -131,12 +149,13 @@ const { data: groups, error: gErr } = await supabase
     .from('schedules')
     .select(`
       id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin,
-      groups(id, nom)
+      type_special, expire_le, applicable_depuis,
+      groups(id, nom, date_fin)
     `)
     .in('group_id', groupIds);
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  res.json(filtrerCreneauxActifs(data));
 };
 
 const getSchedulesByFormation = async (req, res) => {
@@ -156,20 +175,21 @@ const getSchedulesByFormation = async (req, res) => {
 
   const { data, error } = await supabase
     .from('schedules')
-    .select('*, groups(id, nom)')
+    .select('*, groups(id, nom, date_fin)')
     .in('group_id', groupIds);
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  res.json(filtrerCreneauxActifs(data));
 };
 const getAllSchedules = async (req, res) => {
   const { data, error } = await supabase
     .from('schedules')
     .select(`
       *,
-      groups (
+     groups (
         id,
         nom,
+        date_fin,
         formations (
           id,
           nom
@@ -182,8 +202,8 @@ users:prof_id (
 )
     `);
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+ if (error) return res.status(500).json({ error: error.message });
+  res.json(filtrerCreneauxActifs(data));
 };
 
 const getJours = async (req, res) => {

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Image, Search, X, CheckCircle2, User, Wallet, PiggyBank, FileText } from 'lucide-react';
-
+import { Image, Search, X, CheckCircle2, User, Wallet, PiggyBank, FileText, AlertCircle, Users } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 
 const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
@@ -76,12 +75,19 @@ const [promoModal, setPromoModal] = useState(null); // the full payment object `
     setPromoEditing(null);
   };
 
-  const filtered = payments.filter(p => {
+ const filtered = payments.filter(p => {
     if (search && !p.nom.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus === 'paid' && p.remaining > 0) return false;
     if (filterStatus === 'pending' && p.remaining <= 0) return false;
     return true;
   });
+
+  const stats = {
+    total: payments.length,
+    paid: payments.filter(p => p.remaining <= 0).length,
+    late: payments.filter(p => p.isOverdue).length,
+    pending: payments.filter(p => p.remaining > 0 && !p.isOverdue).length,
+  };
 
   if (loading) {
     return (
@@ -101,6 +107,48 @@ const [promoModal, setPromoModal] = useState(null); // the full payment object `
 
   return (
     <>
+    {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="bg-white rounded-xl border border-[#F1F5F9] px-4 py-3 flex items-center gap-3 shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-[#DCEBFA] flex items-center justify-center flex-shrink-0">
+            <Users size={16} className="text-[#0369A1]" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-slate-800 leading-none">{stats.total}</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wide mt-1">Étudiants</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#F1F5F9] px-4 py-3 flex items-center gap-3 shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-emerald-600 leading-none">{stats.paid}</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wide mt-1">Soldés</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#F1F5F9] px-4 py-3 flex items-center gap-3 shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+            <AlertCircle size={16} className="text-red-500" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-red-500 leading-none">{stats.late}</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wide mt-1">En retard</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#F1F5F9] px-4 py-3 flex items-center gap-3 shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0">
+            <Wallet size={16} className="text-amber-600" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-amber-600 leading-none">{stats.pending}</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wide mt-1">En attente</p>
+          </div>
+        </div>
+      </div>
       {/* Filter bar — matches Students */}
       <div className=" px-3 py-2.5 mb-4 flex flex-wrap gap-2 items-center ">
         <div className="relative min-w-[160px] flex-1 max-w-[220px]">
@@ -186,19 +234,26 @@ const [promoModal, setPromoModal] = useState(null); // the full payment object `
   key={p.studentId}
   onClick={() => onSelectStudent(p)}
   className={`hover:opacity-80 transition cursor-pointer ${
-    p.remaining <= 0
-      ? 'bg-emerald-50'
-      : p.remaining >= p.total
-        ? 'bg-red-50'
-        : 'bg-amber-50'
+    p.isOverdue
+      ? 'bg-red-50'
+      : p.remaining <= 0
+        ? 'bg-emerald-50'
+        : p.remaining >= p.total
+          ? 'bg-red-50'
+          : 'bg-amber-50'
   }`}
 >
-                      <td className="px-3 py-2 overflow-hidden border-b border-l border-[#E2E8F0]">
+                   <td className="px-3 py-2 overflow-hidden border-b border-l border-[#E2E8F0]">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
                             {(p.nom?.[0] ?? '?').toUpperCase()}
                           </div>
                           <span className="font-medium text-slate-700 truncate">{p.nom}</span>
+                          {p.isOverdue && (
+                            <span className="text-[10px] font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                              En retard
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap border-b border-[#E2E8F0]">

@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getFormations, getFormationById, createFormation, updateFormation, deleteFormation } = require('../controllers/formationController');
+const { getFormations, getFormationById, createFormation, updateFormation, deleteFormation, getFormationPeriods, setFormationPeriods } = require('../controllers/formationController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 router.get('/', getFormations);
 router.get('/:id', getFormationById);
 router.post('/', verifyToken, createFormation);
 router.patch('/:id', verifyToken, updateFormation);
 router.delete('/:id', verifyToken, deleteFormation);
+router.get('/:id/periods', getFormationPeriods);
+router.put('/:id/periods', verifyToken, setFormationPeriods);
 module.exports = router;

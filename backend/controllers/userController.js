@@ -394,8 +394,11 @@ const updateUser = async (req, res) => {
     if (email           !== undefined) patch.email           = email;
     if (nom_utilisateur !== undefined) patch.nom_utilisateur = nom_utilisateur;
     if (telephone       !== undefined) patch.telephone       = telephone;
-    if (date_naissance  !== undefined) patch.date_naissance  = date_naissance === '' ? null : date_naissance;
+        if (date_naissance  !== undefined) patch.date_naissance  = date_naissance === '' ? null : date_naissance;
     if (role            !== undefined) patch.role            = role;
+    if (mot_de_passe && mot_de_passe.trim() !== '') {
+      patch.mot_de_passe = await bcrypt.hash(mot_de_passe, 10);
+    }
 
     if (req.file) {
       if (!ALLOWED_TYPES.includes(req.file.mimetype)) {
@@ -484,11 +487,16 @@ const deleteUser = async (req, res) => {
         .remove(existing.map((f) => `${req.params.id}/${f.name}`));
     }
 
-    const { error } = await supabase.from('users').delete().eq('id', req.params.id);
-    if (error) {
-      console.error('deleteUser:', error);
-      return res.status(500).json({ message: 'Erreur serveur' });
-    }
+   const { error } = await supabase.from('users').delete().eq('id', req.params.id);
+if (error) {
+  if (error.code === '23503') {
+    return res.status(409).json({
+      message: "Impossible de supprimer : cet utilisateur est lié à d'autres données (séances, notifications...). Désactivez-le plutôt."
+    });
+  }
+  console.error('deleteUser:', error);
+  return res.status(500).json({ message: 'Erreur serveur' });
+}
 
     res.json({ message: 'Utilisateur supprimé' });
   } catch (err) {

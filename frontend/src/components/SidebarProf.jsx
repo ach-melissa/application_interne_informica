@@ -1,15 +1,15 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, CalendarDays, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
-
+import { LayoutDashboard, Users, CalendarDays, DoorOpen, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 const navGroups = [
   {
     label: 'Gestion',
     items: [
-      { label: 'Dashboard',       icon: LayoutDashboard, path: '/prof', exact: true },
-      { label: 'Mes Groupes',     icon: Users,           path: '/prof/formations' },
-      { label: 'Emploi du Temps', icon: CalendarDays,    path: '/prof/emploi-du-temps' },
-    ],
+  { label: 'Dashboard',       icon: LayoutDashboard, path: '/prof', exact: true },
+  { label: 'Mes Groupes',     icon: Users,           path: '/prof/formations' },
+  { label: 'Emploi du Temps', icon: CalendarDays,    path: '/prof/emploi-du-temps' },
+  { label: 'Mes demandes',    icon: DoorOpen,        path: '/prof/mes-demandes-salles' },
+],
   },
 ];
 

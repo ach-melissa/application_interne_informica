@@ -36,22 +36,22 @@ const login = async (req, res) => {
       user = userByUsername;
     }
 
-    if (!user) {
-  return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
-}
+     if (!user) {
+      return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.mot_de_passe);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+    }
 
     if (user.role === 'etudiant') {
-      return res.status(403).json({ message: 'Accès refusé' });
+      return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
     }
 
     if (user.archived) {
       return res.status(403).json({ message: 'Ce compte a été désactivé' });
     }
-
-    const validPassword = await bcrypt.compare(password, user.mot_de_passe);
-if (!validPassword) {
-  return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
-}
 
     const token = jwt.sign(
       { id: user.id, role: user.role },

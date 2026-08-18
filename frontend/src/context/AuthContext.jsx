@@ -7,22 +7,31 @@ export const AuthProvider = ({ children }) => {
     const saved = localStorage.getItem('user');
     return saved ? JSON.parse(saved) : null;
   });
-useEffect(() => {
-  const token = localStorage.getItem('token');
-  if (!token) return;
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
 
-  fetch(`${import.meta.env.VITE_API_URL}/api/users/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((freshUser) => {
-      if (freshUser) {
-        localStorage.setItem('user', JSON.stringify(freshUser));
-        setUser(freshUser);
-      }
+    fetch(`${import.meta.env.VITE_API_URL}/api/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
     })
-    .catch(() => {});
-}, []);
+      .then((r) => {
+        if (r.status === 401 || r.status === 403) {
+          // token invalide/expiré côté serveur -> on nettoie le client
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+          setUser(null);
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      })
+      .then((freshUser) => {
+        if (freshUser) {
+          localStorage.setItem('user', JSON.stringify(freshUser));
+          setUser(freshUser);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const login = (userData, token) => {
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('token', token);

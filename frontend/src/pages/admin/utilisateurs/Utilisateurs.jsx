@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddUserModal from './AddUserModal';
 import UserDetailsModal from './UserDetailsModal';
-import { Plus, Search, Shield, X, CheckCircle2, CalendarDays, User, Mail, Phone ,Users  } from 'lucide-react';
+import { Plus, Search, Shield, X, CheckCircle2, CalendarDays, User, Mail, Phone, Users, ChevronDown } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 
 
@@ -18,9 +18,9 @@ const statutMeta = {
 };
 const Avatar = ({ user, size = 7 }) => {
   const s = `w-${size} h-${size}`;
-  return user.photo_path
-    ? <img src={user.photo_path} alt="" className={`${s} rounded-full object-cover flex-shrink-0 shadow-sm`} />
-   : <div className={`${s} rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0 shadow-sm`}>
+  return user.photo_url
+    ? <img src={user.photo_url} alt="" className={`${s} rounded-full object-cover flex-shrink-0 shadow-sm`} />
+    : <div className={`${s} rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0 shadow-sm`}>
         {user.prenom?.[0]}{user.nom?.[0]}
       </div>;
 };
@@ -77,19 +77,21 @@ useEffect(() => {
   const clearAll = () => { setSearch(''); setRole(''); setStatut(''); setDateFrom(''); setDateTo(''); };
 
   const FilterSel = ({ icon: Icon, label, value, onChange, opts, display }) => (
-    <div className="relative flex items-center">
-      {Icon && <Icon size={13} className="absolute left-2 text-[#0369A1] pointer-events-none" />}
-      <select value={value} onChange={e => onChange(e.target.value)}
-        className={`text-xs rounded-full py-1.5 pr-6 pl-7 bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer transition
-          ${value ? 'text-[#0369A1] font-medium' : 'text-slate-500'}`}>
-        <option value="">{label}</option>
-        {opts.map(o => <option key={o} value={o}>{display ? display(o) : o}</option>)}
-      </select>
-      {value && (
-        <button onClick={() => onChange('')} className="absolute right-1.5 text-slate-300 hover:text-red-400"><X size={10} /></button>
-      )}
-    </div>
-  );
+  <div className="relative flex items-center">
+    {Icon && <Icon size={13} className="absolute left-2 text-[#0369A1] pointer-events-none" />}
+    <select value={value} onChange={e => onChange(e.target.value)}
+      className={`appearance-none text-xs rounded-full py-1.5 pr-7 pl-7 bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer transition
+        ${value ? 'text-[#0369A1] font-medium' : 'text-slate-500'}`}>
+      <option value="">{label}</option>
+      {opts.map(o => <option key={o} value={o}>{display ? display(o) : o}</option>)}
+    </select>
+    {value ? (
+      <button onClick={() => onChange('')} className="absolute right-2 text-slate-300 hover:text-red-400"><X size={11} /></button>
+    ) : (
+      <ChevronDown size={11} className="absolute right-2 text-slate-400 pointer-events-none" />
+    )}
+  </div>
+);
 
   return (
     <AdminLayout>
@@ -104,7 +106,7 @@ useEffect(() => {
     </div>
   </div>
         <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-lg text-xs font-medium
+          className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-md text-xs font-medium
             shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
           <Plus size={14} /> Ajouter
         </button>
@@ -141,18 +143,18 @@ useEffect(() => {
       {error   && <p className="text-red-500 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
 {!loading && !error && (
-        <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+        <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
           <div className="overflow-x-auto">
             <table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
               <colgroup>
                 {COLS.map(c => <col key={c.label} style={{ width: `${c.width}px` }} />)}
               </colgroup>
-             <thead className="bg-[#DCEBFA]">
+           <thead className="bg-[#0F2A4A]">
   <tr>
     {COLS.map(({ label, icon: Icon }, i) => (
-      <th key={label} className={`text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] ${i === 0 ? 'border-l border-[#E2E8F0]' : ''}`}>
+      <th key={label} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] ${i === 0 ? 'border-l border-[#0F2A4A]' : ''}`}>
         <span className="flex items-center gap-1.5">
-          <Icon size={12} />
+         <Icon size={12} className="text-white/70" />
           {label}
         </span>
       </th>
@@ -166,8 +168,8 @@ useEffect(() => {
                const statut = u.archived ? 'inactive' : 'active';
                   return (
                     <tr key={u.id} onClick={() => setSelected(u)}
-                      className={`hover:bg-[#DCEBFA]/30 transition cursor-pointer ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
-                      <td className="px-3 py-2 overflow-hidden border-b border-l border-[#E2E8F0]">
+  className={`hover:bg-slate-50 transition cursor-pointer ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
+                      <td className="px-3 py-2 overflow-hidden border-b border-l border-slate-100">
                         <div className="flex items-center gap-2 min-w-0">
                           <Avatar user={u} size={7} />
                           <div className="min-w-0">
@@ -176,22 +178,22 @@ useEffect(() => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{u.email}</td>
-                      <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{u.telephone || '—'}</td>
-                      <td className="px-3 py-2 text-slate-400 truncate border-b border-[#E2E8F0]">
+                      <td className="px-3 py-2 text-slate-500 truncate border-b border-slate-100">{u.email}</td>
+                      <td className="px-3 py-2 text-slate-500 truncate border-b border-slate-100">{u.telephone || '—'}</td>
+                      <td className="px-3 py-2 text-slate-400 truncate border-b border-slate-100">
                         {u.date_naissance ? new Date(u.date_naissance).toLocaleDateString('fr-FR') : '—'}
                       </td>
-                      <td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                      <td className="px-3 py-2 overflow-hidden border-b border-slate-100">
                         <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full shadow-sm ${roleMeta[u.role]?.cls ?? 'bg-slate-100 text-slate-500'}`}>
                           {roleMeta[u.role]?.label ?? u.role}
                         </span>
                       </td>
-                      <td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                      <td className="px-3 py-2 overflow-hidden border-b border-slate-100">
                         <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full shadow-sm ${statutMeta[statut]?.cls ?? 'bg-slate-100 text-slate-500'}`}>
                           {statutMeta[statut]?.label ?? statut}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-slate-400 truncate border-b border-[#E2E8F0]">
+                      <td className="px-3 py-2 text-slate-400 truncate border-b border-slate-100">
                         {u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—'}
                       </td>
                     </tr>

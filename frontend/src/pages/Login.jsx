@@ -63,8 +63,12 @@ else setError('Rôle non reconnu, contactez un administrateur');
     {/* Logo + title + form, centered */}
     <div className="flex-1 flex flex-col items-center justify-center px-4">
       <img src={logo} alt="Infomica" className="h-32 w-auto mb-2 object-contain drop-shadow-md" />
-      <p className="text-xs text-gray-600 uppercase tracking-widest mb-8">Portail de connexion</p>
-
+      <p className="text-xs text-gray-600 uppercase tracking-widest mb-8 text-center">
+  Portail de connexion à{' '}
+  <span className="bg-gradient-to-r from-[#0369A1] to-[#0F2A4A] bg-clip-text text-transparent">
+    INFORMICA TrainOps
+  </span>
+</p>
     
       <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
       <div>
@@ -145,12 +149,11 @@ else setError('Rôle non reconnu, contactez un administrateur');
       </form>
     </div>
 
-    {/* Footer - gradient text, no background */}
     <footer className="w-full text-center py-4">
-      <p className="text-xs font-semibold bg-gradient-to-r from-slate-800 via-blue-900 to-slate-800 bg-clip-text text-transparent">
-        © {new Date().getFullYear()} Infomica · Tous droits réservés
-      </p>
-    </footer>
+  <p className="text-xs font-semibold bg-gradient-to-r from-slate-800 via-blue-900 to-slate-800 bg-clip-text text-transparent">
+    © {new Date().getFullYear()} INFORMICA DZ · TrainOps · Tous droits réservés
+  </p>
+</footer>
   </div>
 );
 };
