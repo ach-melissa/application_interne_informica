@@ -7,6 +7,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 const getEtudiants = async (req, res) => {
   const archived = req.query.archived === 'true';
 
+ 
   let query = supabase
     .from('inscriptions')
     .select(`
@@ -102,7 +103,7 @@ const createEtudiant = async (req, res) => {
     formation_id, source, registered_by,
   } = req.body;
 
-  let addedByName = null;
+    let addedByName = null;
 if (req.user?.id) {
   const { data: adminUser, error: adminErr } = await supabase
     .from('users')
@@ -112,23 +113,8 @@ if (req.user?.id) {
   if (adminErr) console.error('added_by lookup error:', adminErr);
   addedByName = adminUser?.nom ?? null;
 } else {
-  addedByName = 'En ligne'; // 👈 au lieu de rester null
+  addedByName = 'En ligne';
 }
-
-  if (nom && prenom && formation_id) {
-    const { data: duplicate, error: dupErr } = await supabase
-      .from('inscriptions')
-      .select('id, etudiant:etudiant_id!inner(nom, prenom)')
-      .eq('formation_id', formation_id)
-      .eq('archived', false)
-      .ilike('etudiant.nom', nom.trim())
-      .ilike('etudiant.prenom', prenom.trim());
-
-    if (dupErr) return res.status(500).json({ error: dupErr.message });
-    if (duplicate?.length > 0) {
-      return res.status(400).json({ error: 'Cet étudiant est déjà inscrit dans cette formation.' });
-    }
-  }
 
   let photo = null;
   let piece_identite = null;
@@ -238,16 +224,52 @@ const deleteEtudiant = async (req, res) => {
 const getGroupsByFormation = async (req, res) => {
   const { formation_id } = req.params;
 
+  const { data: formation, error: formationErr } = await supabase
+    .from('formations')
+    .select('capacite_groupe')
+    .eq('id', formation_id)
+    .single();
+
+  if (formationErr) return res.status(500).json({ error: formationErr.message });
+
   const { data, error } = await supabase
     .from('groups')
-    .select('id, nom, jours_formation, heure_formation')
+    .select(`
+      id, nom, jours_formation, heure_formation, statut, date_debut, date_fin,
+      teachers ( users ( nom, prenom ) ),
+      inscriptions ( id, archived ),
+      sessions ( id, statut )
+    `)
     .eq('formation_id', formation_id)
-    .eq('archived', false);   // 👈 ajouté
+    .eq('archived', false);
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
-};
 
+  const today = new Date().toISOString().slice(0, 10);
+
+  const enriched = data.map(g => {
+    const nb_etudiants = (g.inscriptions || []).filter(i => !i.archived).length;
+    const nb_sessions  = (g.sessions || []).filter(s => s.statut === 'effectuee').length;
+    const termine = !!g.date_fin && g.date_fin < today;
+
+    return {
+      id: g.id,
+      nom: g.nom,
+      jours_formation: g.jours_formation,
+      heure_formation: g.heure_formation,
+      date_debut: g.date_debut,
+      date_fin: g.date_fin,
+      statut: g.statut,
+      teacher: g.teachers?.users ? { nom: g.teachers.users.nom, prenom: g.teachers.users.prenom } : null,
+      nb_etudiants,
+      nb_sessions,
+      capacite: formation.capacite_groupe,
+      termine,
+    };
+  });
+
+  res.json(enriched);
+};
 const assignGroup = async (req, res) => {
   const { id } = req.params;
   const { group_id } = req.body;

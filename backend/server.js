@@ -18,6 +18,7 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const cron = require('node-cron');
 const { runPaymentAlerts } = require('./jobs/paymentAlerts');
+const { runAutoArchiveInscriptions } = require('./jobs/autoArchiveInscriptions');
 const parametreRoutes = require('./routes/parametreRoutes');
 const app = express();
 app.use(cors());
@@ -47,6 +48,13 @@ app.use('/api/parametres', parametreRoutes);
 cron.schedule('0 8 * * *', () => {
   console.log('Running payment alerts job...');
   runPaymentAlerts();
+}, {
+  timezone: 'Africa/Algiers'
+});
+// Auto-archive stale inscriptions — runs daily at 03:00 server time.
+cron.schedule('0 3 * * *', () => {
+  console.log('Running auto-archive inscriptions job...');
+  runAutoArchiveInscriptions();
 }, {
   timezone: 'Africa/Algiers'
 });

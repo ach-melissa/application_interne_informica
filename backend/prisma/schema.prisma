@@ -22,21 +22,21 @@ model attendance {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model etudiants {
-  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nom             String                @db.VarChar
-  prenom          String                @db.VarChar
-  date_naissance  DateTime?             @db.Date
-  lieu_naissance  String?               @db.VarChar
-  adresse         String?               @db.VarChar
-  niveau_scolaire niveau_scolaire_enum?
-  email           String?               @db.VarChar
-  telephone       String?               @db.VarChar
-  created_at      DateTime?             @default(now()) @db.Timestamp(6)
-  archived        Boolean?              @default(false)
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nom             String         @db.VarChar
+  prenom          String         @db.VarChar
+  date_naissance  DateTime?      @db.Date
+  lieu_naissance  String?        @db.VarChar
+  adresse         String?        @db.VarChar
+  niveau_scolaire String?        @db.VarChar(100)
+  email           String?        @db.VarChar
+  telephone       String?        @db.VarChar
+  created_at      DateTime?      @default(now()) @db.Timestamp(6)
+  archived        Boolean?       @default(false)
   photo           String?
   piece_identite  String?
-  genre           String?               @default("homme")
-  wilaya          wilaya_enum?
+  genre           String?        @default("homme")
+  wilaya          String?        @db.VarChar(100)
   attendance      attendance[]
   inscriptions    inscriptions[]
   payments        payments[]
@@ -100,11 +100,11 @@ model inscriptions {
   etudiant_id          String                @db.Uuid
   formation_id         String                @db.Uuid
   date_inscription     DateTime?             @default(dbgenerated("CURRENT_DATE")) @db.Date
-  first_try            try_status?
-  second_try           try_status?
-  third_try            try_status?
-  registered_by        registered_by_enum?
-  source               source_enum?
+  first_try            String?               @db.VarChar(100)
+  second_try           String?               @db.VarChar(100)
+  third_try            String?               @db.VarChar(100)
+  registered_by        String?               @db.VarChar(100)
+  source               String?               @db.VarChar(100)
   statut               inscription_status?   @default(pending)
   created_at           DateTime?             @default(now()) @db.Timestamp(6)
   group_id             String?               @db.Uuid
@@ -138,7 +138,7 @@ model notifications {
   created_at                               DateTime    @default(now()) @db.Timestamptz(6)
   updated_at                               DateTime    @default(now()) @db.Timestamptz(6)
   replies                                  Json        @default("[]")
-  lu_admin                                 Boolean     @default(true)
+  lu_admin                                 Boolean     @default(false)
   users_notifications_expediteur_idTousers users?      @relation("notifications_expediteur_idTousers", fields: [expediteur_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users_notifications_traite_parTousers    users?      @relation("notifications_traite_parTousers", fields: [traite_par], references: [id], onDelete: NoAction, onUpdate: NoAction)
   schedules                                schedules[]
@@ -327,6 +327,28 @@ model group_payment_alerts {
   active       Boolean   @default(true)
   created_at   DateTime? @default(now()) @db.Timestamp(6)
   groups       groups    @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model parametre_champs {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cle        String    @unique @db.VarChar(50)
+  nom        String    @db.VarChar(150)
+  ordre      Int?      @default(0)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model parametre_valeurs {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categorie  String    @db.VarChar(50)
+  valeur     String    @db.VarChar(100)
+  label      String    @db.VarChar(150)
+  ordre      Int?      @default(0)
+  actif      Boolean?  @default(true)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([categorie, valeur])
 }
 
 enum attendance_status {

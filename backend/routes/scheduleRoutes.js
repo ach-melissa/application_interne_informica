@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule,renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules,getJours,getSalles ,createSalle} = require('../controllers/scheduleController');
+const { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule, renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules, getJours, getSalles, createSalle, deleteSalle } = require('../controllers/scheduleController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 // Prof
 router.get('/me', verifyToken, requireRole('prof'), getProfSchedule);
@@ -11,6 +11,7 @@ router.post('/', verifyToken, requireRole('admin'), createSchedule);
 router.put('/:id', verifyToken, requireRole('admin'), updateSchedule);
 router.delete('/:id', verifyToken, requireRole('admin'), deleteSchedule);
 router.patch('/salle/rename', verifyToken, requireRole('admin'), renameSalle);
+router.delete('/salle/:id', verifyToken, requireRole('admin'), deleteSalle);
 router.get('/formation/:formation_id', verifyToken, requireRole('admin'), getSchedulesByFormation);
 router.get('/jours', verifyToken, getJours);
 router.get('/salles', verifyToken, getSalles);

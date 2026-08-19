@@ -1,14 +1,27 @@
 const supabase = require('../supabaseClient');
 
 const getTeachers = async (req, res) => {
-  const teacherIds = null;
+  const { formation_id } = req.query;
+
+  let teacherIds = null;
+  if (formation_id) {
+    const { data: links, error: linkErr } = await supabase
+      .from('teacher_formations')
+      .select('teacher_id')
+      .eq('formation_id', formation_id);
+
+    if (linkErr) return res.status(500).json({ error: linkErr.message });
+    teacherIds = links.map((l) => l.teacher_id);
+  }
 
   let query = supabase
     .from('teachers')
     .select(`id, user_id, created_at, user:user_id(id, nom, prenom, email, telephone)`)
     .order('created_at', { ascending: false });
 
-  if (teacherIds) query = query.in('id', teacherIds);
+  if (teacherIds) {
+    query = query.in('id', teacherIds.length ? teacherIds : ['00000000-0000-0000-0000-000000000000']);
+  }
 
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });

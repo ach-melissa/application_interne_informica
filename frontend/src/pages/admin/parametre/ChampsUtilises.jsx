@@ -5,7 +5,9 @@ import ParametreValeurs from './ParametreValeurs';
 const TABS = [
   { key: 'wilaya', label: 'Wilayas', Icon: MapPin },
   { key: 'niveau_scolaire', label: 'Niveaux scolaires', Icon: GraduationCap },
-  { key: 'try_status', label: 'Statuts de tentative', Icon: PhoneCall },
+  { key: 'first_try', label: '1er appel', Icon: PhoneCall },
+  { key: 'second_try', label: '2ème appel', Icon: PhoneCall },
+  { key: 'third_try', label: '3ème appel', Icon: PhoneCall },
   { key: 'source', label: "Sources d'inscription", Icon: Radio },
   { key: 'registered_by', label: 'Rapporteur', Icon: UserCheck },
 ];

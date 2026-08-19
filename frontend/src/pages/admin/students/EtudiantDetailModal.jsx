@@ -13,20 +13,16 @@ const getHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('token')}`,
 });
 
-const SOURCE_OPTS     = ['Amis/Famille','Instagram','TikTok','Facebook','Recherche Google','Site Web','Bouche-à-oreille','Publicité','Autre'];
-const REGISTERED_OPTS = ['hanane','yasmine','page_facebook','amira'];
+
 const STATUT_OPTS     = ['pending','confirmed','non_confirmed','rejected'];
-const TRY_OPTS        = ['repondu','non_repondu','occupe','injoignable','P_bureau','ferme'];
 
 const statutLabel = { confirmed:'Confirmé', pending:'En attente', non_confirmed:'Non confirmé', rejected:'Rejeté' };
 const statutCls   = { confirmed:'bg-[#DCEBFA] text-[#0369A1]', pending:'bg-amber-50 text-amber-600', non_confirmed:'bg-red-50 text-red-600', rejected:'bg-slate-100 text-slate-500' };
 const tryMeta     = { repondu:'bg-emerald-50 text-emerald-600', non_repondu:'bg-red-50 text-red-600', occupe:'bg-orange-50 text-orange-600', injoignable:'bg-slate-100 text-slate-500', P_bureau:'bg-[#DCEBFA] text-[#0369A1]', ferme:'bg-violet-50 text-violet-600' };
 
-/* ── Shared design tokens (aligned with UserDetailsModal) ───────────────── */
-const inp = 'w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors';
-const labelCls = 'flex items-center gap-1 text-[10px] text-slate-400 uppercase tracking-wide mb-0.5';
-const sectionTitleCls = 'text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2 col-span-2 pb-2 border-b border-[#F1F5F9]';
-
+const inp = 'w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors';
+const labelCls = 'flex items-center gap-1 text-[10px] text-slate-600 uppercase tracking-wide mb-0.5';
+const sectionTitleCls = 'text-[11px] font-semibold text-slate-600 uppercase tracking-wide mb-2 col-span-2 pb-2 border-b border-[#F1F5F9]';
 /* ── Fiche d'inscription (print/PDF preview) — unchanged, keeps letterhead ── */
 
 const printRows = [
@@ -88,15 +84,27 @@ function buildFicheInner(logoHtml, rows) {
         </div>
       </div>
 
-      <div class="fields">
-        ${rows.map(r => `
+                       <div class="fields">
+        ${rows.map(r => {
+          const isTall = r.key === 'adresse';
+          if (isTall) {
+            const rowHtml = `
+            <div class="row">
+              <span class="row-fr">${r.fr}${r.fr ? ' :' : ''}</span>
+              <div class="row-line ${r.value ? 'filled' : ''}"><span class="row-value" id="adresseLine1"></span></div>
+              <span class="row-ar">${r.ar ? `: ${r.ar}` : ''}</span>
+            </div>`;
+            const valueLine = `<div class="row-line-full" id="adresseLine2Wrap"${r.value ? ' style="display:none"' : ''}><span class="row-value" id="adresseLine2"></span></div>`;
+            return `<div class="row-adresse">${rowHtml}${valueLine}</div>`;
+          }
+          return `
           <div class="row">
             <span class="row-fr">${r.fr}${r.fr ? ' :' : ''}</span>
-            <div class="row-line ${r.value ? 'filled' : ''} ${r.key === 'adresse' ? 'row-line-tall' : ''}"><span class="row-value">${r.value}</span></div>
+            <div class="row-line ${r.value ? 'filled' : ''}"><span class="row-value">${r.value}</span></div>
             <span class="row-ar">${r.ar ? `: ${r.ar}` : ''}</span>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </div>
-
       <div class="footer">
         <div>
           <p class="sig-label">
@@ -176,27 +184,24 @@ const FICHE_CSS = `
   .row-line.filled{
     border-bottom:none;
   }
-  .row-value{display:block;width:100%;white-space:normal;word-break:break-word;font-size:14px;font-weight:600;line-height:1;padding-bottom:5px;color:#171717}
+    .row-value{display:block;width:100%;white-space:normal;word-break:break-word;font-size:14px;font-weight:600;line-height:1;padding-bottom:0;color:#171717}
   .row-ar{font-size:13px;font-weight:500;white-space:nowrap;width:135px;flex-shrink:0;text-align:right;direction:rtl;color:#64748B}
 
- .row-line-tall{
-  height:2.8rem;
-  border-bottom:none;
-  align-items:flex-start;
-}
-.row-line-tall:not(.filled){
-  background-image:repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.4rem - 1px), #94A3B8 1.4rem, #94A3B8 calc(1.4rem + 1px));
-  background-size:100% 1.4rem;
-  background-repeat:repeat-y;
-}
-  .row-line-tall .row-value{
-    display:block;
+  .row-line-full{
     width:100%;
-    white-space:normal;
-    line-height:1.4rem;
-    padding-bottom:0;
+    min-height:1.2rem;
+    border-bottom:1.5px dotted #94A3B8;
+    margin-top:0.4rem;
   }
-
+  .row-line-full.filled{
+    border-bottom:none;
+    margin-top:0.2rem;
+  }
+  .row-line-full .row-value{
+    display:block;
+    font-size:14px;font-weight:600;line-height:1.3;color:#171717;
+    white-space:normal;word-break:break-word;
+  }
   /* Footer */
   .footer{margin-top:2.4rem;padding-top:1.3rem;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:flex-start}
 
@@ -238,13 +243,45 @@ function imgToBase64(src) {
 }
 
 /* label + icon above value/input — aligned with UserDetailsModal's Row */
-const Row = ({ icon: Icon, label, children }) => (
+const Row = ({ icon: Icon, label, children, required }) => (
   <div>
     <p className={labelCls}>
-      {Icon && <Icon size={10} className="text-[#0369A1]" />}{label}
+      {Icon && <Icon size={10} className="text-slate-500" />}{label}{required && <span className="text-red-500 ml-0.5">*</span>}
     </p>
     {children}
   </div>
+);
+const TryField = ({ label, field, prev, form, set, editing, opts = [] }) => {
+  const disabled = editing && prev !== undefined && !form[prev];
+  const val = form[field];
+  return (
+    <Row icon={PhoneCall} label={label}>
+      {editing ? (
+        <select value={val} onChange={set(field)} disabled={disabled} className={`${inp} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}>
+          <option value="">— aucun —</option>
+          {opts.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : (
+        <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${tryMeta[val] ?? 'bg-slate-100 text-slate-400'}`}>
+          {val || '—'}
+        </span>
+      )}
+    </Row>
+  );
+};
+
+const Field = ({ icon, label, field, type = 'text', select, opts, form, set, editing }) => (
+  <Row icon={icon} label={label}>
+    {editing
+      ? select
+        ? <select value={form[field]} onChange={set(field)} className={inp}>
+            {opts.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        : <input type={type} value={form[field]} onChange={set(field)} className={inp} />
+      : field === 'telephone' && form[field]
+        ? <a href={`tel:${form[field]}`} className="text-xs text-[#0369A1] font-medium hover:underline">{form[field]}</a>
+        : <p className="text-xs text-slate-700 font-medium">{form[field] || '—'}</p>}
+  </Row>
 );
 
 const EtudiantDetailModal = ({ inscription, onClose, onSuccess, readOnly = false }) => {
@@ -254,13 +291,20 @@ const EtudiantDetailModal = ({ inscription, onClose, onSuccess, readOnly = false
   const handleFile = f => e => setFiles(p => ({ ...p, [f]: e.target.files[0] }));
   const [editing, setEditing]       = useState(false);
   const [submitting, setSubmit]     = useState(false);
-  const [confirmDel, setConfirmDel] = useState(false);
-  const [confirmArchive, setConfirmArchive] = useState(false);
-  const [archiveYear, setArchiveYear] = useState('');
-  const [confirmSave, setConfirmSave] = useState(false);
+const [confirm, setConfirm] = useState(null); // 'save' | 'archive' | 'delete' | null
+const [archiveYear, setArchiveYear] = useState('');
   const [error, setError]           = useState(null);
-  const [formations, setFormations] = useState([]);
+const [formations, setFormations] = useState([]);
 const [wilayas, setWilayas]       = useState([]);
+const [sourceOpts, setSourceOpts] = useState([]);
+const [registeredByOpts, setRegisteredByOpts] = useState([]);
+const [niveauOpts, setNiveauOpts] = useState([]);
+const [firstTryOpts, setFirstTryOpts]   = useState([]);
+const [secondTryOpts, setSecondTryOpts] = useState([]);
+const [thirdTryOpts, setThirdTryOpts]   = useState([]);
+const [groupInfo, setGroupInfo] = useState(inscription.groups ?? null);
+const [groupId, setGroupId] = useState(inscription.group_id ?? null);
+
   const [form, setForm] = useState({
   nom: e?.nom ?? '', prenom: e?.prenom ?? '', telephone: e?.telephone ?? '',
   email: e?.email ?? '', adresse: e?.adresse ?? '',
@@ -278,22 +322,33 @@ const [wilayas, setWilayas]       = useState([]);
 });
 
  useEffect(() => {
+  const cat = c => fetch(`${API}/api/parametres?categorie=${c}`, { headers: getHeaders() }).then(r => r.json());
   fetch(`${API}/api/formations`, { headers: getHeaders() })
     .then(r => r.json())
     .then(data => setFormations(Array.isArray(data) ? data : []))
     .catch(() => {});
-  fetch(`${API}/api/enums`, { headers: getHeaders() })
-    .then(r => r.json())
-    .then(e => setWilayas(e.wilaya || []))
+   Promise.all([
+    cat('wilaya'), cat('source'), cat('registered_by'), cat('niveau_scolaire'),
+    cat('first_try'), cat('second_try'), cat('third_try'),
+  ])
+    .then(([wl, src, rb, niv, ft, st, tt]) => {
+      setWilayas((wl || []).filter(v => v.actif).map(v => v.label));
+      setSourceOpts((src || []).filter(v => v.actif).map(v => v.label));
+      setRegisteredByOpts((rb || []).filter(v => v.actif).map(v => v.label));
+      setNiveauOpts((niv || []).filter(v => v.actif).map(v => v.label));
+      setFirstTryOpts((ft || []).filter(v => v.actif).map(v => v.label));
+      setSecondTryOpts((st || []).filter(v => v.actif).map(v => v.label));
+      setThirdTryOpts((tt || []).filter(v => v.actif).map(v => v.label));
+    })
     .catch(() => {});
 }, []);
 
   if (!inscription) return null;
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
-  const cancelEdit = () => { setEditing(false); setConfirmSave(false); setError(null); };
+  const cancelEdit = () => { setEditing(false); setConfirm(null); setError(null); };
 
   const doSave = async () => {
-    setSubmit(true); setError(null); setConfirmSave(false);
+    setSubmit(true); setError(null); setConfirm(null);
     try {
       const r2 = await fetch(`${API}/api/etudiants/${inscription.id}`, {
         method: 'PATCH', headers: getHeaders(),
@@ -376,6 +431,48 @@ const [wilayas, setWilayas]       = useState([]);
       </div>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
       <script>
+      var ADRESSE_TEXT = ${JSON.stringify(printData.adresse || '')};
+      function measureTextWidth(text, font) {
+        var canvas = measureTextWidth.canvas || (measureTextWidth.canvas = document.createElement('canvas'));
+        var ctx = canvas.getContext('2d');
+        ctx.font = font;
+        return ctx.measureText(text).width;
+      }
+      function splitToFit(text, maxWidth, font) {
+        if (!text) return { first: '', rest: '' };
+        if (measureTextWidth(text, font) <= maxWidth) return { first: text, rest: '' };
+        var words = text.split(' ');
+        var first = '';
+        var i = 0;
+        for (; i < words.length; i++) {
+          var test = first ? first + ' ' + words[i] : words[i];
+          if (measureTextWidth(test, font) > maxWidth) break;
+          first = test;
+        }
+        if (!first && words.length) { first = words[0]; i = 1; }
+        var rest = words.slice(i).join(' ');
+        return { first: first, rest: rest };
+      }
+      function layoutAdresse() {
+        var line1 = document.getElementById('adresseLine1');
+        var line2Wrap = document.getElementById('adresseLine2Wrap');
+        var line2 = document.getElementById('adresseLine2');
+        if (!line1 || !ADRESSE_TEXT) return;
+        var font = '600 14px "Helvetica Neue", Arial, sans-serif';
+        var maxWidth = line1.parentElement.clientWidth - 4;
+        var parts = splitToFit(ADRESSE_TEXT, maxWidth, font);
+        line1.textContent = parts.first;
+        if (parts.rest) {
+          line2.textContent = parts.rest;
+          line2Wrap.classList.add('filled');
+          line2Wrap.style.display = 'block';
+        } else {
+          line2Wrap.style.display = 'none';
+        }
+      }
+      layoutAdresse();
+      <\/script>
+      <script>
       document.getElementById('downloadBtn').addEventListener('click', function () {
   var btn = this;
   btn.disabled = true;
@@ -402,49 +499,17 @@ const [wilayas, setWilayas]       = useState([]);
     win.focus();
   };
 
-  /* try field — 2nd disabled if 1st empty, 3rd disabled if 2nd empty */
-  const TryField = ({ label, field, prev }) => {
-    const disabled = editing && prev !== undefined && !form[prev];
-    const val = form[field];
-    return (
-      <Row icon={PhoneCall} label={label}>
-        {editing ? (
-          <select value={val} onChange={set(field)} disabled={disabled} className={`${inp} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}>
-            <option value="">— aucun —</option>
-            {TRY_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
-          </select>
-        ) : (
-          <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${tryMeta[val] ?? 'bg-slate-100 text-slate-400'}`}>
-            {val || '—'}
-          </span>
-        )}
-      </Row>
-    );
-  };
-
-  const Field = ({ icon, label, field, type = 'text', select, opts }) => (
-    <Row icon={icon} label={label}>
-      {editing
-        ? select
-          ? <select value={form[field]} onChange={set(field)} className={inp}>
-              {opts.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          : <input type={type} value={form[field]} onChange={set(field)} className={inp} />
-        : field === 'telephone' && form[field]
-          ? <a href={`tel:${form[field]}`} className="text-xs text-[#0369A1] font-medium hover:underline">{form[field]}</a>
-          : <p className="text-xs text-slate-700 font-medium">{form[field] || '—'}</p>}
-    </Row>
-  );
+ 
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
   
        {!showAssign && (
-<div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={ev => ev.stopPropagation()}>
+<div className="bg-white rounded-md shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={ev => ev.stopPropagation()}>
         <div className="sticky top-0 z-10 bg-white">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[#F1F5F9]">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-14 h-14 rounded-full bg-[#DCEBFA] flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-[#DCEBFA]">
+    <div className="w-16 h-16 rounded-full bg-[#DCEBFA] flex items-center justify-center overflow-hidden flex-shrink-0">
               {e?.photo
                 ? <img src={e.photo} alt="" className="w-full h-full object-cover" />
                 : <span className="text-lg font-bold text-[#0369A1]">{e?.prenom?.[0]}{e?.nom?.[0]}</span>}
@@ -454,44 +519,44 @@ const [wilayas, setWilayas]       = useState([]);
               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                 {readOnly ? (
                   <button onClick={openFichePreview}
-                    className="flex items-center gap-1 text-xs bg-[#DCEBFA] text-[#0369A1] px-2.5 py-1 rounded-lg hover:bg-[#c7e3f7]">
+                    className="flex items-center gap-1 text-xs bg-[#DCEBFA] text-[#0369A1] px-2.5 py-1.5 rounded-md hover:bg-[#c7e3f7]">
                     <Printer size={11} /> Aperçu / PDF
                   </button>
                 ) : editing ? (
                   <>
-                    <button onClick={cancelEdit} className="flex items-center gap-1 text-xs bg-slate-500 text-white px-2.5 py-1 rounded-lg hover:bg-slate-600">
+                    <button onClick={cancelEdit} className="flex items-center gap-1 text-xs bg-slate-500 text-white px-2.5 py-1.5 rounded-md hover:bg-slate-600">
                       <Ban size={11} /> Annuler
                     </button>
-                    <button onClick={() => setConfirmSave(true)} disabled={submitting}
-                      className="flex items-center gap-1 text-xs bg-[#0F2A4A] text-white px-2.5 py-1 rounded-lg hover:bg-[#16385f] disabled:opacity-40">
-                      <Check size={11} /> Enregistrer
-                    </button>
+                   <button onClick={() => setConfirm('save')} disabled={submitting}
+  className="flex items-center gap-1 text-xs bg-[#0F2A4A] text-white px-2.5 py-1.5 rounded-md shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all">
+  <Check size={11} /> Enregistrer
+</button>
                   </>
                 ) : (
                   <>
                     <button onClick={() => setEditing(true)}
-                      className="flex items-center gap-1 text-xs bg-[#0369A1] text-white px-2.5 py-1 rounded-lg hover:bg-[#0284C7]">
+                      className="flex items-center gap-1 text-xs bg-[#0369A1] text-white px-2.5 py-1.5 rounded-md hover:bg-[#0284C7]">
                       <Pencil size={11} /> Modifier
                     </button>
-                    <button onClick={() => setConfirmArchive(true)}
-                      className="flex items-center gap-1 text-xs bg-amber-500 text-white px-2.5 py-1 rounded-lg hover:bg-amber-600">
+                    <button onClick={() => setConfirm('archive')}
+                      className="flex items-center gap-1 text-xs bg-amber-500 text-white px-2.5 py-1.5 rounded-md hover:bg-amber-600">
                       <Archive size={11} /> Archiver
                     </button>
-                    <button onClick={() => setConfirmDel(true)}
-                      className="flex items-center gap-1 text-xs bg-red-500 text-white px-2.5 py-1 rounded-lg hover:bg-red-600">
+                    <button onClick={() => setConfirm('delete')}
+                      className="flex items-center gap-1 text-xs bg-red-500 text-white px-2.5 py-1.5 rounded-md hover:bg-red-600">
                       <Trash2 size={11} /> Supprimer
                     </button>
                     <button onClick={openFichePreview}
-                      className="flex items-center gap-1 text-xs bg-[#DCEBFA] text-[#0369A1] px-2.5 py-1 rounded-lg hover:bg-[#c7e3f7]">
+                      className="flex items-center gap-1 text-xs bg-[#DCEBFA] text-[#0369A1] px-2.5 py-1.5 rounded-md hover:bg-[#c7e3f7]">
                       <Printer size={11} /> Aperçu / PDF
                     </button>
                     {form.statut === 'confirmed' && (
-                      <button onClick={() => setShowAssign(true)}
-                        className="flex items-center gap-1 text-xs bg-emerald-500 text-white px-2.5 py-1 rounded-lg hover:bg-emerald-600">
-                        <UserPlus size={11} />
-                        {inscription.group_id ? 'Changer groupe' : 'Affecter groupe'}
-                      </button>
-                    )}
+  <button onClick={() => setShowAssign(true)}
+    className="flex items-center gap-1 text-xs bg-emerald-500 text-white px-2.5 py-1.5 rounded-md hover:bg-emerald-600">
+    <UserPlus size={11} />
+    {groupId ? 'Changer groupe' : 'Affecter groupe'}
+  </button>
+)}
                   </>
                 )}
               </div>
@@ -500,66 +565,67 @@ const [wilayas, setWilayas]       = useState([]);
           <button onClick={onClose} className="text-slate-300 hover:text-slate-600 flex-shrink-0"><X size={16} /></button>
         </div>
 
-        {(error || (!readOnly && (confirmSave || confirmDel || confirmArchive))) && (
-          <div className="px-5 pb-3 pt-2 border-b border-[#F1F5F9] space-y-2">
-            {error && <p className="text-red-500 text-xs bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+       
+{(error || (!readOnly && confirm)) && (
+  <div className="px-5 pb-3 pt-2 border-b border-[#F1F5F9] space-y-2">
+    {error && <p className="text-red-500 text-xs bg-red-50 rounded-md px-3 py-2">{error}</p>}
 
-            {!readOnly && confirmSave && (
-              <div className="bg-[#DCEBFA]/50 rounded-xl p-3 flex items-center justify-between gap-3">
-                <p className="text-xs text-[#0369A1] flex items-center gap-1.5"><AlertTriangle size={13} /> Confirmer les modifications ?</p>
-                <div className="flex gap-2 flex-shrink-0">
-                  <button onClick={() => setConfirmSave(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-white">Non</button>
-                  <button onClick={doSave} disabled={submitting} className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40">
-                    {submitting ? '...' : 'Oui'}
-                  </button>
-                </div>
-              </div>
-            )}
+    {!readOnly && confirm === 'save' && (
+      <div className="bg-[#DCEBFA]/50 rounded-md p-3 flex items-center justify-between gap-3">
+        <p className="text-xs text-[#0369A1] flex items-center gap-1.5"><AlertTriangle size={13} /> Confirmer les modifications ?</p>
+        <div className="flex gap-2 flex-shrink-0">
+          <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+          <button onClick={doSave} disabled={submitting} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40">
+            {submitting ? '...' : 'Oui'}
+          </button>
+        </div>
+      </div>
+    )}
 
-            {!readOnly && confirmDel && (
-              <div className="bg-red-50 rounded-xl p-3 flex items-center justify-between gap-3">
-                <p className="text-xs text-red-600 flex items-center gap-1.5"><AlertTriangle size={13} /> Supprimer ? Action irréversible.</p>
-                <div className="flex gap-2 flex-shrink-0">
-                  <button onClick={() => setConfirmDel(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-white">Non</button>
-                  <button onClick={doDelete} disabled={submitting} className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
-                    {submitting ? '...' : 'Oui'}
-                  </button>
-                </div>
-              </div>
-            )}
+    {!readOnly && confirm === 'delete' && (
+      <div className="bg-red-50 rounded-md p-3 flex items-center justify-between gap-3">
+        <p className="text-xs text-red-600 flex items-center gap-1.5"><AlertTriangle size={13} /> Supprimer ? Action irréversible.</p>
+        <div className="flex gap-2 flex-shrink-0">
+          <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+          <button onClick={doDelete} disabled={submitting} className="text-xs px-3 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
+            {submitting ? '...' : 'Oui'}
+          </button>
+        </div>
+      </div>
+    )}
 
-            {!readOnly && confirmArchive && (
-              <div className="bg-amber-50 rounded-xl p-3 space-y-2">
-                <p className="text-xs text-amber-700 flex items-center gap-1.5"><AlertTriangle size={13} /> Archiver cette inscription ?</p>
-                <select value={archiveYear} onChange={ev => setArchiveYear(ev.target.value)} className={inp}>
-                  <option value="">— Année scolaire (optionnel) —</option>
-                  {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => setConfirmArchive(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-white">Non</button>
-                  <button onClick={doArchive} disabled={submitting} className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
-                    {submitting ? '...' : 'Oui'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+    {!readOnly && confirm === 'archive' && (
+      <div className="bg-amber-50 rounded-md p-3 space-y-2">
+        <p className="text-xs text-amber-700 flex items-center gap-1.5"><AlertTriangle size={13} /> Archiver cette inscription ?</p>
+        <select value={archiveYear} onChange={ev => setArchiveYear(ev.target.value)} className={inp}>
+          <option value="">— Année scolaire (optionnel) —</option>
+          {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <div className="flex justify-end gap-2">
+          <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+          <button onClick={doArchive} disabled={submitting} className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
+            {submitting ? '...' : 'Oui'}
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+)}
         </div>
 
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <p className={sectionTitleCls}>Informations personnelles</p>
-            <Field icon={User}          label="Nom"             field="nom" />
-            <Field icon={User}          label="Prénom"          field="prenom" />
-            <Field icon={Phone}         label="Téléphone"       field="telephone" />
-            <Field icon={Mail}          label="Email"           field="email" />
-            <Field icon={Calendar}      label="Date naissance"  field="date_naissance" type="date" />
-            <Field icon={MapPin} label="Lieu naissance" field="lieu_naissance" />
-<Field icon={MapPin} label="Wilaya" field="wilaya" select opts={wilayas} />
-            <Field icon={GraduationCap} label="Niveau scolaire" field="niveau_scolaire" />
+       <Field icon={User}          label="Nom"             field="nom"       form={form} set={set} editing={editing} />
+<Field icon={User}          label="Prénom"          field="prenom"    form={form} set={set} editing={editing} />
+<Field icon={Phone}         label="Téléphone"       field="telephone" form={form} set={set} editing={editing} />
+<Field icon={Mail}          label="Email"           field="email"     form={form} set={set} editing={editing} />
+<Field icon={Calendar}      label="Date naissance"  field="date_naissance" type="date" form={form} set={set} editing={editing} />
+<Field icon={MapPin}        label="Lieu naissance"  field="lieu_naissance" form={form} set={set} editing={editing} />
+<Field icon={MapPin}        label="Wilaya"          field="wilaya" select opts={wilayas} form={form} set={set} editing={editing} />
+<Field icon={GraduationCap} label="Niveau scolaire" field="niveau_scolaire" select opts={niveauOpts} form={form} set={set} editing={editing} />
             <div className="col-span-2">
-              <Field icon={MapPin} label="Adresse" field="adresse" />
+             <Field icon={MapPin} label="Adresse" field="adresse" form={form} set={set} editing={editing} />
             </div>
 
             <div className="col-span-2 grid grid-cols-2 gap-3 pt-3 mt-1 border-t border-[#F1F5F9]">
@@ -568,14 +634,14 @@ const [wilayas, setWilayas]       = useState([]);
                   {editing ? (
                     <div>
                       <input type="file" accept="image/*" onChange={handleFile('photo')}
-                        className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-[#DCEBFA] file:text-[#0369A1] hover:file:bg-[#c7e3f7] cursor-pointer" />
+                        className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-[#DCEBFA] file:text-[#0369A1] hover:file:bg-[#c7e3f7] cursor-pointer" />
                       {(files.photo || e?.photo) && (
                         <img src={files.photo ? URL.createObjectURL(files.photo) : e.photo}
-                          className="mt-1.5 h-20 w-20 rounded-lg object-cover border border-[#F1F5F9]" />
+                          className="mt-1.5 h-20 w-20 rounded-md object-cover border border-[#F1F5F9]" />
                       )}
                     </div>
                   ) : e?.photo ? (
-                    <img src={e.photo} className="h-20 w-20 rounded-lg object-cover border border-[#F1F5F9] mt-0.5" />
+                    <img src={e.photo} className="h-20 w-20 rounded-md object-cover border border-[#F1F5F9] mt-0.5" />
                   ) : <p className="text-xs text-slate-400">—</p>}
                 </Row>
               </div>
@@ -585,7 +651,7 @@ const [wilayas, setWilayas]       = useState([]);
                   {editing ? (
                     <div>
                       <input type="file" accept="image/*,application/pdf" onChange={handleFile('piece_identite')}
-                        className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-[#DCEBFA] file:text-[#0369A1] hover:file:bg-[#c7e3f7] cursor-pointer" />
+                        className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-[#DCEBFA] file:text-[#0369A1] hover:file:bg-[#c7e3f7] cursor-pointer" />
                       {files.piece_identite && <p className="text-[10px] text-slate-400 mt-1 truncate">{files.piece_identite.name}</p>}
                       {!files.piece_identite && e?.piece_identite && (
                         <a href={e.piece_identite} target="_blank" rel="noreferrer" className="text-[11px] text-[#0369A1] underline mt-1 block">Voir actuelle</a>
@@ -625,18 +691,18 @@ const [wilayas, setWilayas]       = useState([]);
                 {inscription.date_inscription ? new Date(inscription.date_inscription).toLocaleDateString('fr-FR') : '—'}
               </p>
             </Row>
-            <Field icon={Radio}     label="Source"         field="source"        select opts={SOURCE_OPTS} />
-            <Field icon={UserCheck} label="Rapporteur" field="registered_by" select opts={REGISTERED_OPTS} />
+<Field icon={Radio}     label="Source"     field="source"        select opts={sourceOpts}       form={form} set={set} editing={editing} />
+<Field icon={UserCheck} label="Rapporteur" field="registered_by" select opts={registeredByOpts} form={form} set={set} editing={editing} />
             <div className="col-span-2 grid grid-cols-3 gap-3 pt-3 border-t border-[#F1F5F9] mt-1">
-              <TryField label="1er appel"  field="first_try"  />
-              <TryField label="2ème appel" field="second_try" prev="first_try" />
-              <TryField label="3ème appel" field="third_try"  prev="second_try" />
+              <TryField label="1er appel"  field="first_try"  form={form} set={set} editing={editing} opts={firstTryOpts} />
+<TryField label="2ème appel" field="second_try" prev="first_try"  form={form} set={set} editing={editing} opts={secondTryOpts} />
+<TryField label="3ème appel" field="third_try"  prev="second_try" form={form} set={set} editing={editing} opts={thirdTryOpts} />
             </div>
 
-           <div className="col-span-2 pt-3 border-t border-[#F1F5F9] mt-1">
+          <div className="col-span-2 pt-3 border-t border-[#F1F5F9] mt-1">
   <Row icon={UserCheck} label="Groupe">
     <p className="text-xs text-slate-700 font-medium">
-      {inscription.groups?.nom ?? <span className="text-slate-400 font-normal">—</span>}
+      {groupInfo?.nom ?? <span className="text-slate-400 font-normal">—</span>}
     </p>
   </Row>
 </div>
@@ -654,12 +720,17 @@ const [wilayas, setWilayas]       = useState([]);
 
 
       {!readOnly && showAssign && (
-        <AssignGroupModal
-          inscription={inscription}
-          onClose={() => setShowAssign(false)}
-          onSuccess={() => { onSuccess?.(); setShowAssign(false); }}
-        />
-      )}
+  <AssignGroupModal
+    inscription={inscription}
+    onClose={() => setShowAssign(false)}
+    onSuccess={(selectedGroup) => {
+      setGroupInfo(selectedGroup);
+      setGroupId(selectedGroup?.id ?? null);
+      onSuccess?.();
+      setShowAssign(false);
+    }}
+  />
+)}
     </div>
   );
 };

@@ -101,7 +101,34 @@ const deleteSchedule = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 };
+const deleteSalle = async (req, res) => {
+  const { id } = req.params;
 
+  const { data: salle, error: salleErr } = await supabase
+    .from('salles').select('id, nom').eq('id', id).single();
+  if (salleErr || !salle) return res.status(404).json({ error: 'Salle introuvable.' });
+
+  // Les créneaux "normaux" (groupes) stockent le nom dans la colonne `salle`.
+  // Les créneaux issus de notifications approuvées stockent aussi `salle_id`.
+  // On doit vérifier les deux pour ne rien manquer.
+  const { count, error: checkErr } = await supabase
+    .from('schedules')
+    .select('id', { count: 'exact', head: true })
+    .or(`salle.eq.${salle.nom},salle_id.eq.${id}`);
+
+  if (checkErr) return res.status(500).json({ error: checkErr.message });
+
+  if (count > 0) {
+    return res.status(409).json({
+      error: `Impossible de supprimer : la salle "${salle.nom}" est utilisée dans ${count} créneau(x). Retirez-les ou changez de salle d'abord.`,
+    });
+  }
+
+  const { error } = await supabase.from('salles').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ success: true });
+};
 const renameSalle = async (req, res) => {
   const { id, newName } = req.body;
   if (!id || !newName?.trim()) return res.status(400).json({ error: 'id et newName requis' });
@@ -233,4 +260,4 @@ const createSalle = async (req, res) => {
   res.json(data);
 };
 
-module.exports = { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule,renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules,getJours,getSalles ,createSalle };
+module.exports = { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule, renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules, getJours, getSalles, createSalle, deleteSalle };
