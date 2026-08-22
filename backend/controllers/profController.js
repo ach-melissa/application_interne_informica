@@ -16,14 +16,36 @@ const isSessionToday = (sessionDate) => {
 // ============================================================
 // ADMIN — liste tous les profs avec leurs groupes/formations
 // ============================================================
+const AVATAR_BUCKET = 'avatars';
+const SIGNED_URL_EXPIRY = 60 * 60 * 24 * 7; // 7 jours
+
+const getProfPhotoUrl = async (photoPath) => {
+  if (!photoPath) return null;
+  const { data, error } = await supabase
+    .storage
+    .from(AVATAR_BUCKET)
+    .createSignedUrl(photoPath, SIGNED_URL_EXPIRY);
+  return error ? null : data.signedUrl;
+};
+
+const isGroupCurrent = (g) => {
+  if (g.archived) return false;
+  if (g.statut && g.statut !== 'active') return false;
+  if (g.date_fin && new Date(g.date_fin) < new Date()) return false;
+  return true;
+};
+
 const getProfs = async (req, res) => {
   const { data, error } = await supabase
     .from('teachers')
     .select(`
       id,
-      user:user_id(id, nom, prenom, email, telephone , archived),
+      user:user_id(id, nom, prenom, email, telephone, archived, photo_path),
 groups(
-  id, nom,
+  id, nom, archived, statut, date_fin,
+  formation:formation_id(id, nom)
+),
+teacher_formations(
   formation:formation_id(id, nom)
 )
     `)
@@ -32,8 +54,9 @@ groups(
 
   const result = await Promise.all(
     data.map(async (t) => {
+      const currentGroups = (t.groups ?? []).filter(isGroupCurrent);
       const groupsWithCounts = await Promise.all(
-        (t.groups ?? []).map(async (g) => {
+        currentGroups.map(async (g) => {
           const { count } = await supabase
             .from('inscriptions')
             .select('*', { count: 'exact', head: true })
@@ -42,14 +65,21 @@ groups(
         })
       );
 
+      const photo_url = await getProfPhotoUrl(t.user?.photo_path);
+
       return {
         id: t.id,
         nom: t.user?.nom ?? '',
         prenom: t.user?.prenom ?? '',
         email: t.user?.email ?? '',
         telephone: t.user?.telephone ?? '',
-        archived: t.user?.archived ?? false, 
-        formations: [...new Set(groupsWithCounts.map((g) => g.formation?.nom).filter(Boolean))],
+        archived: t.user?.archived ?? false,
+        photo_url,
+           formations: [...new Map(
+          (t.teacher_formations ?? [])
+            .filter((tf) => tf.formation?.id)
+            .map((tf) => [tf.formation.id, { id: tf.formation.id, nom: tf.formation.nom }])
+        ).values()],
         groups: groupsWithCounts,
       };
     })

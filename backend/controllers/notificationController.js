@@ -56,13 +56,25 @@ const demanderSalle = async (req, res) => {
   res.json(data);
 };
 
+const AVATAR_BUCKET = 'avatars';
+const SIGNED_URL_EXPIRY = 60 * 60 * 24 * 7; // 7 jours
+
+const getPhotoUrl = async (photoPath) => {
+  if (!photoPath) return null;
+  const { data, error } = await supabase
+    .storage
+    .from(AVATAR_BUCKET)
+    .createSignedUrl(photoPath, SIGNED_URL_EXPIRY);
+  return error ? null : data.signedUrl;
+};
+
 // ── GET /api/notifications ──────────────────────────────────
 const listerNotifications = async (req, res) => {
   const { statut } = req.query;
 
   let query = supabase
     .from('notifications')
-    .select('*')
+    .select('*, expediteur:expediteur_id(id, nom, prenom, photo_path)')
     .eq('destinataire_role', req.user.role)
     .order('created_at', { ascending: false });
 
@@ -71,7 +83,17 @@ const listerNotifications = async (req, res) => {
   const { data, error } = await query;
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+
+  const withPhotos = await Promise.all(
+    data.map(async (n) => ({
+      ...n,
+      expediteur: n.expediteur
+        ? { ...n.expediteur, photo_url: await getPhotoUrl(n.expediteur.photo_path) }
+        : null,
+    }))
+  );
+
+  res.json(withPhotos);
 };
 
 // ── GET /api/notifications/mes-demandes ─────────────────────
@@ -130,17 +152,30 @@ const traiterNotification = async (req, res) => {
 
   const updatedData = { ...existing.data };
 
-  if (statut === 'approuvee') {
+   if (statut === 'approuvee') {
     if (!salle_id) return res.status(400).json({ error: 'Merci de choisir une salle.' });
 
     const { data: salle, error: salleErr } = await supabase
       .from('salles').select('id, nom').eq('id', salle_id).single();
     if (salleErr || !salle) return res.status(400).json({ error: 'Salle introuvable.' });
 
+    const { data: conflicts, error: conflictErr } = await supabase
+      .from('schedules')
+      .select('id, heure_debut, heure_fin')
+      .eq('salle', salle.nom)
+      .eq('jour_semaine', existing.data.jour_semaine)
+      .lt('heure_debut', existing.data.heure_fin)
+      .gt('heure_fin', existing.data.heure_debut);
+    if (conflictErr) return res.status(500).json({ error: conflictErr.message });
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        error: `${salle.nom} est déjà occupée ce jour-là de ${conflicts[0].heure_debut?.slice(0,5)} à ${conflicts[0].heure_fin?.slice(0,5)}. Choisissez une autre salle.`,
+      });
+    }
+
     updatedData.salle_assignee = salle.id;
     updatedData.salle_assignee_nom = salle.nom;
   }
-
   const { data, error } = await supabase
     .from('notifications')
     .update({
@@ -184,6 +219,21 @@ const modifierSalleAssignee = async (req, res) => {
   const { data: salle, error: salleErr } = await supabase
     .from('salles').select('id, nom').eq('id', salle_id).single();
   if (salleErr || !salle) return res.status(400).json({ error: 'Salle introuvable.' });
+
+  const { data: conflicts, error: conflictErr } = await supabase
+    .from('schedules')
+    .select('id, heure_debut, heure_fin')
+    .eq('salle', salle.nom)
+    .eq('jour_semaine', existing.data.jour_semaine)
+    .or(`notification_id.is.null,notification_id.neq.${id}`)
+    .lt('heure_debut', existing.data.heure_fin)
+    .gt('heure_fin', existing.data.heure_debut);
+  if (conflictErr) return res.status(500).json({ error: conflictErr.message });
+  if (conflicts.length > 0) {
+    return res.status(409).json({
+      error: `${salle.nom} est déjà occupée ce jour-là de ${conflicts[0].heure_debut?.slice(0,5)} à ${conflicts[0].heure_fin?.slice(0,5)}.`,
+    });
+  }
 
   const updatedData = { ...existing.data, salle_assignee: salle.id, salle_assignee_nom: salle.nom };
 

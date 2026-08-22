@@ -8,6 +8,8 @@ const filtrerCreneauxActifs = (schedules) => {
   return schedules
     .filter((s) => !s.expire_le || s.expire_le >= today)
     .filter((s) => !s.groups || !s.groups.date_fin || s.groups.date_fin >= today)
+    .filter((s) => !s.groups || s.groups.archived !== true)
+    .filter((s) => !s.groups || !s.groups.statut || s.groups.statut === 'active')
     .map((s) => {
       let badge = null;
       if (s.type_special === 'remplacement' && s.expire_le) {
@@ -200,9 +202,9 @@ const getSchedulesByFormation = async (req, res) => {
 
   if (groupIds.length === 0) return res.json([]);
 
-  const { data, error } = await supabase
+   const { data, error } = await supabase
     .from('schedules')
-    .select('*, groups(id, nom, date_fin)')
+    .select('*, groups(id, nom, date_fin, archived, statut)')
     .in('group_id', groupIds);
 
   if (error) return res.status(500).json({ error: error.message });
@@ -217,6 +219,8 @@ const getAllSchedules = async (req, res) => {
         id,
         nom,
         date_fin,
+        archived,
+        statut,
         formations (
           id,
           nom
@@ -230,6 +234,20 @@ users:prof_id (
     `);
 
  if (error) return res.status(500).json({ error: error.message });
+  res.json(filtrerCreneauxActifs(data));
+};
+
+// Aperçu de l'emploi du temps global — accessible aux profs pour les aider
+// à choisir un créneau libre avant de faire une demande de salle.
+const getScheduleApercu = async (req, res) => {
+  const { data, error } = await supabase
+    .from('schedules')
+    .select(`
+      id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin,
+      type_special, expire_le, applicable_depuis,
+      groups ( id, nom, date_fin, archived, statut, formations ( nom ) )
+    `);
+  if (error) return res.status(500).json({ error: error.message });
   res.json(filtrerCreneauxActifs(data));
 };
 
@@ -260,4 +278,4 @@ const createSalle = async (req, res) => {
   res.json(data);
 };
 
-module.exports = { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule, renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules, getJours, getSalles, createSalle, deleteSalle };
+module.exports = { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule, renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules, getScheduleApercu, getJours, getSalles, createSalle, deleteSalle };

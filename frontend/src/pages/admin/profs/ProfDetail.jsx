@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronRight, BookOpen, Users, Layers, Mail, Phone } from 'lucide-react';
+import { ChevronRight, ArrowLeft, BookOpen, Users, Layers, Mail, Phone } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
-
 const STAT_COLORS = {
   blue:    { bg: 'bg-[#DCEBFA]', text: 'text-[#0369A1]' },
   emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
@@ -53,13 +52,17 @@ const ProfDetail = () => {
     fetchProf();
   }, [id]);
 
-  const groupsByFormation = (prof?.groups ?? []).reduce((acc, g) => {
-    const key = g.formation?.id ?? 'inconnue';
-    if (!acc[key]) acc[key] = { formation: g.formation, groups: [] };
-    acc[key].groups.push(g);
+  const groupsByFormation = (prof?.formations ?? []).reduce((acc, f) => {
+    acc[f.id] = { formation: f, groups: [] };
     return acc;
   }, {});
-  const formationCount = Object.keys(groupsByFormation).length;
+  (prof?.groups ?? []).forEach((g) => {
+    const key = g.formation?.id;
+    if (!key) return;
+    if (!groupsByFormation[key]) groupsByFormation[key] = { formation: g.formation, groups: [] };
+    groupsByFormation[key].groups.push(g);
+  });
+  const formationCount = prof?.formations?.length ?? 0;
   const groupCount = prof?.groups?.length ?? 0;
   const initials = `${prof?.prenom?.[0] ?? ''}${prof?.nom?.[0] ?? ''}`;
 
@@ -78,13 +81,19 @@ const ProfDetail = () => {
 
   return (
     <AdminLayout>
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-xs mb-4">
-        <button onClick={() => navigate('/admin/profs')} className="text-slate-400 hover:text-[#0369A1] transition">
-          Professeurs
+           {/* Retour + Breadcrumb */}
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={() => navigate('/admin/profs')}
+          className="w-9 h-9 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAFC] transition flex-shrink-0">
+          <ArrowLeft size={16} className="text-[#0369A1]" />
         </button>
-        <ChevronRight size={12} className="text-slate-300" />
-        <span className="text-[#0369A1] font-medium">{prof ? `${prof.nom} ${prof.prenom}` : '...'}</span>
+        <div className="flex items-center gap-1.5 text-xs">
+          <button onClick={() => navigate('/admin/profs')} className="text-slate-400 hover:text-[#0369A1] transition">
+            Professeurs
+          </button>
+          <ChevronRight size={12} className="text-slate-300" />
+          <span className="text-[#0369A1] font-medium">{prof ? `${prof.nom} ${prof.prenom}` : '...'}</span>
+        </div>
       </div>
 
       {loading && (
@@ -101,11 +110,16 @@ const ProfDetail = () => {
 
       {!loading && !error && prof && (
         <>
-          {/* Header */}
+                   {/* Header */}
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-14 h-14 rounded-full bg-[#DCEBFA] flex items-center justify-center flex-shrink-0 ring-2 ring-[#DCEBFA]">
-              <span className="text-lg font-bold text-[#0369A1]">{initials}</span>
-            </div>
+            {prof.photo_url ? (
+              <img src={prof.photo_url} alt=""
+                className="w-14 h-14 rounded-full object-cover flex-shrink-0 ring-2 ring-[#DCEBFA] shadow-sm" />
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-[#DCEBFA] flex items-center justify-center flex-shrink-0 ring-2 ring-[#DCEBFA]">
+                <span className="text-lg font-bold text-[#0369A1]">{initials}</span>
+              </div>
+            )}
             <div>
               <h1 className="text-xl font-bold text-slate-800">{prof.nom} {prof.prenom}</h1>
               <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
@@ -115,30 +129,30 @@ const ProfDetail = () => {
             </div>
           </div>
 
-{/* Stats + filtre */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-            {formationCount > 0 && (
-              <div className="relative sm:w-56 flex-shrink-0">
-                <BookOpen size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
-                <select
-                  value={activeTab}
-                  onChange={(e) => setActiveTab(e.target.value)}
-                  className="appearance-none w-full pl-8 pr-8 py-2.5 rounded-full text-sm font-medium bg-white border border-[#F1F5F9] text-[#0369A1] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
-                >
-                  {tabs.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.label} ({t.count})
-                    </option>
-                  ))}
-                </select>
-                <ChevronRight size={13} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-[#0369A1] pointer-events-none" />
-              </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
-              <StatTile icon={Layers} label="Formations" value={formationCount} color="violet" />
-              <StatTile icon={Users}  label="Groupes"    value={groupCount}     color="emerald" />
-            </div>
+{/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <StatTile icon={Layers} label="Formations" value={formationCount} color="violet" />
+            <StatTile icon={Users}  label="Groupes"    value={groupCount}     color="emerald" />
           </div>
+
+          {/* Filtre */}
+          {formationCount > 0 && (
+            <div className="relative sm:w-56 mb-6">
+              <BookOpen size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value)}
+                className="appearance-none w-full pl-8 pr-8 py-2.5 rounded-full text-sm font-medium bg-white border border-[#F1F5F9] text-[#0369A1] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+              >
+                {tabs.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label} ({t.count})
+                  </option>
+                ))}
+              </select>
+              <ChevronRight size={13} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-[#0369A1] pointer-events-none" />
+            </div>
+          )}
 
           {formationCount === 0 ? (
             <p className="text-slate-400 text-sm">Aucune formation assignée.</p>

@@ -56,6 +56,24 @@ const MesDemandesSalles = () => {
   const [form, setForm] = useState(emptyForm);
   const setV = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
+  const [showEmploi, setShowEmploi] = useState(false);
+  const [emploiData, setEmploiData] = useState([]);
+  const [emploiLoading, setEmploiLoading] = useState(false);
+
+  const toggleEmploi = async () => {
+    if (!showEmploi && emploiData.length === 0) {
+      setEmploiLoading(true);
+      try {
+        const res = await fetch(`${API}/api/schedules/apercu`, { headers: headers() });
+        if (res.ok) setEmploiData(await res.json());
+      } finally { setEmploiLoading(false); }
+    }
+    setShowEmploi((v) => !v);
+  };
+
+    const getOccupants = (salleNom, jour, periode) =>
+    emploiData.filter((s) => s.salle === salleNom && s.jour_semaine === jour && s.periode === periode);
+
   const load = async () => {
     const res = await fetch(`${API}/api/notifications/mes-demandes`, { headers: headers() });
     if (res.ok) setDemandes(await res.json());
@@ -225,7 +243,7 @@ const MesDemandesSalles = () => {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9] sticky top-0 bg-white">
               <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
                 <span className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center"><DoorOpen size={14} /></span>
@@ -253,6 +271,87 @@ const MesDemandesSalles = () => {
   options={[{ value: 'remplacement', label: 'Remplacement (un jour)' }, { value: 'changement', label: "Changement d'horaire" }]} />
 <Field label={form.type_demande === 'changement' ? 'À partir de' : 'Date remplacement'} icon={CalendarDays} type="date"
   value={form.date_cible} onChange={setV('date_cible')} disabled={!form.type_demande} />
+                  </div>
+                                  <div>
+                    <button type="button" onClick={toggleEmploi}
+                      className="w-full flex items-center justify-between text-xs font-medium text-[#0369A1] bg-[#DCEBFA]/50 hover:bg-[#DCEBFA] rounded-lg px-3 py-2 transition">
+                      <span className="flex items-center gap-1.5"><CalendarDays size={13} /> Voir l'emploi de l'école</span>
+                      <span className="text-[10px]">{showEmploi ? 'Masquer' : 'Afficher'}</span>
+                    </button>
+
+                    {showEmploi && (
+                      <div className="mt-2 border border-[#E2E8F0] rounded-lg overflow-hidden">
+                        {emploiLoading ? (
+                          <div className="flex justify-center py-6">
+                            <div className="w-5 h-5 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
+                          </div>
+                        ) : salles.length === 0 || jours.length === 0 ? (
+                          <p className="text-[11px] text-slate-400 text-center py-4 px-3">Aucune donnée disponible.</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="text-[10px] border-collapse w-full">
+                              <thead>
+                                <tr>
+                                  <th className="border border-slate-100 px-2 py-2 bg-slate-900 text-white font-semibold sticky left-0 z-10" rowSpan={2}>
+                                    Salle
+                                  </th>
+                                  {jours.map((j) => (
+                                    <th key={j} colSpan={2}
+                                      className={`border border-slate-100 px-2 py-1.5 font-semibold uppercase tracking-wide text-[9px] ${j === form.jour_semaine ? 'bg-[#0369A1] text-white' : 'bg-slate-900 text-white'}`}>
+                                      {j.charAt(0).toUpperCase() + j.slice(1)}
+                                    </th>
+                                  ))}
+                                </tr>
+                                <tr>
+                                  {jours.map((j) => (
+                                    <>
+                                      <th key={`${j}-matin`} className={`border border-slate-100 px-2 py-1 font-semibold uppercase text-[8px] ${j === form.jour_semaine ? 'bg-[#DCEBFA] text-[#0369A1]' : 'bg-white text-slate-500'}`}>Matin</th>
+                                      <th key={`${j}-midi`} className={`border border-slate-100 px-2 py-1 font-semibold uppercase text-[8px] ${j === form.jour_semaine ? 'bg-[#DCEBFA] text-[#0369A1]' : 'bg-white text-slate-500'}`}>À midi</th>
+                                    </>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {[...salles].sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true })).map((s, i) => (
+                                  <tr key={s.id}>
+                                    <td className="border border-slate-100 px-2 py-1.5 bg-slate-900 text-white font-medium whitespace-nowrap sticky left-0 z-10">
+                                      {s.nom}
+                                    </td>
+                                                                       {jours.map((j) => {
+                                      const matinList = getOccupants(s.nom, j, 'matin');
+                                      const midiList = getOccupants(s.nom, j, 'midi');
+                                      const highlight = j === form.jour_semaine;
+                                      return (
+                                        <>
+                                          <td key={`${s.id}-${j}-matin`} className={`border border-slate-100 px-2 py-1.5 ${highlight ? 'bg-[#DCEBFA]/30' : i % 2 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
+                                            {matinList.length > 0 ? (
+                                              <div className="flex flex-col gap-0.5">
+                                                {matinList.map((c) => (
+                                                  <span key={c.id} className="text-red-500 whitespace-nowrap">{c.heure_debut?.slice(0, 5)} - {c.heure_fin?.slice(0, 5)}</span>
+                                                ))}
+                                              </div>
+                                            ) : <span className="text-emerald-600 font-medium">Libre</span>}
+                                          </td>
+                                          <td key={`${s.id}-${j}-midi`} className={`border border-slate-100 px-2 py-1.5 ${highlight ? 'bg-[#DCEBFA]/30' : i % 2 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
+                                            {midiList.length > 0 ? (
+                                              <div className="flex flex-col gap-0.5">
+                                                {midiList.map((c) => (
+                                                  <span key={c.id} className="text-red-500 whitespace-nowrap">{c.heure_debut?.slice(0, 5)} - {c.heure_fin?.slice(0, 5)}</span>
+                                                ))}
+                                              </div>
+                                            ) : <span className="text-emerald-600 font-medium">Libre</span>}
+                                          </td>
+                                        </>
+                                      );
+                                    })}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                  <Field label="Salle souhaitée (optionnel)" icon={DoorOpen} value={form.salle_souhaitee_id} onChange={setV('salle_souhaitee_id')}

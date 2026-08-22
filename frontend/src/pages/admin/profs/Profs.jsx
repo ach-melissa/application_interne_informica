@@ -56,7 +56,7 @@ const Profs = () => {
   );
 
   const totalGroupes = profs.reduce((sum, p) => sum + (p.groups?.length ?? 0), 0);
-  const totalFormations = new Set(profs.flatMap(p => p.formations ?? [])).size;
+  const totalFormations = new Set(profs.flatMap(p => (p.formations ?? []).map(f => f.id))).size;
 
   return (
     <AdminLayout>
@@ -117,12 +117,17 @@ const Profs = () => {
                 <div key={p.id} onClick={() => navigate(`/admin/profs/${p.id}`)}
                   className="group bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition cursor-pointer">
 
-                  {/* Header */}
+                                    {/* Header */}
                   <div className="flex items-start justify-between gap-2 mb-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-full bg-[#DCEBFA] flex items-center justify-center flex-shrink-0 ring-2 ring-[#DCEBFA] group-hover:ring-[#0369A1]/30 transition">
-                        <span className="text-sm font-bold text-[#0369A1]">{initials || <GraduationCap size={18} />}</span>
-                      </div>
+                      {p.photo_url ? (
+                        <img src={p.photo_url} alt=""
+                          className="w-12 h-12 rounded-full object-cover flex-shrink-0 ring-2 ring-[#DCEBFA] group-hover:ring-[#0369A1]/30 transition shadow-sm" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-[#DCEBFA] flex items-center justify-center flex-shrink-0 ring-2 ring-[#DCEBFA] group-hover:ring-[#0369A1]/30 transition">
+                          <span className="text-sm font-bold text-[#0369A1]">{initials || <GraduationCap size={18} />}</span>
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <h2 className="text-slate-800 font-semibold text-sm truncate">{p.nom} {p.prenom}</h2>
                         <p className="text-[11px] text-slate-400">Professeur</p>
@@ -153,10 +158,10 @@ const Profs = () => {
 
                   {/* Formation badges */}
                   <div className="flex flex-wrap gap-1.5 mb-4 min-h-[22px]">
-                    {formations.length > 0 ? (
-                      formations.map((f, i) => (
-                        <span key={i} className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#DCEBFA] text-[#0369A1]">
-                          {f}
+                                       {formations.length > 0 ? (
+                      formations.map((f) => (
+                        <span key={f.id} className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#DCEBFA] text-[#0369A1]">
+                          {f.nom}
                         </span>
                       ))
                     ) : (

@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule, renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules, getJours, getSalles, createSalle, deleteSalle } = require('../controllers/scheduleController');
+const { getGroupSchedule, createSchedule, updateSchedule, deleteSchedule, renameSalle, getProfSchedule, getSchedulesByFormation, getAllSchedules, getScheduleApercu, getJours, getSalles, createSalle, deleteSalle } = require('../controllers/scheduleController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 // Prof
 router.get('/me', verifyToken, requireRole('prof'), getProfSchedule);
-
+router.get('/apercu', verifyToken, getScheduleApercu);
 // Admin
 router.get('/group/:groupId', verifyToken, requireRole('admin'), getGroupSchedule);
 router.post('/', verifyToken, requireRole('admin'), createSchedule);
