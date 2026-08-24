@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getFormations, getFormationById, createFormation, updateFormation, deleteFormation, getFormationPeriods, setFormationPeriods } = require('../controllers/formationController');
+const { getFormationNiveaux, setFormationNiveaux } = require('../controllers/formationNiveauxController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 router.get('/', getFormations);
 router.get('/:id', getFormationById);
@@ -9,4 +10,6 @@ router.patch('/:id', verifyToken, updateFormation);
 router.delete('/:id', verifyToken, deleteFormation);
 router.get('/:id/periods', getFormationPeriods);
 router.put('/:id/periods', verifyToken, setFormationPeriods);
+router.get('/:id/niveaux', verifyToken, getFormationNiveaux);
+router.put('/:id/niveaux', verifyToken, setFormationNiveaux);
 module.exports = router;

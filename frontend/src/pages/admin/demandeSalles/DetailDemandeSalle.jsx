@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, X, UserRound, GraduationCap,
-  UsersRound, CalendarDays, Clock3, DoorOpen, Repeat, RefreshCw, ChevronDown, Pencil, AlertTriangle, Ban } from 'lucide-react';
+  UsersRound, CalendarDays, Clock3, ClipboardList, Repeat, RefreshCw, ChevronDown, Pencil, AlertTriangle, Ban } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 
 const STATUT_STYLE = {
@@ -57,8 +57,12 @@ const DetailDemandeSalle = () => {
         setDemande(found);
         setSalleId(found?.data?.salle_souhaitee_id || '');
       }
-      if (s.ok) setSalles(await s.json());
-      if (j.ok) setJours(await j.json());
+          if (s.ok) setSalles(await s.json());
+      if (j.ok) {
+        const raw = await j.json();
+        const ORDRE_SEMAINE = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+        setJours([...raw].sort((a, b) => ORDRE_SEMAINE.indexOf(a) - ORDRE_SEMAINE.indexOf(b)));
+      }
       if (a.ok) setEmploiData(await a.json());
     };
     load();
@@ -143,32 +147,42 @@ const DetailDemandeSalle = () => {
 
   return (
     <AdminLayout>
-      <div className="max-w-4xl p-6">
+            <div className="max-w-4xl ">
 
-        <div className="text-sm text-slate-400 mb-3">
-          Demandes <span className="mx-2">›</span>
-          <span className="text-slate-600">Demande de réservation</span>
+        <div className="flex items-center gap-3 mb-5">
+          <button
+            onClick={() => navigate('/admin/demandes-salles')}
+            className="w-9 h-9 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAFC] transition flex-shrink-0"
+          >
+            <ArrowLeft size={16} className="text-[#0369A1]" />
+          </button>
+          <div className="flex items-center gap-1.5 text-xs">
+            <button onClick={() => navigate('/admin/demandes-salles')} className="text-slate-400 hover:text-[#0369A1] transition">
+              Demandes
+            </button>
+            <span className="text-slate-300">›</span>
+            <span className="text-[#0369A1] font-medium">Demande de réservation</span>
+          </div>
         </div>
 
-        <button
-          onClick={() => navigate('/admin/demandes-salles')}
-          className="flex items-center gap-2 text-sm text-slate-500 hover:text-[#0369A1] mb-5"
-        >
-          <ArrowLeft size={16} /> Retour aux demandes
-        </button>
+        <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
 
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-
-          <div className="p-6 border-b flex justify-between items-start">
-  <div>
-    <h1 className="text-xl font-semibold text-[#0F2A4A]">Demande de réservation</h1>
-    <p className="text-sm text-slate-400 mt-1 flex items-center gap-1.5">
-      {isChangement ? <RefreshCw size={13} /> : <Repeat size={13} />}
-      {isChangement ? "Changement d'horaire (permanent)" : 'Remplacement (un jour)'}
-    </p>
+                  <div className="p-6 border-b border-[#F1F5F9] flex justify-between items-start">
+  <div className="flex items-center gap-3">
+    <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+      <ClipboardList
+   size={20} className="text-white" />
+    </div>
+    <div>
+      <h1 className="text-lg font-bold text-slate-800">Demande de réservation</h1>
+      <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
+        {isChangement ? <RefreshCw size={12} /> : <Repeat size={12} />}
+        {isChangement ? "Changement d'horaire (permanent)" : 'Remplacement (un jour)'}
+      </p>
+    </div>
   </div>
   <div className="text-right">
-    <span className={`px-3 py-1 rounded-full text-xs font-medium ${STATUT_STYLE[demande.statut] || STATUT_STYLE.en_attente}`}>
+    <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUT_STYLE[demande.statut] || STATUT_STYLE.en_attente}`}>
       {STATUT_LABEL[demande.statut] || 'En attente'}
     </span>
     {demande.created_at && (
@@ -181,16 +195,16 @@ const DetailDemandeSalle = () => {
 
           <div className="p-6 space-y-6">
 
-            <section>
-              <div className="flex items-center gap-3 mb-3">
-                <UserRound size={18} className="text-[#0369A1]" />
-                <h2 className="font-semibold text-slate-700">Demandeur</h2>
+                       <section>
+              <div className="flex items-center gap-2 mb-3">
+                <UserRound size={16} className="text-[#0369A1]" />
+                <h2 className="text-sm font-semibold text-slate-700">Demandeur</h2>
               </div>
-              <p className="text-sm text-slate-700">{d.demandeur_nom || '—'}</p>
+              <p className="text-sm font-medium text-slate-700">{d.demandeur_nom || '—'}</p>
               <p className="text-xs text-slate-400">Professeur</p>
             </section>
 
-            <div className="grid grid-cols-3 gap-x-6 gap-y-5 border-t pt-5">
+            <div className="grid grid-cols-3 gap-x-6 gap-y-5 border-t border-[#F1F5F9] pt-5">
               <Info icon={<GraduationCap />} label="Formation" value={d.formation_nom} />
               <Info icon={<UsersRound />} label="Groupe" value={d.groupe_nom} />
               <Info icon={<CalendarDays />} label="Jour" value={d.jour_semaine} />
@@ -207,23 +221,24 @@ const DetailDemandeSalle = () => {
               />
             </div>
 
-            <section className="border-t pt-5">
+                      <section className="border-t border-[#F1F5F9] pt-5">
               <div className="flex items-center gap-2 mb-2">
-                <DoorOpen size={18} className="text-[#0369A1]" />
-                <h2 className="font-semibold text-slate-700">Salle souhaitée</h2>
+                <ClipboardList
+             size={16} className="text-[#0369A1]" />
+                <h2 className="text-sm font-semibold text-slate-700">Salle souhaitée</h2>
               </div>
-              <p className="text-sm text-slate-700">{d.salle_souhaitee_nom || 'Aucune préférence'}</p>
+              <p className="text-sm font-medium text-slate-700">{d.salle_souhaitee_nom || 'Aucune préférence'}</p>
             </section>
 
             {demande.message && (
-              <section className="border-t pt-5">
-                <h2 className="font-semibold text-slate-700 mb-1">Message du professeur</h2>
+              <section className="border-t border-[#F1F5F9] pt-5">
+                <h2 className="text-sm font-semibold text-slate-700 mb-1">Message du professeur</h2>
                 <p className="text-sm text-slate-600">{demande.message}</p>
               </section>
             )}
 
             {/* ── Emploi de l'école, pour visualiser les conflits ── */}
-            <section className="border-t pt-5">
+                    <section className="border-t border-[#F1F5F9] pt-5">
               <button
                 type="button"
                 onClick={() => setShowEmploi((v) => !v)}
@@ -305,9 +320,9 @@ const DetailDemandeSalle = () => {
               )}
             </section>
 
-            {enAttente ? (
-              <section className="border-t pt-5 space-y-4">
-                <h2 className="font-semibold text-slate-700">Attribution</h2>
+                       {enAttente ? (
+              <section className="border-t border-[#F1F5F9] pt-5 space-y-4">
+                <h2 className="text-sm font-semibold text-slate-700">Attribution</h2>
 
                 <div>
                   <label className="text-xs text-slate-400 mb-2 block">
@@ -372,36 +387,38 @@ const DetailDemandeSalle = () => {
                   <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{erreur}</p>
                 )}
 
-                <div className="flex justify-end gap-2 pt-2">
+                              <div className="flex justify-end gap-2 pt-2">
                   <button
                     disabled={submitting}
                     onClick={() => traiter('refusee')}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs text-red-500 bg-red-50 px-3.5 py-2 rounded-md hover:bg-red-100 disabled:opacity-50 font-medium transition"
                   >
-                    <X size={16} /> Refuser
+                    <X size={14} /> Refuser
                   </button>
                   <button
                     disabled={submitting || salleChoisieOccupee}
                     onClick={() => traiter('approuvee')}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-white bg-[#0369A1] rounded-lg hover:bg-[#0F2A4A] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-md text-xs font-medium
+                      shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px]
+                      disabled:opacity-40 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all"
                   >
-                    <Check size={16} /> Approuver
+                    <Check size={14} /> Approuver
                   </button>
                 </div>
               </section>
-            ) : (
-              <section className="border-t pt-5">
-                <h2 className="font-semibold text-slate-700 mb-2">Décision</h2>
+             ) : (
+              <section className="border-t border-[#F1F5F9] pt-5">
+                <h2 className="text-sm font-semibold text-slate-700 mb-2">Décision</h2>
 
                 {demande.statut === 'approuvee' && (
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm text-slate-600">
                       Salle attribuée : <span className="font-medium text-slate-800">{d.salle_assignee_nom || '—'}</span>
                     </p>
-                    {!editingSalle && (
+                                       {!editingSalle && (
                       <button
                         onClick={() => { setNewSalleId(d.salle_assignee || ''); setEditingSalle(true); }}
-                        className="flex items-center gap-1 text-xs text-[#0369A1] bg-[#DCEBFA] px-2.5 py-1.5 rounded-lg hover:bg-[#c7e3f7]"
+                        className="flex items-center gap-1 text-xs text-[#0369A1] bg-[#DCEBFA] px-2.5 py-1.5 rounded-md hover:bg-[#c7e3f7] font-medium transition"
                       >
                         <Pencil size={11} /> Changer la salle
                       </button>
@@ -462,11 +479,11 @@ const DetailDemandeSalle = () => {
 
 const Info = ({ icon, label, value }) => (
   <div>
-    <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
-      {icon && <span className="text-[#0369A1]">{icon}</span>}
+    <p className="flex items-center gap-1 text-[10px] text-slate-600 uppercase tracking-wide mb-0.5">
+      {icon && <span className="text-slate-500 [&>svg]:w-2.5 [&>svg]:h-2.5">{icon}</span>}
       {label}
-    </div>
-    <p className="text-sm text-slate-700 capitalize">{value || '—'}</p>
+    </p>
+    <p className="text-xs text-slate-700 font-medium capitalize">{value || '—'}</p>
   </div>
 );
 

@@ -52,10 +52,8 @@ const Dashboard = () => {
     { label: 'Ajouter formation',   icon: BookOpen, color: 'bg-orange-500 hover:bg-orange-600', onClick: () => setShowAddFormation(true) },
   ];
 
-  // Sort today's groups by start time, without touching the source data
-  const sortedGroupsAujourdhui = [...(stats?.groupsAujourdhui ?? [])].sort((a, b) =>
-    (a.heure_debut ?? '').localeCompare(b.heure_debut ?? '')
-  );
+   // Already sorted by the backend (creneaux[0].heure_debut)
+  const sortedGroupsAujourdhui = stats?.groupsAujourdhui ?? [];
 
   if (loading) return (
     <AdminLayout>
@@ -162,13 +160,14 @@ Pré inscriptions en attente
             <p className="text-sm text-[#94A3B8]">Aucun groupe prévu aujourd'hui.</p>
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              {sortedGroupsAujourdhui.map((g) => (
+                            {sortedGroupsAujourdhui.map((g) => (
                 <div key={g.group_id} className="flex items-stretch gap-3 rounded-xl border border-[#F1F5F9] overflow-hidden">
-                  <div className="w-20 shrink-0 bg-[#DCEBFA] text-[#0369A1] flex flex-col items-center justify-center py-2 text-xs font-semibold gap-0.5">
-                    <Clock size={13} />
-                    <span>{g.heure_debut?.slice(0, 5)}</span>
-                    <span className="text-[#0369A1]/40">—</span>
-                    <span>{g.heure_fin?.slice(0, 5)}</span>
+                  <div className="w-24 shrink-0 bg-[#DCEBFA] text-[#0369A1] flex flex-col items-center justify-center py-2 gap-1">
+                    {(g.creneaux ?? []).map((c, ci) => (
+                      <span key={ci} className="text-[11px] font-semibold flex items-center gap-1">
+                        <Clock size={11} />{c.heure_debut?.slice(0, 5)}–{c.heure_fin?.slice(0, 5)}
+                      </span>
+                    ))}
                   </div>
                   <div className="flex-1 flex items-center py-2 pr-3">
                     <div>
@@ -215,47 +214,66 @@ Pré inscriptions en attente
           <UserPlus size={16} className="text-[#0F2A4A]" />
           Derniers étudiants ajoutés
         </h2>
-        {recentStudents.length === 0 ? (
+                {recentStudents.length === 0 ? (
           <p className="text-sm text-[#94A3B8]">Aucun étudiant récent.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-[#E2E8F0]">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="text-left text-xs text-[#0369A1] bg-[#DCEBFA]">
-                  <th className="py-2.5 px-3 font-medium border-b border-l border-[#E2E8F0]">
-                    <span className="flex items-center gap-1.5"><User size={13} /> Nom</span>
-                  </th>
-                  <th className="py-2.5 px-3 font-medium border-b border-[#E2E8F0]">
-                    <span className="flex items-center gap-1.5"><User size={13} /> Prénom</span>
-                  </th>
-                  <th className="py-2.5 px-3 font-medium border-b border-[#E2E8F0]">
-                    <span className="flex items-center gap-1.5"><GraduationCap size={13} /> Formation</span>
-                  </th>
-                  <th className="py-2.5 px-3 font-medium border-b border-[#E2E8F0]">
-                    <span className="flex items-center gap-1.5"><CalendarDays size={13} /> Date d'inscription</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentStudents.map((i, idx) => (
-                  <tr key={i.id} className={idx % 2 === 1 ? 'bg-[#EEF5FB]' : ''}>
-                    <td className="py-3 px-3 border-b border-l border-[#E2E8F0]">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[#0369A1] text-xs font-bold shrink-0">
-                          {i.etudiant?.nom?.[0]}
-                        </div>
-                        <span className="font-medium text-[#1E293B]">{i.etudiant?.nom}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 text-[#1E293B] border-b border-[#E2E8F0]">{i.etudiant?.prenom}</td>
-                    <td className="py-3 px-3 text-[#64748B] border-b border-[#E2E8F0]">{i.formation?.nom ?? '—'}</td>
-                    <td className="py-3 px-3 text-[#94A3B8] border-b border-[#E2E8F0]">
-                      {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
-                    </td>
+          <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
+                <colgroup>
+                  <col style={{ width: '160px' }} />
+                  <col style={{ width: '160px' }} />
+                  <col />
+                  <col style={{ width: '160px' }} />
+                  <col style={{ width: '130px' }} />
+                </colgroup>
+                <thead className="bg-[#0F2A4A]">
+                  <tr>
+                    <th className="text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-l border-[#0F2A4A]">
+                      <span className="flex items-center gap-1.5"><User size={11} className="text-white/70" />Nom</span>
+                    </th>
+                    <th className="text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A]">
+                      <span className="flex items-center gap-1.5"><User size={11} className="text-white/70" />Prénom</span>
+                    </th>
+                    <th className="text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A]">
+                      <span className="flex items-center gap-1.5"><GraduationCap size={11} className="text-white/70" />Formation</span>
+                    </th>
+                    <th className="text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A]">
+                      <span className="flex items-center gap-1.5"><CalendarDays size={11} className="text-white/70" />Inscrit le</span>
+                    </th>
+                    <th className="text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A]">
+                      <span className="flex items-center gap-1.5"><UserPlus size={11} className="text-white/70" />Ajouté par</span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {recentStudents.map((i, idx) => (
+                    <tr key={i.id} className={`hover:bg-slate-50 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
+                      <td className="px-3 py-2 overflow-hidden border-b border-l border-slate-100">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
+                            {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}
+                          </div>
+                          <span className="font-medium text-slate-700 truncate">{i.etudiant?.nom}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-slate-700 truncate border-b border-slate-100">{i.etudiant?.prenom}</td>
+                                            <td className="px-3 py-2 overflow-hidden border-b border-slate-100">
+                        {i.formation?.nom
+                          ? <span className="inline-block bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium truncate max-w-full">{i.formation.nom}</span>
+                          : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-slate-400 truncate border-b border-slate-100">
+                        {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-slate-400 truncate border-b border-slate-100">
+                        {i.added_by ?? <span className="text-slate-300">En ligne</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

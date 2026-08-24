@@ -15,7 +15,7 @@ const getDashboardStats = async (req, res) => {
 ] = await Promise.all([
   supabase.from('formations').select('*', { count: 'exact', head: true }).eq('statut', 'active'),
   supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('statut', 'pending'),
-  supabase.from('schedules').select('group_id, jour_semaine, heure_debut, heure_fin, group:group_id(nom, formation:formation_id(nom))').eq('jour_semaine', today),
+    supabase.from('schedules').select('group_id, jour_semaine, heure_debut, heure_fin, group:group_id(nom, archived, statut, date_fin, formation:formation_id(nom))').eq('jour_semaine', today),
   supabase.from('inscriptions').select('formation_id').eq('statut', 'pending'),
   supabase.from('formations').select('id, nom, prix_etudiant, capacite_groupe').eq('statut', 'active'),
 ]);
@@ -52,16 +52,30 @@ const getDashboardStats = async (req, res) => {
         count: countMap[f.id] ?? 0,
       }))
       .sort((a, b) => (b.count / b.capacite) - (a.count / a.capacite));
-    // Un groupe peut avoir plusieurs créneaux le même jour (matin + midi) —
-    // on garde un seul créneau par groupe (le plus tôt) pour l'affichage dashboard.
+      // Un groupe peut avoir plusieurs créneaux le même jour (matin + midi) —
+    // on regroupe par groupe, mais on garde TOUS ses créneaux du jour.
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const isGroupCurrent = (g) => {
+      if (!g) return false;
+      if (g.archived) return false;
+      if (g.statut && g.statut !== 'active') return false;
+      if (g.date_fin && g.date_fin < todayStr) return false;
+      return true;
+    };
+
     const groupsAujourdhuiMap = {};
-    (groupsAujourdhui ?? []).forEach((g) => {
-      const existing = groupsAujourdhuiMap[g.group_id];
-      if (!existing || (g.heure_debut ?? '') < (existing.heure_debut ?? '')) {
-        groupsAujourdhuiMap[g.group_id] = g;
-      }
-    });
-    const groupsAujourdhuiDedup = Object.values(groupsAujourdhuiMap);
+    (groupsAujourdhui ?? [])
+      .filter((g) => isGroupCurrent(g.group))
+      .forEach((g) => {
+        if (!groupsAujourdhuiMap[g.group_id]) {
+          groupsAujourdhuiMap[g.group_id] = { group_id: g.group_id, group: g.group, creneaux: [] };
+        }
+        groupsAujourdhuiMap[g.group_id].creneaux.push({ heure_debut: g.heure_debut, heure_fin: g.heure_fin });
+      });
+
+    const groupsAujourdhuiDedup = Object.values(groupsAujourdhuiMap)
+      .map((g) => ({ ...g, creneaux: g.creneaux.sort((a, b) => (a.heure_debut ?? '').localeCompare(b.heure_debut ?? '')) }))
+      .sort((a, b) => (a.creneaux[0]?.heure_debut ?? '').localeCompare(b.creneaux[0]?.heure_debut ?? ''));
 
     res.json({
       formationsActives: formationsActivesCount ?? 0,

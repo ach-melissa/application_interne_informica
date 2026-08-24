@@ -40,7 +40,10 @@ const getFormationById = async (req, res) => {
   res.json(data);
 };
 const createFormation = async (req, res) => {
-const { nom, prix, heures, description, capacite_groupe } = req.body;
+const { nom, prix, heures, description, capacite_groupe, a_niveaux, type_duree, prix_uniforme, duree_uniforme, type_duree_uniforme, statut } = req.body;
+  if (type_duree && !['heures', 'seances'].includes(type_duree)) {
+    return res.status(400).json({ error: "type_duree doit être 'heures' ou 'seances'." });
+  }
   if (!nom || !nom.trim()) {
     return res.status(400).json({ error: 'Le nom de la formation est obligatoire.' });
   }
@@ -50,17 +53,23 @@ const { nom, prix, heures, description, capacite_groupe } = req.body;
   if (heures === undefined || heures === null || isNaN(heures) || Number(heures) <= 0) {
     return res.status(400).json({ error: "Le nombre d'heures doit être un nombre valide." });
   }
- if (capacite_groupe !== undefined && capacite_groupe !== null && (isNaN(capacite_groupe) || Number(capacite_groupe) <= 0)) {
-  return res.status(400).json({ error: "La capacité doit être un nombre valide." });
+ if (capacite_groupe === undefined || capacite_groupe === null || isNaN(capacite_groupe) || Number(capacite_groupe) <= 0) {
+  return res.status(400).json({ error: "La capacité est obligatoire et doit être un nombre valide." });
 }
   const { data, error } = await supabase
     .from('formations')
-    .insert([{
+      .insert([{
   nom: nom.trim(),
   prix: Number(prix),
   heures: Number(heures),
   description: description?.trim() || null,
-capacite_groupe: capacite_groupe ? Number(capacite_groupe) : null,
+  capacite_groupe: Number(capacite_groupe),
+  a_niveaux: !!a_niveaux,
+  type_duree: type_duree || 'heures',
+  prix_uniforme: prix_uniforme === undefined ? true : !!prix_uniforme,
+  duree_uniforme: duree_uniforme === undefined ? true : !!duree_uniforme,
+  type_duree_uniforme: type_duree_uniforme === undefined ? true : !!type_duree_uniforme,
+  statut: statut === 'non_active' ? 'non_active' : 'active',
 }])
     .select()
     .single();
@@ -71,7 +80,10 @@ capacite_groupe: capacite_groupe ? Number(capacite_groupe) : null,
 
 const updateFormation = async (req, res) => {
   const { id } = req.params;
-const { nom, prix, heures, description, capacite_groupe } = req.body;
+const { nom, prix, heures, description, capacite_groupe, a_niveaux, type_duree, prix_uniforme, duree_uniforme, type_duree_uniforme, statut } = req.body;
+  if (type_duree && !['heures', 'seances'].includes(type_duree)) {
+    return res.status(400).json({ error: "type_duree doit être 'heures' ou 'seances'." });
+  }
 
   if (!nom || !nom.trim()) {
     return res.status(400).json({ error: 'Le nom de la formation est obligatoire.' });
@@ -79,8 +91,11 @@ const { nom, prix, heures, description, capacite_groupe } = req.body;
   if (prix === undefined || prix === null || isNaN(prix) || Number(prix) < 0) {
     return res.status(400).json({ error: 'Le prix doit être un nombre valide.' });
   }
-  if (heures === undefined || heures === null || isNaN(heures) || Number(heures) <= 0) {
+   if (heures === undefined || heures === null || isNaN(heures) || Number(heures) <= 0) {
     return res.status(400).json({ error: "Le nombre d'heures doit être un nombre valide." });
+  }
+  if (capacite_groupe === undefined || capacite_groupe === null || isNaN(capacite_groupe) || Number(capacite_groupe) <= 0) {
+    return res.status(400).json({ error: "La capacité est obligatoire et doit être un nombre valide." });
   }
 
  const { data, error } = await supabase
@@ -90,7 +105,13 @@ const { nom, prix, heures, description, capacite_groupe } = req.body;
   prix: Number(prix),
   heures: Number(heures),
   description: description?.trim() || null,
-  capacite_groupe: capacite_groupe ? Number(capacite_groupe) : null,
+  capacite_groupe: Number(capacite_groupe),
+  a_niveaux: !!a_niveaux,
+  type_duree: type_duree || 'heures',
+  prix_uniforme: prix_uniforme === undefined ? true : !!prix_uniforme,
+  duree_uniforme: duree_uniforme === undefined ? true : !!duree_uniforme,
+  type_duree_uniforme: type_duree_uniforme === undefined ? true : !!type_duree_uniforme,
+  statut: statut === 'non_active' ? 'non_active' : 'active',
 })
     .eq('id', id)
     .select()
@@ -204,5 +225,4 @@ if (periods.length > 0) {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-
 module.exports = { getFormations, getFormationById, createFormation, updateFormation, archiveFormation, restoreFormation, deleteFormation, getFormationPeriods, setFormationPeriods };

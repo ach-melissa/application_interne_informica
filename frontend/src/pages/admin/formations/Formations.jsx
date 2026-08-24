@@ -21,10 +21,11 @@ const Formations = () => {
   const [error, setError] = useState(null);
   const [selectedFormation, setSelectedFormation] = useState(null);
   const [editingFormation, setEditingFormation] = useState(null);
-const [selectedGroup, setSelectedGroup] = useState(null);
+const [expandedId, setExpandedId] = useState(null);
 const [filterFormationId, setFilterFormationId] = useState('');
 const [filterDateFrom, setFilterDateFrom] = useState('');
 const [filterDateTo, setFilterDateTo] = useState('');
+const [filterStatut, setFilterStatut] = useState(''); // '' | 'active' | 'non_active'
   const navigate = useNavigate();
 
 
@@ -119,41 +120,12 @@ const res = await fetch(`${import.meta.env.VITE_API_URL}/api/etudiants/${inscrip
   }
 };
 
-  const filtered = formations.filter((f) =>
-    f.nom.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Strip a trailing "(A1)", "(B2)" etc. suffix to get the base language name
-  const stripLevel = (nom) => {
-    const m = nom.match(/^(.*?)\s*\([^)]*\)\s*$/);
-    return m ? m[1].trim() : nom;
-  };
-
-  const getLevel = (nom) => {
-    const m = nom.match(/\(([^)]*)\)\s*$/);
-    return m ? m[1] : '';
-  };
-// Sort levels like A1, A2, B1, B2, C1, C2 in the correct order
-const levelSortValue = (nom) => {
-  const level = getLevel(nom); // e.g. "A1", "B2"
-  const letter = level.charCodeAt(0) ?? 0;   // A=65, B=66, C=67...
-  const number = parseInt(level.slice(1), 10) || 0;
-  return letter * 100 + number; // A1=6501, A2=6502, B1=6602...
-};
-const languageGroups = filtered.reduce((acc, f) => {
-  if (f.categorie === 'langues') {
-    const base = stripLevel(f.nom);
-    (acc[base] = acc[base] || []).push(f);
-  }
-  return acc;
-}, {});
-
-// Sort each group's levels A1 → A2 → B1 → B2 → C1 → C2
-Object.values(languageGroups).forEach((items) => {
-  items.sort((a, b) => levelSortValue(a.nom) - levelSortValue(b.nom));
+ const filtered = formations.filter((f) => {
+  const matchesSearch = f.nom.toLowerCase().includes(search.toLowerCase());
+  const matchesStatut = !filterStatut || f.statut === filterStatut;
+  return matchesSearch && matchesStatut;
 });
 
-  const nonLangueFormations = filtered.filter((f) => f.categorie !== 'langues');
 
 const filteredInscriptions = inscriptions.filter((i) => {
     const matchesSearch =
@@ -190,73 +162,73 @@ const COLS = [
   { label: 'Scolarité', Icon: Activity,     width: 120 },
 ];
 
-  const InscriptionsTable = () => (
-<div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden inline-block max-w-full">
-   <div className="overflow-x-auto">
-<table className="text-xs">
-          <thead className="bg-[#DCEBFA]">
-            <tr>
-              {COLS.map(({ label, Icon }, i) => (
-                <th key={label} className={`text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0]  ${i === 0 ? 'border-l border-[#E2E8F0]' : ''}`}>
-                  <div className="flex items-center gap-1">
-                    {Icon && <Icon size={11} className="text-[#0369A1] flex-shrink-0" />}
-                    <span >{label}</span>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredInscriptions.length === 0 ? (
-              <tr><td colSpan={COLS.length} className="text-center py-10 text-slate-400 bg-white">Aucun étudiant trouvé.</td></tr>
-            ) : filteredInscriptions.map((i, idx) => (
-              <tr key={i.id} className={`hover:bg-[#DCEBFA]/30 transition ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
-                <td className="px-3 py-2  border-b border-l border-[#E2E8F0]">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
-                      {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}
-                    </div>
-                    <span className="font-medium text-slate-700 ">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.telephone ?? '—'}</td>
-                <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.email ?? '—'}</td>
-                <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.niveau_scolaire ?? '—'}</td>
-                <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.adresse ?? '—'}</td>
-                <td className="px-3 py-2  border-b border-[#E2E8F0]">
-                  {i.formation?.nom
-                    ? <span className="bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium  block ">{i.formation.nom}</span>
-                    : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-3 py-2 text-slate-400 whitespace-nowrap border-b border-[#E2E8F0]">
-                  {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
-                </td>
-                <td className="px-3 py-2 n border-b border-[#E2E8F0]">
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                    i.statut === 'confirmed' ? 'bg-emerald-50 text-emerald-600' :
-                    i.statut === 'pending' ? 'bg-amber-50 text-amber-700' :
-                    'bg-red-50 text-red-500'
-                  }`}>
-                    {i.statut === 'confirmed' ? 'Confirmé' :
-                     i.statut === 'pending' ? 'En attente' : 'Non confirmé'}
-                  </span>
-                </td>
-<td className="px-3 py-2  border-b border-[#E2E8F0]">
-  <select
-    value={i.statut_scolarite || 'en_cours'}
-    onChange={e => handleStatutScolariteChange(i.id, e.target.value)}
-    className={`w-full text-[11px] font-medium rounded-full pl-2 pr-5 py-0.5 border-none focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer ${statutScolariteMeta[i.statut_scolarite || 'en_cours']?.cls ?? 'bg-slate-100 text-slate-500'}`}
-  >
-    {STATUT_SCOLARITE_OPTS.map(o => <option key={o} value={o}>{statutScolariteMeta[o].label}</option>)}
-  </select>
-</td>
-              </tr>
+ const InscriptionsTable = () => (
+  <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden inline-block max-w-full">
+    <div className="overflow-x-auto">
+      <table className="text-xs">
+        <thead className="bg-[#0F2A4A]">
+          <tr>
+            {COLS.map(({ label, Icon }, i) => (
+              <th key={label} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] ${i === 0 ? 'border-l border-[#0F2A4A]' : ''}`}>
+                <div className="flex items-center gap-1">
+                  {Icon && <Icon size={11} className="text-white/70 flex-shrink-0" />}
+                  <span>{label}</span>
+                </div>
+              </th>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredInscriptions.length === 0 ? (
+            <tr><td colSpan={COLS.length} className="text-center py-10 text-slate-400 bg-white">Aucun étudiant trouvé.</td></tr>
+          ) : filteredInscriptions.map((i, idx) => (
+            <tr key={i.id} className={`hover:bg-slate-50 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
+              <td className="px-3 py-2 border-b border-l border-slate-100">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
+                    {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}
+                  </div>
+                  <span className="font-medium text-slate-700">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
+                </div>
+              </td>
+              <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-slate-100">{i.etudiant?.telephone ?? '—'}</td>
+              <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-slate-100">{i.etudiant?.email ?? '—'}</td>
+              <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-slate-100">{i.etudiant?.niveau_scolaire ?? '—'}</td>
+              <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-slate-100">{i.etudiant?.adresse ?? '—'}</td>
+              <td className="px-3 py-2 border-b border-slate-100">
+                {i.formation?.nom
+                  ? <span className="bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium block">{i.formation.nom}</span>
+                  : <span className="text-slate-300">—</span>}
+              </td>
+              <td className="px-3 py-2 text-slate-400 whitespace-nowrap border-b border-slate-100">
+                {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
+              </td>
+              <td className="px-3 py-2 border-b border-slate-100">
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                  i.statut === 'confirmed' ? 'bg-emerald-50 text-emerald-600' :
+                  i.statut === 'pending' ? 'bg-amber-50 text-amber-700' :
+                  'bg-red-50 text-red-500'
+                }`}>
+                  {i.statut === 'confirmed' ? 'Confirmé' :
+                   i.statut === 'pending' ? 'En attente' : 'Non confirmé'}
+                </span>
+              </td>
+              <td className="px-3 py-2 border-b border-slate-100">
+                <select
+                  value={i.statut_scolarite || 'en_cours'}
+                  onChange={e => handleStatutScolariteChange(i.id, e.target.value)}
+                  className={`w-full text-[11px] font-medium rounded-full pl-2 pr-5 py-0.5 border-none focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer ${statutScolariteMeta[i.statut_scolarite || 'en_cours']?.cls ?? 'bg-slate-100 text-slate-500'}`}
+                >
+                  {STATUT_SCOLARITE_OPTS.map(o => <option key={o} value={o}>{statutScolariteMeta[o].label}</option>)}
+                </select>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
-  );
+  </div>
+);
 
   const renderCard = (f) => (
     <div key={f.id} className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition">
@@ -271,6 +243,36 @@ const COLS = [
         </span>
       </div>
       <h2 className="text-slate-800 font-semibold text-base mb-3">{f.nom}</h2>
+
+      {f.a_niveaux && f.niveaux?.length > 0 && (
+        <div className="mb-3">
+          <button type="button" onClick={() => setExpandedId(expandedId === f.id ? null : f.id)}
+            className="text-[11px] font-medium text-[#0369A1] flex items-center gap-1 mb-1.5">
+            {f.niveaux.length} niveau(x) {expandedId === f.id ? '▲' : '▼'}
+          </button>
+          <div className="grid grid-cols-3 gap-1.5">
+            {f.niveaux.map((n) => (
+              <span key={n.id} className="text-[11px] font-medium h-9 flex items-center justify-center rounded-full bg-[#DCEBFA] text-[#0369A1] px-1 text-center">
+                {n.nom}
+              </span>
+            ))}
+          </div>
+          {expandedId === f.id && (
+            <div className="mt-2 space-y-1">
+              {f.niveaux.map((n) => (
+                <div key={n.id} className="flex items-center justify-between text-[11px] text-slate-500 bg-[#F8FAFC] rounded-lg px-2 py-1">
+                  <span>{n.nom}</span>
+                  <span>
+                    {n.prix != null ? `${Number(n.prix).toLocaleString()} DA` : '—'}
+                    {n.duree_valeur != null ? ` · ${n.duree_valeur} ${n.type_duree === 'seances' ? 'séances' : 'h'}` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
 <div className="flex items-center gap-4 text-xs text-slate-400 mb-5">
   <span className="flex items-center gap-1"><Users size={13} className="text-[#0369A1]" /> {f.nb_groupes ?? 0} groupe(s)</span>
   <span className="flex items-center gap-1"><UserCheck size={13} className="text-[#0369A1]" /> {f.nb_etudiants ?? 0} étudiant(s)</span>
@@ -340,7 +342,7 @@ const COLS = [
         {view === 'formations' && (
          <button
   onClick={() => setShowAddModal(true)}
-  className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-lg text-xs font-medium
+  className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-md text-xs font-medium
             shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all"
 >
   <Plus size={18} />
@@ -353,7 +355,7 @@ const COLS = [
       {view !== 'formation_inscriptions' && (
         <div className="flex items-center gap-2 mb-6">
           <button
-            onClick={() => { setView('formations'); setSearch(''); setSelectedFormation(null); setSelectedGroup(null); }}
+            onClick={() => { setView('formations'); setSearch(''); setSelectedFormation(null); setExpandedId(null); }}
             className={`px-4 py-2.5 rounded-full text-sm font-medium transition ${
               view === 'formations'
                 ? 'bg-[#0F2A4A] text-white'
@@ -363,7 +365,7 @@ const COLS = [
             Formations
           </button>
           <button
-            onClick={() => { setView('all_inscriptions'); setSearch(''); setSelectedFormation(null); setSelectedGroup(null); fetchInscriptionsConfirmed(); }}
+            onClick={() => { setView('all_inscriptions'); setSearch(''); setSelectedFormation(null); setExpandedId(null); fetchInscriptionsConfirmed(); }}
             className={`px-4 py-2.5 rounded-full text-sm font-medium transition ${
               view === 'all_inscriptions'
                 ? 'bg-[#0F2A4A] text-white'
@@ -390,72 +392,49 @@ const COLS = [
         </p>
       )}
 
-      {/* VIEW: Formations */}
-      {view === 'formations' && !loading && !error && (
-        <>
-          {selectedGroup ? (
-            <>
-              <div className="flex items-center gap-1.5 text-xs mb-2">
-                <button onClick={() => setSelectedGroup(null)} className="text-slate-400 hover:text-[#0369A1] hover:underline transition">
-                  Formations
-                </button>
-                <ChevronRight size={12} className="text-slate-300" />
-                <span className="text-[#0369A1] font-medium">{selectedGroup}</span>
-              </div>
-              <div className="flex items-center gap-3 mb-5">
-                <button
-                  onClick={() => setSelectedGroup(null)}
-                  className="w-8 h-8 flex items-center justify-center rounded-full border border-[#F1F5F9] hover:bg-[#DCEBFA] transition"
-                >
-                  <ArrowLeft size={16} className="text-[#0369A1]" />
-                </button>
-                <h2 className="text-lg font-bold text-slate-800">{selectedGroup}</h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {(languageGroups[selectedGroup] || []).map(renderCard)}
-              </div>
-            </>
-          ) : filtered.length === 0 ? (
-            <p className="text-slate-400 text-sm">Aucune formation trouvée.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-             {Object.entries(languageGroups)
-  .sort(([a], [b]) => a.localeCompare(b, 'fr'))
-  .map(([base, items]) => (
-                <div
-                  key={base}
-                  onClick={() => setSelectedGroup(base)}
-                  className="cursor-pointer bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition h-full flex flex-col"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-10 h-10 bg-[#DCEBFA] rounded-full flex items-center justify-center">
-                      <BookOpen size={20} className="text-[#0369A1]" />
-                    </div>
-                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[#DCEBFA] text-[#0369A1]">
-                      {items.length} niveaux
-                    </span>
-                  </div>
-                  <h2 className="text-slate-800 font-semibold text-base mb-3">{base}</h2>
-                  <div className="grid grid-cols-3 gap-1.5 mb-3">
-                    {items.map((item) => (
-                      <span
-                        key={item.id}
-className="text-[11px] font-medium h-9 flex items-center justify-center rounded-full bg-[#DCEBFA] text-[#0369A1]"
-                      >
-                        {getLevel(item.nom)}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-xs text-slate-400 flex items-center gap-1 mt-auto">
-                    Voir les niveaux <ChevronRight size={13} />
-                  </p>
-                </div>
-              ))}
-              {nonLangueFormations.map(renderCard)}
-            </div>
-          )}
-        </>
+         {view === 'formations' && !loading && !error && (
+  <>
+    <div className="flex flex-wrap items-center gap-3 mb-6">
+      <div className="relative max-w-xs">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Rechercher une formation..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+        />
+      </div>
+
+      <select
+        value={filterStatut}
+        onChange={(e) => setFilterStatut(e.target.value)}
+        className="px-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+      >
+        <option value="">Toutes les formations</option>
+        <option value="active">Active</option>
+        <option value="non_active">Non active</option>
+      </select>
+
+      {(search || filterStatut) && (
+        <button
+          onClick={() => { setSearch(''); setFilterStatut(''); }}
+          className="text-xs text-slate-400 hover:text-red-500 underline"
+        >
+          Réinitialiser
+        </button>
       )}
+    </div>
+
+    {filtered.length === 0 ? (
+      <p className="text-slate-400 text-sm">Aucune formation trouvée.</p>
+    ) : (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {filtered.map(renderCard)}
+      </div>
+    )}
+  </>
+)}
 
       {/* VIEW: Tout les inscriptions confirmés */}
 {view === 'all_inscriptions' && !loadingInscriptions && !error && (
@@ -514,7 +493,7 @@ className="text-[11px] font-medium h-9 flex items-center justify-center rounded-
       {view === 'formation_inscriptions' && !loadingInscriptions && !error && (
         <>
           <div className="flex items-center gap-1.5 text-xs mb-2">
-            <button onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); setSelectedGroup(null); }} className="text-slate-400 hover:text-[#0369A1] hover:underline transition">
+            <button onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); setExpandedId(null); }} className="text-slate-400 hover:text-[#0369A1] hover:underline transition">
               Formations
             </button>
             <ChevronRight size={12} className="text-slate-300" />
@@ -522,7 +501,7 @@ className="text-[11px] font-medium h-9 flex items-center justify-center rounded-
           </div>
           <div className="flex items-center gap-3 mb-2">
             <button
-              onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); setSelectedGroup(null); }}
+              onClick={() => { setView('formations'); setSelectedFormation(null); setSearch(''); setExpandedId(null); }}
               className="w-8 h-8 flex items-center justify-center rounded-full border border-[#F1F5F9] hover:bg-[#DCEBFA] transition"
             >
               <ArrowLeft size={16} className="text-[#0369A1]" />

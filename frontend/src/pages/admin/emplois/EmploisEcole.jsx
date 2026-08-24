@@ -39,9 +39,11 @@ const [deletingSalle, setDeletingSalle] = useState(false);
           fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: { Authorization: `Bearer ${token}` } }),
         ]);
         if (sallesRes.ok) setSalleObjects(await sallesRes.json());
-        if (joursRes.ok) {
+                if (joursRes.ok) {
           const raw = await joursRes.json();
-          setJours(raw.map((key) => ({ key, label: key.charAt(0).toUpperCase() + key.slice(1) })));
+          const ORDRE_SEMAINE = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+          const sorted = [...raw].sort((a, b) => ORDRE_SEMAINE.indexOf(a) - ORDRE_SEMAINE.indexOf(b));
+          setJours(sorted.map((key) => ({ key, label: key.charAt(0).toUpperCase() + key.slice(1) })));
         }
         setSchedules(await res.json());
       } catch (err) {

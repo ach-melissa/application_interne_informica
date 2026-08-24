@@ -15,7 +15,7 @@ const navGroups = [
       { label: 'Formations',          icon: BookOpen,        path: '/admin/formations' },
       { label: 'Utilisateurs',        icon: Users,           path: '/admin/utilisateurs' },
       { label: 'Professeurs',         icon: GraduationCap,   path: '/admin/profs' },
-      { label: 'Pré inscription',     icon: UserCircle,      path: '/admin/students' },
+      { label: 'Préinscription',     icon: UserCircle,      path: '/admin/students' },
       { label: "Emplois de l'école",  icon: Calendar,        path: '/admin/emplois' },
       { label: 'Demandes de salles',  icon: ClipboardList,   path: '/admin/demandes-salles' },
       { label: 'Statistique',         icon: BarChart3,       path: '/admin/statistique' },

@@ -189,7 +189,7 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
       <UserCircle size={22} className="text-white" />
     </div>
     <div>
-      <h1 className="text-xl font-bold text-slate-800">Étudiants</h1>
+      <h1 className="text-xl font-bold text-slate-800">Préinscription</h1>
       <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {etudiants.length} inscriptions</p>
     </div>
   </div>
