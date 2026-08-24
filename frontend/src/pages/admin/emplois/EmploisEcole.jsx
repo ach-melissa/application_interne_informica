@@ -152,37 +152,47 @@ const handleDeleteSalle = async () => {
     return [u.prenom, u.nom].filter(Boolean).join(' ');
   };
 
-  const renderCard = (cell, timeLabel) => {
-    const prof = getProfLabel(cell);
-    const groupe = getGroupeLabel(cell);
-    return (
-      <div className={`rounded-xl border ${CARD_STYLE.border} ${CARD_STYLE.bg} px-2.5 py-2 text-left`}>
-        <div className={`text-[10px] font-medium opacity-80 ${CARD_STYLE.text} mb-1`}>{timeLabel}</div>
-        <div className={`text-[11px] font-semibold leading-tight ${CARD_STYLE.text}`}>{cell.contenu}</div>
-        {groupe && <div className={`text-[10px] mt-0.5 font-medium ${CARD_STYLE.text} opacity-90`}>{groupe}</div>}
-        {prof && <div className={`text-[10px] opacity-70 ${CARD_STYLE.text}`}>{prof}</div>}
-      </div>
-    );
-  };
+const renderCard = (cell, timeLabel) => {
+  const prof = getProfLabel(cell);
+  const groupe = getGroupeLabel(cell);
+  return (
+    <div className={`rounded-xl border ${CARD_STYLE.border} ${CARD_STYLE.bg} px-2.5 py-2 text-left`}>
+      <div className={`text-[10px] font-medium opacity-80 ${CARD_STYLE.text} mb-1`}>{timeLabel}</div>
+      <div className={`text-[11px] font-semibold leading-tight ${CARD_STYLE.text}`}>{cell.contenu}</div>
+      {groupe && <div className={`text-[10px] mt-0.5 font-medium ${CARD_STYLE.text} opacity-90`}>{groupe}</div>}
+      {prof && <div className={`text-[10px] opacity-70 ${CARD_STYLE.text}`}>{prof}</div>}
+      {cell.badge && (
+        <div className="text-[9px] mt-1 font-medium text-amber-600 bg-amber-50 border border-amber-100 rounded-full px-2 py-0.5 inline-block">
+          {cell.badge}
+        </div>
+      )}
+    </div>
+  );
+};
 
-  const renderMerged = (matin, midi) => {
-    const groupe = getGroupeLabel(matin);
-    const prof = getProfLabel(matin);
-    return (
-      <div className={`rounded-xl border ${CARD_STYLE.border} ${CARD_STYLE.bg} px-2.5 py-2.5 text-center`}>
-        <div className={`flex items-center justify-center gap-1 ${CARD_STYLE.text} opacity-60 mb-1`}>
-          <div className="h-px flex-1 bg-current" />
-          <ArrowRight size={12} />
-        </div>
-        <div className={`text-[11px] font-semibold ${CARD_STYLE.text}`}>{matin.contenu}</div>
-        {groupe && <div className={`text-[10px] font-medium ${CARD_STYLE.text} opacity-90`}>{groupe}</div>}
-        {prof && <div className={`text-[10px] opacity-70 ${CARD_STYLE.text}`}>{prof}</div>}
-        <div className={`text-[10px] mt-0.5 opacity-70 ${CARD_STYLE.text}`}>
-          {matin.heure_debut?.slice(0, 5)} - {midi.heure_fin?.slice(0, 5)}
-        </div>
+const renderMerged = (matin, midi) => {
+  const groupe = getGroupeLabel(matin);
+  const prof = getProfLabel(matin);
+  return (
+    <div className={`rounded-xl border ${CARD_STYLE.border} ${CARD_STYLE.bg} px-2.5 py-2.5 text-center`}>
+      <div className={`flex items-center justify-center gap-1 ${CARD_STYLE.text} opacity-60 mb-1`}>
+        <div className="h-px flex-1 bg-current" />
+        <ArrowRight size={12} />
       </div>
-    );
-  };
+      <div className={`text-[11px] font-semibold ${CARD_STYLE.text}`}>{matin.contenu}</div>
+      {groupe && <div className={`text-[10px] font-medium ${CARD_STYLE.text} opacity-90`}>{groupe}</div>}
+      {prof && <div className={`text-[10px] opacity-70 ${CARD_STYLE.text}`}>{prof}</div>}
+      <div className={`text-[10px] mt-0.5 opacity-70 ${CARD_STYLE.text}`}>
+        {matin.heure_debut?.slice(0, 5)} - {midi.heure_fin?.slice(0, 5)}
+      </div>
+      {matin.badge && (
+        <div className="text-[9px] mt-1 font-medium text-amber-600 bg-amber-50 border border-amber-100 rounded-full px-2 py-0.5 inline-block">
+          {matin.badge}
+        </div>
+      )}
+    </div>
+  );
+};
 
   return (
     <AdminLayout>

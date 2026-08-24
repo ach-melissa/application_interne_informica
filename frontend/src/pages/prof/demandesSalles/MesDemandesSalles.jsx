@@ -36,8 +36,7 @@ const Field = ({ label, icon: Icon, ...props }) => (
   </div>
 );
 
-const emptyForm = { jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', formation_id: '', groupe_id: '', type_demande: '', date_cible: '', salle_souhaitee_id: '', message: '' };
-
+const emptyForm = { formation_id: '', groupe_id: '', message: '' };
 const MesDemandesSalles = () => {
   const [demandes, setDemandes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +54,18 @@ const MesDemandesSalles = () => {
   const [mesGroupes, setMesGroupes] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const setV = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const [creneaux, setCreneaux] = useState([]);
+const [creneauTemp, setCreneauTemp] = useState({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '' });
+const setCT = (k) => (e) => setCreneauTemp((p) => ({ ...p, [k]: e.target.value }));
+
+const ajouterCreneau = () => {
+  const { jour_semaine, periode, heure_debut, heure_fin, type_demande, date_cible } = creneauTemp;
+  if (!jour_semaine || !periode || !heure_debut || !heure_fin || !type_demande || !date_cible) return;
+  setCreneaux((p) => [...p, { ...creneauTemp }]);
+  setCreneauTemp({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '' });
+};
+const retirerCreneau = (idx) => setCreneaux((p) => p.filter((_, i) => i !== idx));
 
   const [showEmploi, setShowEmploi] = useState(false);
   const [emploiData, setEmploiData] = useState([]);
@@ -82,8 +93,8 @@ const MesDemandesSalles = () => {
   useEffect(() => { load(); }, []);
 
   const openModal = async () => {
-    setForm(emptyForm); setSubmitError(null); setSubmitSuccess(false); setShowModal(true);
-    const [j, s, g] = await Promise.all([
+setForm(emptyForm); setCreneaux([]); setCreneauTemp({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '' }); setSubmitError(null); setSubmitSuccess(false); setShowModal(true);
+const [j, s, g] = await Promise.all([
       fetch(`${API}/api/schedules/jours`, { headers: headers() }),
       fetch(`${API}/api/schedules/salles`, { headers: headers() }),
       fetch(`${API}/api/groups/me`, { headers: headers() }),
@@ -96,21 +107,28 @@ const MesDemandesSalles = () => {
   const formations = Array.from(new Map(mesGroupes.map((g) => [g.formation_id, g.formations])).values()).filter(Boolean);
   const groupes = mesGroupes.filter((g) => g.formation_id === form.formation_id);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const required = ['jour_semaine', 'periode', 'heure_debut', 'heure_fin', 'formation_id', 'groupe_id', 'type_demande', 'date_cible'];
-    if (required.some((k) => !form[k])) return setSubmitError('Merci de remplir tous les champs obligatoires.');
-    setSubmitting(true); setSubmitError(null);
-    try {
-      const res = await fetch(`${API}/api/notifications/demande-salle`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', ...headers() }, body: JSON.stringify(form),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Erreur lors de l'envoi.");
-      setSubmitSuccess(true); load();
-      setTimeout(() => setShowModal(false), 1200);
-    } catch (err) { setSubmitError(err.message); }
-    finally { setSubmitting(false); }
-  };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  const required = ['formation_id', 'groupe_id'];
+  if (required.some((k) => !form[k])) return setSubmitError('Merci de remplir tous les champs obligatoires.');
+  if (creneaux.length === 0) return setSubmitError('Ajoutez au moins un créneau.');
+  setSubmitting(true); setSubmitError(null);
+  try {
+    const results = await Promise.allSettled(
+      creneaux.map((c) =>
+        fetch(`${API}/api/notifications/demande-salle`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...headers() },
+          body: JSON.stringify({ ...form, ...c }),
+        }).then((res) => { if (!res.ok) throw new Error(); })
+      )
+    );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) throw new Error(`${failed} créneau(x) sur ${creneaux.length} n'ont pas pu être envoyés.`);
+    setSubmitSuccess(true); load();
+    setTimeout(() => setShowModal(false), 1200);
+  } catch (err) { setSubmitError(err.message || "Erreur lors de l'envoi."); }
+  finally { setSubmitting(false); }
+};
 
   const filtered = useMemo(() => demandes.filter((d) => {
     const { search, statut, type, from, to } = filters;
@@ -257,20 +275,48 @@ const MesDemandesSalles = () => {
                 <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm rounded-lg px-4 py-3">Demande envoyée avec succès.</div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Jour" icon={CalendarDays} value={form.jour_semaine} onChange={setV('jour_semaine')} options={jours} />
-<Field label="Période" icon={Clock} value={form.periode} onChange={setV('periode')} options={Object.entries(PERIODES).map(([value, label]) => ({ value, label }))} />
-<Field label="Heure début" icon={Clock} type="time" value={form.heure_debut} onChange={setV('heure_debut')} />
-<Field label="Heure fin" icon={Clock} type="time" value={form.heure_fin} onChange={setV('heure_fin')} />
+<div className="grid grid-cols-2 gap-3">
 <Field label="Formation" icon={Layers} value={form.formation_id} onChange={(e) => setForm((p) => ({ ...p, formation_id: e.target.value, groupe_id: '' }))}
   options={formations.map((f) => ({ value: f.id, label: f.nom }))} />
 <Field label="Groupe" icon={Layers} value={form.groupe_id} onChange={setV('groupe_id')} disabled={!form.formation_id}
   options={groupes.map((g) => ({ value: g.id, label: g.nom }))} />
-<Field label="Type de demande" icon={Repeat} value={form.type_demande}
-  onChange={(e) => setForm((p) => ({ ...p, type_demande: e.target.value, date_cible: '' }))}
-  options={[{ value: 'remplacement', label: 'Remplacement (un jour)' }, { value: 'changement', label: "Changement d'horaire" }]} />
-<Field label={form.type_demande === 'changement' ? 'À partir de' : 'Date remplacement'} icon={CalendarDays} type="date"
-  value={form.date_cible} onChange={setV('date_cible')} disabled={!form.type_demande} />
+                  </div>
+
+                  <div className="border border-[#E2E8F0] rounded-lg p-3 space-y-3 bg-[#F8FAFC]">
+<p className="text-[10px] text-slate-400 uppercase tracking-wide">Créneaux à changer/remplacer</p>
+<div className="grid grid-cols-2 gap-3">
+  <Field label="Jour" icon={CalendarDays} value={creneauTemp.jour_semaine} onChange={setCT('jour_semaine')} options={jours} />
+  <Field label="Période" icon={Clock} value={creneauTemp.periode} onChange={setCT('periode')} options={Object.entries(PERIODES).map(([value, label]) => ({ value, label }))} />
+  <Field label="Heure début" icon={Clock} type="time" value={creneauTemp.heure_debut} onChange={setCT('heure_debut')} />
+  <Field label="Heure fin" icon={Clock} type="time" value={creneauTemp.heure_fin} onChange={setCT('heure_fin')} />
+  <Field label="Type de demande" icon={Repeat} value={creneauTemp.type_demande}
+    onChange={(e) => setCreneauTemp((p) => ({ ...p, type_demande: e.target.value, date_cible: '' }))}
+    options={[{ value: 'remplacement', label: 'Remplacement (un jour)' }, { value: 'changement', label: "Changement d'horaire" }]} />
+  <Field label={creneauTemp.type_demande === 'changement' ? 'À partir de' : 'Date remplacement'} icon={CalendarDays} type="date"
+    value={creneauTemp.date_cible} onChange={setCT('date_cible')} disabled={!creneauTemp.type_demande} />
+  <Field label="Salle souhaitée (optionnel)" icon={DoorOpen} value={creneauTemp.salle_souhaitee_id} onChange={setCT('salle_souhaitee_id')}
+    options={salles.map((s) => ({ value: s.id, label: s.nom }))} />
+</div>
+                    <button type="button" onClick={ajouterCreneau}
+                      className="w-full text-xs font-medium text-[#0369A1] bg-[#DCEBFA]/50 hover:bg-[#DCEBFA] rounded-lg px-3 py-2 transition">
+                      + Ajouter ce créneau
+                    </button>
+
+                    {creneaux.length > 0 && (
+                      <div className="space-y-1.5">
+{creneaux.map((c, i) => {
+  const salleNom = salles.find((s) => s.id === c.salle_souhaitee_id)?.nom;
+  return (
+    <div key={i} className="flex items-center justify-between text-xs bg-white border border-[#E2E8F0] rounded-lg px-3 py-1.5">
+      <span className="text-slate-700 capitalize">
+        {c.jour_semaine} · {PERIODES[c.periode] || c.periode} · {c.heure_debut}–{c.heure_fin} · {c.type_demande === 'changement' ? 'Changement' : 'Remplacement'} le {c.date_cible}{salleNom ? ` · ${salleNom}` : ''}
+      </span>
+      <button type="button" onClick={() => retirerCreneau(i)} className="text-red-400 hover:text-red-600"><X size={13} /></button>
+    </div>
+  );
+})}
+                      </div>
+                    )}
                   </div>
                                   <div>
                     <button type="button" onClick={toggleEmploi}
@@ -297,7 +343,7 @@ const MesDemandesSalles = () => {
                                   </th>
                                   {jours.map((j) => (
                                     <th key={j} colSpan={2}
-                                      className={`border border-slate-100 px-2 py-1.5 font-semibold uppercase tracking-wide text-[9px] ${j === form.jour_semaine ? 'bg-[#0369A1] text-white' : 'bg-slate-900 text-white'}`}>
+                                      className={`border border-slate-100 px-2 py-1.5 font-semibold uppercase tracking-wide text-[9px] ${j === creneauTemp.jour_semaine ? 'bg-[#0369A1] text-white' : 'bg-slate-900 text-white'}`}>
                                       {j.charAt(0).toUpperCase() + j.slice(1)}
                                     </th>
                                   ))}
@@ -305,8 +351,8 @@ const MesDemandesSalles = () => {
                                 <tr>
                                   {jours.map((j) => (
                                     <>
-                                      <th key={`${j}-matin`} className={`border border-slate-100 px-2 py-1 font-semibold uppercase text-[8px] ${j === form.jour_semaine ? 'bg-[#DCEBFA] text-[#0369A1]' : 'bg-white text-slate-500'}`}>Matin</th>
-                                      <th key={`${j}-midi`} className={`border border-slate-100 px-2 py-1 font-semibold uppercase text-[8px] ${j === form.jour_semaine ? 'bg-[#DCEBFA] text-[#0369A1]' : 'bg-white text-slate-500'}`}>À midi</th>
+                                      <th key={`${j}-matin`} className={`border border-slate-100 px-2 py-1 font-semibold uppercase text-[8px] ${j === creneauTemp.jour_semaine ? 'bg-[#DCEBFA] text-[#0369A1]' : 'bg-white text-slate-500'}`}>Matin</th>
+                                      <th key={`${j}-midi`} className={`border border-slate-100 px-2 py-1 font-semibold uppercase text-[8px] ${j === creneauTemp.jour_semaine ? 'bg-[#DCEBFA] text-[#0369A1]' : 'bg-white text-slate-500'}`}>À midi</th>
                                     </>
                                   ))}
                                 </tr>
@@ -320,7 +366,7 @@ const MesDemandesSalles = () => {
                                                                        {jours.map((j) => {
                                       const matinList = getOccupants(s.nom, j, 'matin');
                                       const midiList = getOccupants(s.nom, j, 'midi');
-                                      const highlight = j === form.jour_semaine;
+                                      const highlight = j === creneauTemp.jour_semaine;
                                       return (
                                         <>
                                           <td key={`${s.id}-${j}-matin`} className={`border border-slate-100 px-2 py-1.5 ${highlight ? 'bg-[#DCEBFA]/30' : i % 2 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
@@ -353,9 +399,6 @@ const MesDemandesSalles = () => {
                       </div>
                     )}
                   </div>
-
-                 <Field label="Salle souhaitée (optionnel)" icon={DoorOpen} value={form.salle_souhaitee_id} onChange={setV('salle_souhaitee_id')}
-  options={salles.map((s) => ({ value: s.id, label: s.nom }))} />
 
                   <div>
                     <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Message (optionnel)</p>

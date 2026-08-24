@@ -76,14 +76,25 @@ const DetailMaDemande = () => {
 
         <div className="p-6 space-y-6">
 
-          <section>
-            <div className="flex items-center gap-3 mb-3">
-              <UserRound size={18} className="text-[#0369A1]" />
-              <h2 className="font-semibold text-slate-700">Demandeur</h2>
-            </div>
-            <p className="text-sm text-slate-700">{d.demandeur_nom || '—'}</p>
-            <p className="text-xs text-slate-400">Professeur</p>
-          </section>
+<section>
+  <div className="flex items-center gap-3 mb-3">
+    <UserRound size={18} className="text-[#0369A1]" />
+    <h2 className="font-semibold text-slate-700">Demandeur</h2>
+  </div>
+  <div className="flex items-center gap-3">
+    {demande.expediteur?.photo_url ? (
+      <img src={demande.expediteur.photo_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm" />
+    ) : (
+      <div className="w-10 h-10 rounded-full bg-[#DCEBFA] flex items-center justify-center text-xs font-bold text-[#0369A1] flex-shrink-0">
+        {(d.demandeur_nom || '?').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+      </div>
+    )}
+    <div>
+      <p className="text-sm text-slate-700">{d.demandeur_nom || '—'}</p>
+      <p className="text-xs text-slate-400">Professeur</p>
+    </div>
+  </div>
+</section>
 
           <div className="grid grid-cols-3 gap-x-6 gap-y-5 border-t pt-5">
             <Info icon={<GraduationCap />} label="Formation" value={d.formation_nom} />

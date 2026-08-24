@@ -71,14 +71,15 @@ const DetailDemandeSalle = () => {
   const d = demande?.data || {};
 
   // Toute occupation (n'importe quelle salle) qui chevauche le jour/horaire demandé
-  const conflictsForSalle = (salleNom) => {
-    if (!d.jour_semaine || !d.heure_debut || !d.heure_fin) return [];
-    return emploiData.filter((s) =>
-      s.salle === salleNom &&
-      s.jour_semaine === d.jour_semaine &&
-      overlaps(s.heure_debut, s.heure_fin, d.heure_debut, d.heure_fin)
-    );
-  };
+const conflictsForSalle = (salleNom) => {
+  if (!d.jour_semaine || !d.heure_debut || !d.heure_fin) return [];
+  return emploiData.filter((s) =>
+    s.salle === salleNom &&
+    s.jour_semaine === d.jour_semaine &&
+    s.periode === d.periode &&
+    overlaps(s.heure_debut, s.heure_fin, d.heure_debut, d.heure_fin)
+  );
+};
 
   const isSalleOccupied = (salleNom) => conflictsForSalle(salleNom).length > 0;
 
@@ -195,14 +196,25 @@ const DetailDemandeSalle = () => {
 
           <div className="p-6 space-y-6">
 
-                       <section>
-              <div className="flex items-center gap-2 mb-3">
-                <UserRound size={16} className="text-[#0369A1]" />
-                <h2 className="text-sm font-semibold text-slate-700">Demandeur</h2>
-              </div>
-              <p className="text-sm font-medium text-slate-700">{d.demandeur_nom || '—'}</p>
-              <p className="text-xs text-slate-400">Professeur</p>
-            </section>
+<section>
+  <div className="flex items-center gap-2 mb-3">
+    <UserRound size={16} className="text-[#0369A1]" />
+    <h2 className="text-sm font-semibold text-slate-700">Demandeur</h2>
+  </div>
+  <div className="flex items-center gap-3">
+    {demande.expediteur?.photo_url ? (
+      <img src={demande.expediteur.photo_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm" />
+    ) : (
+      <div className="w-10 h-10 rounded-full bg-[#DCEBFA] flex items-center justify-center text-xs font-bold text-[#0369A1] flex-shrink-0">
+        {(d.demandeur_nom || '?').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+      </div>
+    )}
+    <div>
+      <p className="text-sm font-medium text-slate-700">{d.demandeur_nom || '—'}</p>
+      <p className="text-xs text-slate-400">Professeur</p>
+    </div>
+  </div>
+</section>
 
             <div className="grid grid-cols-3 gap-x-6 gap-y-5 border-t border-[#F1F5F9] pt-5">
               <Info icon={<GraduationCap />} label="Formation" value={d.formation_nom} />

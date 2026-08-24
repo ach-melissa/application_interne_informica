@@ -159,13 +159,14 @@ const traiterNotification = async (req, res) => {
       .from('salles').select('id, nom').eq('id', salle_id).single();
     if (salleErr || !salle) return res.status(400).json({ error: 'Salle introuvable.' });
 
-    const { data: conflicts, error: conflictErr } = await supabase
-      .from('schedules')
-      .select('id, heure_debut, heure_fin')
-      .eq('salle', salle.nom)
-      .eq('jour_semaine', existing.data.jour_semaine)
-      .lt('heure_debut', existing.data.heure_fin)
-      .gt('heure_fin', existing.data.heure_debut);
+const { data: conflicts, error: conflictErr } = await supabase
+  .from('schedules')
+  .select('id, heure_debut, heure_fin')
+  .eq('salle', salle.nom)
+  .eq('jour_semaine', existing.data.jour_semaine)
+  .eq('periode', existing.data.periode)
+  .lt('heure_debut', existing.data.heure_fin)
+  .gt('heure_fin', existing.data.heure_debut);
     if (conflictErr) return res.status(500).json({ error: conflictErr.message });
     if (conflicts.length > 0) {
       return res.status(409).json({
@@ -220,14 +221,15 @@ const modifierSalleAssignee = async (req, res) => {
     .from('salles').select('id, nom').eq('id', salle_id).single();
   if (salleErr || !salle) return res.status(400).json({ error: 'Salle introuvable.' });
 
-  const { data: conflicts, error: conflictErr } = await supabase
-    .from('schedules')
-    .select('id, heure_debut, heure_fin')
-    .eq('salle', salle.nom)
-    .eq('jour_semaine', existing.data.jour_semaine)
-    .or(`notification_id.is.null,notification_id.neq.${id}`)
-    .lt('heure_debut', existing.data.heure_fin)
-    .gt('heure_fin', existing.data.heure_debut);
+const { data: conflicts, error: conflictErr } = await supabase
+  .from('schedules')
+  .select('id, heure_debut, heure_fin')
+  .eq('salle', salle.nom)
+  .eq('jour_semaine', existing.data.jour_semaine)
+  .eq('periode', existing.data.periode)
+  .or(`notification_id.is.null,notification_id.neq.${id}`)
+  .lt('heure_debut', existing.data.heure_fin)
+  .gt('heure_fin', existing.data.heure_debut);
   if (conflictErr) return res.status(500).json({ error: conflictErr.message });
   if (conflicts.length > 0) {
     return res.status(409).json({
