@@ -47,7 +47,9 @@ res.json(filtrerCreneauxActifs(data));
 
 const createSchedule = async (req, res) => {
   const { group_id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin } = req.body;
-
+if (heure_debut < '08:00' || heure_fin > '16:00' || heure_debut >= heure_fin) {
+  return res.status(400).json({ error: 'Les horaires doivent être compris entre 08:00 et 16:00.' });
+}
   // ← NOUVEAU : ces 12 lignes n'existaient pas avant
   const { data: conflicts, error: conflictErr } = await supabase
     .from('schedules')
@@ -78,6 +80,9 @@ const updateSchedule = async (req, res) => {
 
   // ← NOUVEAU : tout ce bloc n'existait pas avant
   if (heure_debut && heure_fin) {
+    if (heure_debut < '08:00' || heure_fin > '16:00' || heure_debut >= heure_fin) {
+  return res.status(400).json({ error: 'Les horaires doivent être compris entre 08:00 et 16:00.' });
+}
     const { data: current, error: curErr } = await supabase
       .from('schedules')
       .select('salle, jour_semaine')

@@ -14,7 +14,9 @@ const demanderSalle = async (req, res) => {
   if (!['remplacement', 'changement'].includes(type_demande)) {
     return res.status(400).json({ error: 'Type de demande invalide.' });
   }
-
+if (heure_debut < '08:00' || heure_fin > '16:00' || heure_debut >= heure_fin) {
+  return res.status(400).json({ error: 'Les horaires doivent être compris entre 08:00 et 16:00.' });
+}
   const { data: profUser, error: userErr } = await supabase
     .from('users').select('nom, prenom').eq('id', req.user.id).single();
   if (userErr) return res.status(500).json({ error: userErr.message });
@@ -180,7 +182,6 @@ const { data: conflicts, error: conflictErr } = await supabase
   .select('id, heure_debut, heure_fin')
   .eq('salle', salle.nom)
   .eq('jour_semaine', existing.data.jour_semaine)
-  .eq('periode', existing.data.periode)
   .lt('heure_debut', existing.data.heure_fin)
   .gt('heure_fin', existing.data.heure_debut);
     if (conflictErr) return res.status(500).json({ error: conflictErr.message });
@@ -242,7 +243,6 @@ const { data: conflicts, error: conflictErr } = await supabase
   .select('id, heure_debut, heure_fin')
   .eq('salle', salle.nom)
   .eq('jour_semaine', existing.data.jour_semaine)
-  .eq('periode', existing.data.periode)
   .or(`notification_id.is.null,notification_id.neq.${id}`)
   .lt('heure_debut', existing.data.heure_fin)
   .gt('heure_fin', existing.data.heure_debut);
@@ -298,7 +298,6 @@ const proposerAlternative = async (req, res) => {
         .select('id')
         .eq('salle', salleSouhaitee.nom)
         .eq('jour_semaine', existing.data.jour_semaine)
-        .eq('periode', existing.data.periode)
         .lt('heure_debut', existing.data.heure_fin)
         .gt('heure_fin', existing.data.heure_debut);
       salle_demandee_occupee = (conflictsSouhaitee?.length || 0) > 0;
@@ -308,9 +307,12 @@ const proposerAlternative = async (req, res) => {
   const built = [];
   for (const p of propositions) {
     const { jour_semaine, periode, heure_debut, heure_fin, salle_id, message_admin } = p;
-    if (!jour_semaine || !periode || !heure_debut || !heure_fin || !salle_id) {
-      return res.status(400).json({ error: 'Chaque option doit avoir un jour, une période, des heures et une salle.' });
-    }
+if (!jour_semaine || !periode || !heure_debut || !heure_fin || !salle_id) {
+  return res.status(400).json({ error: 'Chaque option doit avoir un jour, une période, des heures et une salle.' });
+}
+if (heure_debut < '08:00' || heure_fin > '16:00' || heure_debut >= heure_fin) {
+  return res.status(400).json({ error: 'Chaque option doit avoir des horaires compris entre 08:00 et 16:00.' });
+}
 
     const { data: salle, error: salleErr } = await supabase
       .from('salles').select('id, nom').eq('id', salle_id).single();
@@ -321,7 +323,6 @@ const proposerAlternative = async (req, res) => {
       .select('id, heure_debut, heure_fin')
       .eq('salle', salle.nom)
       .eq('jour_semaine', jour_semaine)
-      .eq('periode', periode)
       .lt('heure_debut', heure_fin)
       .gt('heure_fin', heure_debut);
     if (conflictErr) return res.status(500).json({ error: conflictErr.message });
@@ -379,7 +380,7 @@ const repondreProposition = async (req, res) => {
   if (!accepte) {
     const { data, error } = await supabase
       .from('notifications')
-      .update({ statut: 'refusee', lu: false, updated_at: new Date().toISOString() })
+      .update({ statut: 'refusee', lu_admin: false, updated_at: new Date().toISOString() })
       .eq('id', id).select().single();
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data);
@@ -394,7 +395,6 @@ const repondreProposition = async (req, res) => {
     .select('id, heure_debut, heure_fin')
     .eq('salle', prop.salle_nom)
     .eq('jour_semaine', prop.jour_semaine)
-    .eq('periode', prop.periode)
     .lt('heure_debut', prop.heure_fin)
     .gt('heure_fin', prop.heure_debut);
   if (conflictErr) return res.status(500).json({ error: conflictErr.message });
@@ -419,7 +419,7 @@ const repondreProposition = async (req, res) => {
     .update({
       statut: 'approuvee',
       data: updatedData,
-      lu: false,
+            lu_admin: false,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id).select().single();
