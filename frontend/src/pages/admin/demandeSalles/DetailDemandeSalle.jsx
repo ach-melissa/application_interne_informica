@@ -8,11 +8,13 @@ const STATUT_STYLE = {
   en_attente: 'bg-amber-50 text-amber-600',
   approuvee: 'bg-emerald-50 text-emerald-600',
   refusee: 'bg-red-50 text-red-600',
+  proposee: 'bg-[#DCEBFA] text-[#0369A1]',
 };
 const STATUT_LABEL = {
   en_attente: 'En attente',
   approuvee: 'Approuvée',
   refusee: 'Refusée',
+  proposee: 'Proposition envoyée',
 };
 
 const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && aEnd > bStart;
@@ -33,6 +35,19 @@ const DetailDemandeSalle = () => {
 
   const [editingSalle, setEditingSalle] = useState(false);
   const [newSalleId, setNewSalleId] = useState('');
+  const [proposerMode, setProposerMode] = useState(false);
+const [propositionsForms, setPropositionsForms] = useState([
+  { jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', salle_id: '' },
+]);
+const setPropField = (idx, key) => (e) => {
+  setPropositionsForms((prev) => prev.map((p, i) => (i === idx ? { ...p, [key]: e.target.value } : p)));
+};
+const ajouterFormulaireAlternative = () => {
+  setPropositionsForms((prev) => [...prev, { jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', salle_id: '' }]);
+};
+const retirerFormulaireAlternative = (idx) => {
+  setPropositionsForms((prev) => prev.filter((_, i) => i !== idx));
+};
 
   const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
@@ -134,6 +149,32 @@ const conflictsForSalle = (salleNom) => {
     } else {
       const data = await res.json().catch(() => ({}));
       setErreur(data.error || 'Erreur lors de la modification.');
+    }
+    setSubmitting(false);
+  };
+
+    const envoyerProposition = async () => {
+    const incomplete = propositionsForms.some(
+      (p) => !p.jour_semaine || !p.periode || !p.heure_debut || !p.heure_fin || !p.salle_id
+    );
+    if (incomplete) {
+      setErreur('Merci de remplir tous les champs de chaque option.');
+      return;
+    }
+    setSubmitting(true);
+    setErreur(null);
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/${id}/proposer`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...headers() },
+      body: JSON.stringify({
+        propositions: propositionsForms.map((p) => ({ ...p, message_admin: reponse })),
+      }),
+    });
+    if (res.ok) {
+      navigate('/admin/demandes-salles');
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setErreur(data.error || "Erreur lors de l'envoi de la proposition.");
     }
     setSubmitting(false);
   };
@@ -241,7 +282,22 @@ const conflictsForSalle = (salleNom) => {
               </div>
               <p className="text-sm font-medium text-slate-700">{d.salle_souhaitee_nom || 'Aucune préférence'}</p>
             </section>
-
+{d.ancien_jour_semaine && (
+  <section className="border-t border-[#F1F5F9] pt-5">
+    <h2 className="text-sm font-semibold text-slate-700 mb-2">Créneau concerné</h2>
+    <div className="flex items-center gap-3 text-sm">
+      <div className="flex-1 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+        <p className="text-[10px] text-red-400 uppercase font-semibold mb-1">Ancien (sera vidé)</p>
+        <p className="capitalize text-slate-700">{d.ancien_jour_semaine} · {d.ancien_periode} · {d.ancien_heure_debut?.slice(0,5)}–{d.ancien_heure_fin?.slice(0,5)} · {d.ancien_salle_nom}</p>
+      </div>
+      <span className="text-slate-300">→</span>
+      <div className="flex-1 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+        <p className="text-[10px] text-emerald-500 uppercase font-semibold mb-1">Nouveau (demandé)</p>
+        <p className="capitalize text-slate-700">{d.jour_semaine} · {d.periode} · {d.heure_debut?.slice(0,5)}–{d.heure_fin?.slice(0,5)} · {d.salle_souhaitee_nom || 'à définir'}</p>
+      </div>
+    </div>
+  </section>
+)}
             {demande.message && (
               <section className="border-t border-[#F1F5F9] pt-5">
                 <h2 className="text-sm font-semibold text-slate-700 mb-1">Message du professeur</h2>
@@ -399,13 +455,21 @@ const conflictsForSalle = (salleNom) => {
                   <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{erreur}</p>
                 )}
 
-                              <div className="flex justify-end gap-2 pt-2">
+              {!proposerMode ? (
+                <div className="flex justify-end gap-2 pt-2">
                   <button
                     disabled={submitting}
                     onClick={() => traiter('refusee')}
                     className="flex items-center gap-1.5 text-xs text-red-500 bg-red-50 px-3.5 py-2 rounded-md hover:bg-red-100 disabled:opacity-50 font-medium transition"
                   >
                     <X size={14} /> Refuser
+                  </button>
+                  <button
+                    disabled={submitting}
+                    onClick={() => setProposerMode(true)}
+                    className="flex items-center gap-1.5 text-xs text-[#0369A1] bg-[#DCEBFA] px-3.5 py-2 rounded-md hover:bg-[#c7e3f7] disabled:opacity-50 font-medium transition"
+                  >
+                    <RefreshCw size={14} /> Proposer une alternative
                   </button>
                   <button
                     disabled={submitting || salleChoisieOccupee}
@@ -417,6 +481,62 @@ const conflictsForSalle = (salleNom) => {
                     <Check size={14} /> Approuver
                   </button>
                 </div>
+              ) : (
+                <div className="border border-[#DCEBFA] bg-[#F0F8FF] rounded-lg p-4 space-y-3">
+                  <p className="text-xs font-medium text-[#0369A1]">Proposer une ou plusieurs alternatives</p>
+
+                  {propositionsForms.map((pf, idx) => (
+                    <div key={idx} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wide">Option {idx + 1}</p>
+                        {propositionsForms.length > 1 && (
+                          <button type="button" onClick={() => retirerFormulaireAlternative(idx)} className="text-red-400 hover:text-red-600">
+                            <X size={13} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <select value={pf.jour_semaine} onChange={setPropField(idx, 'jour_semaine')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                          <option value="">Jour</option>
+                          {jours.map((j) => <option key={j} value={j}>{j}</option>)}
+                        </select>
+                        <select value={pf.periode} onChange={setPropField(idx, 'periode')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                          <option value="">Période</option>
+                          <option value="matin">Matin</option>
+                          <option value="midi">À midi</option>
+                        </select>
+                        <input type="time" value={pf.heure_debut} onChange={setPropField(idx, 'heure_debut')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        <input type="time" value={pf.heure_fin} onChange={setPropField(idx, 'heure_fin')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        <select value={pf.salle_id} onChange={setPropField(idx, 'salle_id')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm col-span-2">
+                          <option value="">Salle</option>
+                          {salles.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={ajouterFormulaireAlternative}
+                    className="w-full text-xs font-medium text-[#0369A1] bg-white border border-dashed border-[#0369A1]/40 hover:bg-[#DCEBFA]/40 rounded-lg px-3 py-2 transition"
+                  >
+                    + Ajouter une autre option
+                  </button>
+
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setProposerMode(false)} className="text-xs px-3 py-2 rounded-md text-slate-500 hover:bg-white">
+                      Annuler
+                    </button>
+                    <button
+                      disabled={submitting}
+                      onClick={envoyerProposition}
+                      className="flex items-center gap-1.5 bg-[#0369A1] text-white px-3.5 py-2 rounded-md text-xs font-medium hover:bg-[#0369A1]/90 disabled:opacity-50"
+                    >
+                      Envoyer {propositionsForms.length > 1 ? `les ${propositionsForms.length} propositions` : 'la proposition'}
+                    </button>
+                  </div>
+                </div>
+              )}
               </section>
              ) : (
               <section className="border-t border-[#F1F5F9] pt-5">
@@ -438,9 +558,20 @@ const conflictsForSalle = (salleNom) => {
                   </div>
                 )}
 
-                {demande.statut === 'refusee' && (
-                  <p className="text-sm text-slate-600">Cette demande a été refusée.</p>
-                )}
+{demande.statut === 'refusee' && (
+  <p className="text-sm text-slate-600">Cette demande a été refusée.</p>
+)}
+
+{demande.statut === 'proposee' && d.propositions?.length > 0 && (
+  <div className="text-sm text-slate-600 space-y-2">
+    <p>{d.propositions.length} alternative{d.propositions.length > 1 ? 's' : ''} proposée{d.propositions.length > 1 ? 's' : ''}, en attente de la réponse du professeur :</p>
+    {d.propositions.map((p, i) => (
+      <p key={i} className="font-medium text-slate-800 capitalize bg-slate-50 rounded-lg px-3 py-2">
+        {p.jour_semaine} · {p.periode} · {p.heure_debut?.slice(0,5)}–{p.heure_fin?.slice(0,5)} · {p.salle_nom}
+      </p>
+    ))}
+  </div>
+)}
 
                 {editingSalle && (
                   <div className="mt-3 flex items-center gap-2">

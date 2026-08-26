@@ -22,12 +22,27 @@ const filtrerCreneauxActifs = (schedules) => {
 };
 const getGroupSchedule = async (req, res) => {
   const { groupId } = req.params;
-  const { data, error } = await supabase
-    .from('schedules')
-   .select('id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin, type_special, expire_le, applicable_depuis')
-    .eq('group_id', groupId);
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+
+  if (req.user.role === 'prof') {
+    const { data: teacher, error: tErr } = await supabase
+      .from('teachers').select('id').eq('user_id', req.user.id).single();
+    if (tErr || !teacher) return res.status(404).json({ error: 'Professeur introuvable' });
+
+    const { data: group, error: gErr } = await supabase
+      .from('groups').select('teacher_id').eq('id', groupId).single();
+    if (gErr || !group) return res.status(404).json({ error: 'Groupe introuvable' });
+
+    if (group.teacher_id !== teacher.id) {
+      return res.status(403).json({ error: "Vous n'enseignez pas ce groupe." });
+    }
+  }
+
+const { data, error } = await supabase
+  .from('schedules')
+  .select('id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin, type_special, expire_le, applicable_depuis, groups(date_fin, archived, statut)')
+  .eq('group_id', groupId);
+if (error) return res.status(500).json({ error: error.message });
+res.json(filtrerCreneauxActifs(data));
 };
 
 const createSchedule = async (req, res) => {
@@ -134,6 +149,11 @@ const deleteSalle = async (req, res) => {
 const renameSalle = async (req, res) => {
   const { id, newName } = req.body;
   if (!id || !newName?.trim()) return res.status(400).json({ error: 'id et newName requis' });
+
+  const { data: current, error: curErr } = await supabase
+    .from('salles').select('nom').eq('id', id).single();
+  if (curErr || !current) return res.status(404).json({ error: 'Salle introuvable.' });
+
   const { data, error } = await supabase
     .from('salles')
     .update({ nom: newName.trim() })
@@ -144,6 +164,17 @@ const renameSalle = async (req, res) => {
     if (error.code === '23505') return res.status(409).json({ error: `La salle "${newName.trim()}" existe déjà.` });
     return res.status(500).json({ error: error.message });
   }
+
+  // Cascade : aligne le nom stocké dans schedules avec le nouveau nom
+  // Cascade : aligne le nom stocké dans schedules avec le nouveau nom
+  const { error: cascadeErr } = await supabase
+    .from('schedules')
+    .update({ salle: newName.trim() })
+    .or(`salle.eq.${current.nom},salle_id.eq.${id}`);
+  if (cascadeErr) {
+    return res.status(500).json({ error: `Salle renommée mais synchronisation des créneaux échouée : ${cascadeErr.message}` });
+  }
+
   res.json(data);
 };
 

@@ -9,11 +9,13 @@ const STATUT_STYLE = {
   en_attente: 'bg-amber-50 text-amber-600',
   approuvee: 'bg-emerald-50 text-emerald-600',
   refusee: 'bg-red-50 text-red-600',
+  proposee: 'bg-[#DCEBFA] text-[#0369A1]',
 };
 const STATUT_LABEL = {
   en_attente: 'En attente',
   approuvee: 'Approuvée',
   refusee: 'Refusée',
+  proposee: 'Alternative proposée',
 };
 
 const DetailMaDemande = () => {
@@ -31,6 +33,27 @@ const DetailMaDemande = () => {
     };
     load();
   }, [id]);
+
+    const [repondant, setRepondant] = useState(false);
+  const [erreurRep, setErreurRep] = useState(null);
+
+  const repondreProposition = async (accepte, proposition_index) => {
+    setRepondant(true);
+    setErreurRep(null);
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/${id}/repondre-proposition`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ accepte, proposition_index }),
+    });
+    if (res.ok) {
+      setDemande(await res.json());
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setErreurRep(data.error || 'Erreur lors de la réponse.');
+    }
+    setRepondant(false);
+  };
 
   if (!demande) return <div className="p-6 text-slate-400">Chargement...</div>;
 
@@ -120,11 +143,76 @@ const DetailMaDemande = () => {
             </div>
             <p className="text-sm text-slate-700">{d.salle_souhaitee_nom || 'Aucune préférence'}</p>
           </section>
-
+{d.ancien_jour_semaine && (
+  <section className="border-t pt-5">
+    <h2 className="font-semibold text-slate-700 mb-2">Créneau concerné</h2>
+    <div className="flex items-center gap-3 text-sm">
+      <div className="flex-1 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+        <p className="text-[10px] text-red-400 uppercase font-semibold mb-1">Ancien (sera vidé)</p>
+        <p className="capitalize text-slate-700">{d.ancien_jour_semaine} · {d.ancien_periode} · {d.ancien_heure_debut?.slice(0,5)}–{d.ancien_heure_fin?.slice(0,5)} · {d.ancien_salle_nom}</p>
+      </div>
+      <span className="text-slate-300">→</span>
+      <div className="flex-1 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+        <p className="text-[10px] text-emerald-500 uppercase font-semibold mb-1">Nouveau (demandé)</p>
+        <p className="capitalize text-slate-700">{d.jour_semaine} · {d.periode} · {d.heure_debut?.slice(0,5)}–{d.heure_fin?.slice(0,5)} · {d.salle_souhaitee_nom || 'à définir'}</p>
+      </div>
+    </div>
+  </section>
+)}
           {demande.message && (
             <section className="border-t pt-5">
               <h2 className="font-semibold text-slate-700 mb-1">Votre message</h2>
               <p className="text-sm text-slate-600">{demande.message}</p>
+            </section>
+          )}
+
+          {demande.statut === 'proposee' && d.propositions?.length > 0 && (
+            <section className="border-t pt-5">
+              <h2 className="font-semibold text-slate-700 mb-2">
+                {d.propositions.length > 1 ? 'Alternatives proposées' : 'Alternative proposée'} par l'administration
+              </h2>
+{d.salle_demandee_occupee && (
+  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-2">
+    La salle {d.salle_souhaitee_nom} que vous aviez demandée était déjà occupée à ce créneau — voici ce que l'administration propose à la place.
+  </p>
+)}
+<p className="text-xs text-slate-400 mb-3">Choisissez l'option qui vous convient, ou refusez toutes les propositions.</p>
+              <div className="space-y-2">
+                {d.propositions.map((p, idx) => (
+                  <div key={idx} className="bg-[#F0F8FF] border border-[#DCEBFA] rounded-xl p-4 flex items-center justify-between gap-4">
+                    <div className="text-sm text-slate-700 capitalize space-y-0.5">
+                      <p><span className="text-slate-400 normal-case">Jour :</span> {p.jour_semaine}</p>
+                      <p><span className="text-slate-400 normal-case">Période :</span> {p.periode}</p>
+                      <p><span className="text-slate-400 normal-case">Horaire :</span> {p.heure_debut?.slice(0,5)} – {p.heure_fin?.slice(0,5)}</p>
+                      <p><span className="text-slate-400 normal-case">Salle :</span> {p.salle_nom}</p>
+                      {p.message_admin && (
+                        <p className="text-slate-500 italic normal-case mt-1">"{p.message_admin}"</p>
+                      )}
+                    </div>
+                    <button
+                      disabled={repondant}
+                      onClick={() => repondreProposition(true, idx)}
+                      className="flex-shrink-0 flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-md text-xs font-medium hover:bg-[#16385f] disabled:opacity-50 transition"
+                    >
+                      Choisir cette option
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {erreurRep && (
+                <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-3">{erreurRep}</p>
+              )}
+
+              <div className="flex justify-end mt-3">
+                <button
+                  disabled={repondant}
+                  onClick={() => repondreProposition(false)}
+                  className="flex items-center gap-1.5 text-xs text-red-500 bg-red-50 px-3.5 py-2 rounded-md hover:bg-red-100 disabled:opacity-50 font-medium transition"
+                >
+                  Refuser toutes les propositions
+                </button>
+              </div>
             </section>
           )}
 

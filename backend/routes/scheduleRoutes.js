@@ -6,7 +6,7 @@ const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 router.get('/me', verifyToken, requireRole('prof'), getProfSchedule);
 router.get('/apercu', verifyToken, getScheduleApercu);
 // Admin
-router.get('/group/:groupId', verifyToken, requireRole('admin'), getGroupSchedule);
+router.get('/group/:groupId', verifyToken, requireRole('admin', 'prof'), getGroupSchedule);
 router.post('/', verifyToken, requireRole('admin'), createSchedule);
 router.put('/:id', verifyToken, requireRole('admin'), updateSchedule);
 router.delete('/:id', verifyToken, requireRole('admin'), deleteSchedule);

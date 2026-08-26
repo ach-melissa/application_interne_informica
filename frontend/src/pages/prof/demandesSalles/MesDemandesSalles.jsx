@@ -56,14 +56,16 @@ const MesDemandesSalles = () => {
   const setV = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
   const [creneaux, setCreneaux] = useState([]);
-const [creneauTemp, setCreneauTemp] = useState({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '' });
+  const [creneauxGroupe, setCreneauxGroupe] = useState([]);
+const [creneauTemp, setCreneauTemp] = useState({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '', ancien_creneau_id: '' });
 const setCT = (k) => (e) => setCreneauTemp((p) => ({ ...p, [k]: e.target.value }));
 
 const ajouterCreneau = () => {
-  const { jour_semaine, periode, heure_debut, heure_fin, type_demande, date_cible } = creneauTemp;
+  const { jour_semaine, periode, heure_debut, heure_fin, type_demande, date_cible, ancien_creneau_id } = creneauTemp;
   if (!jour_semaine || !periode || !heure_debut || !heure_fin || !type_demande || !date_cible) return;
+  if (creneauxGroupe.length > 0 && !ancien_creneau_id) return;
   setCreneaux((p) => [...p, { ...creneauTemp }]);
-  setCreneauTemp({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '' });
+  setCreneauTemp({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '', ancien_creneau_id: '' });
 };
 const retirerCreneau = (idx) => setCreneaux((p) => p.filter((_, i) => i !== idx));
 
@@ -93,7 +95,7 @@ const retirerCreneau = (idx) => setCreneaux((p) => p.filter((_, i) => i !== idx)
   useEffect(() => { load(); }, []);
 
   const openModal = async () => {
-setForm(emptyForm); setCreneaux([]); setCreneauTemp({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '' }); setSubmitError(null); setSubmitSuccess(false); setShowModal(true);
+setForm(emptyForm); setCreneaux([]); setCreneauTemp({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '', ancien_creneau_id: '' }); setSubmitError(null); setSubmitSuccess(false); setShowModal(true);
 const [j, s, g] = await Promise.all([
       fetch(`${API}/api/schedules/jours`, { headers: headers() }),
       fetch(`${API}/api/schedules/salles`, { headers: headers() }),
@@ -103,6 +105,13 @@ const [j, s, g] = await Promise.all([
     if (s.ok) setSalles(await s.json());
     if (g.ok) setMesGroupes(await g.json());
   };
+useEffect(() => {
+  if (!form.groupe_id) { setCreneauxGroupe([]); return; }
+  fetch(`${API}/api/schedules/group/${form.groupe_id}`, { headers: headers() })
+    .then((r) => (r.ok ? r.json() : []))
+    .then(setCreneauxGroupe)
+    .catch(() => setCreneauxGroupe([]));
+}, [form.groupe_id]);
 
   const formations = Array.from(new Map(mesGroupes.map((g) => [g.formation_id, g.formations])).values()).filter(Boolean);
   const groupes = mesGroupes.filter((g) => g.formation_id === form.formation_id);
@@ -283,7 +292,37 @@ const handleSubmit = async (e) => {
                   </div>
 
                   <div className="border border-[#E2E8F0] rounded-lg p-3 space-y-3 bg-[#F8FAFC]">
+                    {form.groupe_id && (
+  <div className="mb-1">
+    <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Créneau actuel à changer/remplacer</p>
+    {creneauxGroupe.length === 0 ? (
+      <p className="text-xs text-slate-400 italic">Aucun créneau existant pour ce groupe.</p>
+    ) : (
+      <div className="space-y-1.5">
+        {creneauxGroupe.map((c) => (
+          <label
+            key={c.id}
+            className={`flex items-center gap-2 border rounded-lg px-3 py-2 text-xs cursor-pointer transition ${
+              creneauTemp.ancien_creneau_id === c.id ? 'border-[#0369A1] bg-[#F0F8FF]' : 'border-[#E2E8F0] hover:bg-slate-50'
+            }`}
+          >
+            <input
+              type="radio"
+              name="ancien_creneau"
+              checked={creneauTemp.ancien_creneau_id === c.id}
+              onChange={() => setCreneauTemp((p) => ({ ...p, ancien_creneau_id: c.id }))}
+            />
+            <span className="capitalize text-slate-700">
+              {c.jour_semaine} · {PERIODES[c.periode] || c.periode} · {c.heure_debut?.slice(0, 5)}–{c.heure_fin?.slice(0, 5)} · {c.salle}
+            </span>
+          </label>
+        ))}
+      </div>
+    )}
+  </div>
+)}
 <p className="text-[10px] text-slate-400 uppercase tracking-wide">Créneaux à changer/remplacer</p>
+
 <div className="grid grid-cols-2 gap-3">
   <Field label="Jour" icon={CalendarDays} value={creneauTemp.jour_semaine} onChange={setCT('jour_semaine')} options={jours} />
   <Field label="Période" icon={Clock} value={creneauTemp.periode} onChange={setCT('periode')} options={Object.entries(PERIODES).map(([value, label]) => ({ value, label }))} />

@@ -4,7 +4,7 @@ const demanderSalle = async (req, res) => {
   const {
     jour_semaine, periode, heure_debut, heure_fin,
     formation_id, groupe_id, type_demande, date_cible,
-    salle_souhaitee_id, message,
+        salle_souhaitee_id, message, ancien_creneau_id,
   } = req.body;
 
   if (!jour_semaine || !periode || !heure_debut || !heure_fin ||
@@ -29,7 +29,17 @@ const demanderSalle = async (req, res) => {
     const { data: s } = await supabase.from('salles').select('nom').eq('id', salle_souhaitee_id).single();
     salle_souhaitee_nom = s?.nom || null;
   }
-
+  let ancienCreneau = null;
+  if (ancien_creneau_id) {
+    const { data: ac, error: acErr } = await supabase
+      .from('schedules')
+      .select('id, jour_semaine, periode, heure_debut, heure_fin, salle, group_id')
+      .eq('id', ancien_creneau_id)
+      .single();
+    if (acErr || !ac) return res.status(400).json({ error: 'Créneau existant introuvable.' });
+    if (ac.group_id !== groupe_id) return res.status(400).json({ error: "Ce créneau n'appartient pas à ce groupe." });
+    ancienCreneau = ac;
+  }
  const { data, error } = await supabase
   .from('notifications')
   .insert({
@@ -48,6 +58,12 @@ const demanderSalle = async (req, res) => {
       salle_souhaitee_id: salle_souhaitee_id || null,
       salle_souhaitee_nom,
       demandeur_nom: `${profUser.prenom} ${profUser.nom}`,
+            ancien_creneau_id: ancienCreneau?.id || null,
+      ancien_jour_semaine: ancienCreneau?.jour_semaine || null,
+      ancien_periode: ancienCreneau?.periode || null,
+      ancien_heure_debut: ancienCreneau?.heure_debut || null,
+      ancien_heure_fin: ancienCreneau?.heure_fin || null,
+      ancien_salle_nom: ancienCreneau?.salle || null,
     },
   })
   .select().single();
@@ -254,6 +270,169 @@ const { data: conflicts, error: conflictErr } = await supabase
   res.json(data);
 };
 
+// ── PATCH /api/notifications/:id/proposer ───────────────────
+// Admin propose un autre jour/heure/salle que ce que le prof a demandé.
+const proposerAlternative = async (req, res) => {
+  const { id } = req.params;
+  const { propositions } = req.body;
+
+  if (!Array.isArray(propositions) || propositions.length === 0) {
+    return res.status(400).json({ error: 'Au moins une proposition est requise.' });
+  }
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('notifications').select('*').eq('id', id).single();
+  if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+
+  if (existing.statut !== 'en_attente') {
+    return res.status(400).json({ error: 'Cette demande a déjà été traitée.' });
+  }
+
+    let salle_demandee_occupee = false;
+  if (existing.data.salle_souhaitee_id) {
+    const { data: salleSouhaitee } = await supabase
+      .from('salles').select('nom').eq('id', existing.data.salle_souhaitee_id).single();
+    if (salleSouhaitee) {
+      const { data: conflictsSouhaitee } = await supabase
+        .from('schedules')
+        .select('id')
+        .eq('salle', salleSouhaitee.nom)
+        .eq('jour_semaine', existing.data.jour_semaine)
+        .eq('periode', existing.data.periode)
+        .lt('heure_debut', existing.data.heure_fin)
+        .gt('heure_fin', existing.data.heure_debut);
+      salle_demandee_occupee = (conflictsSouhaitee?.length || 0) > 0;
+    }
+  }
+
+  const built = [];
+  for (const p of propositions) {
+    const { jour_semaine, periode, heure_debut, heure_fin, salle_id, message_admin } = p;
+    if (!jour_semaine || !periode || !heure_debut || !heure_fin || !salle_id) {
+      return res.status(400).json({ error: 'Chaque option doit avoir un jour, une période, des heures et une salle.' });
+    }
+
+    const { data: salle, error: salleErr } = await supabase
+      .from('salles').select('id, nom').eq('id', salle_id).single();
+    if (salleErr || !salle) return res.status(400).json({ error: 'Salle introuvable.' });
+
+    const { data: conflicts, error: conflictErr } = await supabase
+      .from('schedules')
+      .select('id, heure_debut, heure_fin')
+      .eq('salle', salle.nom)
+      .eq('jour_semaine', jour_semaine)
+      .eq('periode', periode)
+      .lt('heure_debut', heure_fin)
+      .gt('heure_fin', heure_debut);
+    if (conflictErr) return res.status(500).json({ error: conflictErr.message });
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        error: `${salle.nom} est déjà occupée ce jour-là de ${conflicts[0].heure_debut?.slice(0,5)} à ${conflicts[0].heure_fin?.slice(0,5)}.`,
+      });
+    }
+
+    built.push({
+      jour_semaine, periode, heure_debut, heure_fin,
+      salle_id: salle.id, salle_nom: salle.nom,
+      message_admin: message_admin || null,
+    });
+  }
+
+const updatedData = { ...existing.data, propositions: built, salle_demandee_occupee };
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .update({
+      statut: 'proposee',
+      data: updatedData,
+      traite_par: req.user.id,
+      lu: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json(data);
+};
+
+// ── PATCH /api/notifications/:id/repondre-proposition ───────
+// Le prof accepte ou refuse la proposition de l'admin.
+const repondreProposition = async (req, res) => {
+  const { id } = req.params;
+  const { accepte, proposition_index } = req.body;
+
+  if (typeof accepte !== 'boolean') {
+    return res.status(400).json({ error: 'accepte (booléen) requis.' });
+  }
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('notifications').select('*').eq('id', id).single();
+  if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+
+  if (existing.expediteur_id !== req.user.id) {
+    return res.status(403).json({ error: 'Accès refusé.' });
+  }
+  if (existing.statut !== 'proposee') {
+    return res.status(400).json({ error: "Cette demande n'a pas de proposition en attente." });
+  }
+
+  if (!accepte) {
+    const { data, error } = await supabase
+      .from('notifications')
+      .update({ statut: 'refusee', lu: false, updated_at: new Date().toISOString() })
+      .eq('id', id).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+
+  const propositions = existing.data?.propositions || [];
+  const prop = propositions[proposition_index];
+  if (!prop) return res.status(400).json({ error: 'Option introuvable.' });
+
+  const { data: conflicts, error: conflictErr } = await supabase
+    .from('schedules')
+    .select('id, heure_debut, heure_fin')
+    .eq('salle', prop.salle_nom)
+    .eq('jour_semaine', prop.jour_semaine)
+    .eq('periode', prop.periode)
+    .lt('heure_debut', prop.heure_fin)
+    .gt('heure_fin', prop.heure_debut);
+  if (conflictErr) return res.status(500).json({ error: conflictErr.message });
+  if (conflicts.length > 0) {
+    return res.status(409).json({
+      error: `${prop.salle_nom} n'est plus disponible sur ce créneau. Choisissez une autre option.`,
+    });
+  }
+
+  const updatedData = {
+    ...existing.data,
+    jour_semaine: prop.jour_semaine,
+    periode: prop.periode,
+    heure_debut: prop.heure_debut,
+    heure_fin: prop.heure_fin,
+    salle_assignee: prop.salle_id,
+    salle_assignee_nom: prop.salle_nom,
+  };
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .update({
+      statut: 'approuvee',
+      data: updatedData,
+      lu: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+
+  const { error: schedErr } = await creerCreneauDepuisNotification(
+    data, updatedData.salle_assignee, updatedData.salle_assignee_nom
+  );
+  if (schedErr) return res.status(500).json({ error: schedErr.message });
+
+  res.json(data);
+};
+
 // ── POST /api/notifications/:id/repondre ────────────────────
 const repondreNotification = async (req, res) => {
   const { id } = req.params;
@@ -334,12 +513,20 @@ const creerCreneauDepuisNotification = async (notif, salleId, salleNom) => {
   const veille = new Date(d.date_cible);
   veille.setDate(veille.getDate() - 1);
 
-  await supabase
-    .from('schedules')
-    .update({ expire_le: veille.toISOString().slice(0, 10) })
-    .eq('group_id', d.groupe_id)
-    .eq('jour_semaine', d.jour_semaine)
-    .is('type_special', null);
+  if (d.ancien_creneau_id) {
+    await supabase
+      .from('schedules')
+      .update({ expire_le: veille.toISOString().slice(0, 10) })
+      .eq('id', d.ancien_creneau_id);
+  } else {
+    // anciennes demandes créées avant cette évolution (pas d'ancien_creneau_id)
+    await supabase
+      .from('schedules')
+      .update({ expire_le: veille.toISOString().slice(0, 10) })
+      .eq('group_id', d.groupe_id)
+      .eq('jour_semaine', d.jour_semaine)
+      .is('type_special', null);
+  }
 
   return supabase.from('schedules').insert({
     group_id: d.groupe_id,
@@ -363,5 +550,7 @@ module.exports = {
   marquerLu,
   traiterNotification,
   modifierSalleAssignee,
+  proposerAlternative,
+  repondreProposition,
   repondreNotification,
 };
