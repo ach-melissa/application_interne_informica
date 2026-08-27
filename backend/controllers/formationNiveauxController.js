@@ -33,9 +33,9 @@ const setFormationNiveaux = async (req, res) => {
     return res.status(400).json({ error: 'niveaux doit être un tableau.' });
   }
 
-  const { data: formation, error: fErr } = await supabase
+    const { data: formation, error: fErr } = await supabase
   .from('formations')
-  .select('prix_uniforme, duree_uniforme, type_duree_uniforme, echeancier_uniforme, capacite_uniforme')
+  .select('prix, prix_etudiant, prix_uniforme, duree_uniforme, type_duree_uniforme, echeancier_uniforme, capacite_uniforme')
   .eq('id', id)
   .single();
   if (fErr) return res.status(500).json({ error: fErr.message });
@@ -71,8 +71,10 @@ const setFormationNiveaux = async (req, res) => {
       return res.status(400).json({ error: `Montant invalide pour une période du niveau "${n.nom}".` });
     }
   }
-  const sum = n.periods.reduce((s, p) => s + Number(p.montant), 0);
-  const expected = Number(n.prix);
+    const sum = n.periods.reduce((s, p) => s + Number(p.montant), 0);
+  const expected = formation.prix_uniforme
+    ? Number(formation.prix_etudiant ?? formation.prix ?? 0)
+    : Number(n.prix);
   if (Math.abs(sum - expected) > 0.01) {
     return res.status(400).json({
       error: `Le total des tranches du niveau "${n.nom}" (${sum.toLocaleString('fr-FR')} DA) doit être égal à son prix (${expected.toLocaleString('fr-FR')} DA).`,

@@ -59,7 +59,7 @@ const getFormationById = async (req, res) => {
 
   if (nErr) return res.status(500).json({ error: nErr.message });
 
-  const niveauxWithCounts = await Promise.all(
+    const niveauxWithCounts = await Promise.all(
     (niveaux ?? []).map(async (n) => {
       const { count: nb_groupes } = await supabase
         .from('groups')
@@ -74,7 +74,13 @@ const getFormationById = async (req, res) => {
         .eq('statut', 'confirmed')
         .eq('archived', false);
 
-      return { ...n, nb_groupes: nb_groupes ?? 0, nb_etudiants: nb_etudiants ?? 0 };
+      const { data: periods } = await supabase
+        .from('formation_payment_periods')
+        .select('jours_offset, montant')
+        .eq('niveau_id', n.id)
+        .order('numero', { ascending: true });
+
+      return { ...n, nb_groupes: nb_groupes ?? 0, nb_etudiants: nb_etudiants ?? 0, periods: periods ?? [] };
     })
   );
 

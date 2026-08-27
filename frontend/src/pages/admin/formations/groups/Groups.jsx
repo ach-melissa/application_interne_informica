@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Users, Pencil, Trash2, X, ChevronRight, Search, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Users, Pencil, Trash2, X, ChevronRight, Search, AlertTriangle, Archive } from 'lucide-react';
 import AdminLayout from '../../../../layouts/AdminLayout';
 import GroupFormModal from './GroupFormModal';
 
@@ -180,21 +180,22 @@ const Groups = () => {
             </div>
           )}
 
-          {archivingGroup && (
-            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-              <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-sm mx-4 space-y-3">
-                <p className="text-sm font-medium text-slate-800">Archiver ce groupe ?</p>
-                <select value={archiveYear} onChange={e => setArchiveYear(e.target.value)} className="w-full border border-[#F1F5F9] rounded-lg px-3 py-2 text-sm">
-                  <option value="">— Année scolaire (optionnel) —</option>
-                  {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => { setArchivingGroup(null); setArchiveYear(''); }} className="text-xs px-3 py-1.5 rounded-lg border border-[#F1F5F9] text-slate-500 hover:bg-slate-50">Annuler</button>
-                  <button onClick={confirmArchiveGroup} className="text-xs px-3 py-1.5 rounded-lg bg-slate-500 text-white hover:bg-slate-600">Archiver</button>
-                </div>
-              </div>
-            </div>
-          )}
+         {archivingGroup && (
+  <Dialog title="Archiver le groupe" iconBg="bg-slate-500" icon={Archive} onClose={() => { setArchivingGroup(null); setArchiveYear(''); }}
+    actions={<>
+      <button onClick={() => { setArchivingGroup(null); setArchiveYear(''); }} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">Annuler</button>
+      <button onClick={confirmArchiveGroup} className="text-xs px-3 py-1.5 rounded-md bg-slate-500 text-white hover:bg-slate-600">Archiver</button>
+    </>}>
+    <div className="space-y-2.5">
+      <p className="text-xs text-slate-500">Ce groupe sera déplacé vers les archives.</p>
+      <select value={archiveYear} onChange={e => setArchiveYear(e.target.value)}
+        className="w-full bg-[#F8FAFC] border border-transparent rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors">
+        <option value="">— Année scolaire (optionnel) —</option>
+        {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
+    </div>
+  </Dialog>
+)}
 
           {confirmDelete && (
             <Dialog title="Supprimer le groupe" iconBg="bg-red-500" icon={Trash2} onClose={() => setConfirmDelete(null)}
@@ -222,8 +223,8 @@ const Groups = () => {
         </>
       )}
 
-      {showModal && (
-        <GroupFormModal formation_id={formation_id} niveauId={niveauId} formation={formation} teachers={teachers}
+           {showModal && (
+        <GroupFormModal formation_id={formation_id} niveauId={niveauId} formation={formation} niveau={niveau} teachers={teachers}
           editGroup={editGroup} onClose={closeModal} onSaved={onSaved} />
       )}
     </AdminLayout>

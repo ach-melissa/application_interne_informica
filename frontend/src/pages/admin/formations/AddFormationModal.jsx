@@ -267,16 +267,16 @@ useEffect(() => {
                   <input type="number" min="0" step="0.01" value={form.prix} onChange={set('prix')} className={inp} placeholder="0" />
                 </div>
               )}
-              {showGlobalDuree && (
-                <div>
+                           {showGlobalDuree && (
+                <div className="min-w-0">
                   <Label icon={Clock} text={form.a_niveaux ? 'Durée totale' : 'Durée'} required />
-                  <div className="flex gap-1.5">
-                    <select value={form.type_duree} onChange={e => setForm(p => ({ ...p, type_duree: e.target.value }))} className={`${inp} w-[88px] flex-shrink-0`}>
+                  <div className="flex gap-1.5 min-w-0">
+                    <input type="number" min="1" value={form.heures} onChange={set('heures')} className={`${inp} flex-1 min-w-0`}
+                      placeholder={form.type_duree === 'seances' ? 'Nb séances' : 'Nb heures'} />
+                    <select value={form.type_duree} onChange={e => setForm(p => ({ ...p, type_duree: e.target.value }))} className={`${inp} w-[90px] flex-shrink-0 text-[11px]`}>
                       <option value="heures">Heures</option>
                       <option value="seances">Séances</option>
                     </select>
-                    <input type="number" min="1" value={form.heures} onChange={set('heures')} className={`${inp} flex-1 min-w-0`}
-                      placeholder={form.type_duree === 'seances' ? 'Nb séances' : 'Nb heures'} />
                   </div>
                 </div>
               )}
@@ -284,16 +284,17 @@ useEffect(() => {
           )}
 
           {form.a_niveaux && (
-            <NiveauxEditor
-              niveaux={niveaux}
-              setNiveaux={setNiveaux}
-              prixUniforme={form.prix_uniforme}
-              dureeUniforme={form.duree_uniforme}
-              typeDureeUniforme={form.type_duree_uniforme}
-              typeDureeDefault={form.type_duree}
-              echeancierUniforme={form.echeancier_uniforme}
-              capaciteUniforme={form.capacite_uniforme}
-            />
+           <NiveauxEditor
+  niveaux={niveaux}
+  setNiveaux={setNiveaux}
+  prixUniforme={form.prix_uniforme}
+  globalPrix={form.prix}
+  dureeUniforme={form.duree_uniforme}
+  typeDureeUniforme={form.type_duree_uniforme}
+  typeDureeDefault={form.type_duree}
+  echeancierUniforme={form.echeancier_uniforme}
+  capaciteUniforme={form.capacite_uniforme}
+/>
           )}
 
           {/* Description */}

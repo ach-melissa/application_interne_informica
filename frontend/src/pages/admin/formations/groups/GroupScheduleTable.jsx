@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
 const inp = 'w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors';
-const Label = ({ icon: Icon, text }) => (
+const Label = ({ icon: Icon, text, required }) => (
   <p className="flex items-center gap-1 text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">
-    {Icon && <Icon size={10} className="text-[#0369A1]" />}{text}
+    {Icon && <Icon size={10} className="text-[#0369A1]" />}{text}{required && <span className="text-red-500 ml-0.5">*</span>}
   </p>
 );
 
@@ -109,21 +109,24 @@ export default function GroupScheduleTable({ groupId, staged, onAddStaged, onRem
     <div className="space-y-4">
       <p className="text-[10px] text-slate-400">Cliquez une case libre de la grille pour y ajouter un créneau.</p>
 
-      {showForm && (
-        <div className="border border-[#0369A1]/30 rounded-xl p-3 space-y-2 bg-[#F0F9FF]">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-[#0369A1] capitalize">{salle} · {jour} · {periode === 'matin' ? 'Matin' : 'Midi'}</p>
-            <button type="button" onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div><Label text="Heure début" /><input type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} className={inp} /></div>
-            <div><Label text="Heure fin" /><input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} className={inp} /></div>
-          </div>
-          <button onClick={handleAdd} disabled={saving || !heureDebut || !heureFin} className="w-full text-xs py-1.5 rounded-lg bg-[#0F2A4A] text-white disabled:opacity-40">
-            {saving ? 'Ajout...' : 'Ajouter au planning'}
-          </button>
-        </div>
-      )}
+     {showForm && (
+  <div className="border border-slate-200 rounded-lg p-3 space-y-2.5 bg-white shadow-sm">
+    <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+      <p className="text-xs font-semibold text-[#1E293B]">
+        <span className="capitalize">{salle}</span> · <span className="capitalize">{jour}</span> · {periode === 'matin' ? 'Matin' : 'Midi'}
+      </p>
+      <button type="button" onClick={() => setShowForm(false)} className="text-slate-300 hover:text-slate-600"><X size={14} /></button>
+    </div>
+    <div className="grid grid-cols-2 gap-2">
+     <div><Label text="Heure début" required /><input type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} className={inp} /></div>
+<div><Label text="Heure fin" required /><input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} className={inp} /></div>
+    </div>
+    <button onClick={handleAdd} disabled={saving || !heureDebut || !heureFin}
+      className="w-full flex items-center justify-center gap-1 text-xs font-medium py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 disabled:shadow-none disabled:translate-y-0 transition-all">
+      {saving ? 'Ajout...' : 'Ajouter au planning'}
+    </button>
+  </div>
+)}
 
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-[10px] border-collapse">

@@ -34,7 +34,8 @@ const getGroupsByFormation = async (req, res) => {
 };
 
 const createGroup = async (req, res) => {
-  const { nom, formation_id, niveau_id, teacher_id, en_promotion, prix_promotion, date_debut } = req.body;
+const { nom, formation_id, niveau_id, teacher_id, en_promotion, prix_promotion, date_debut,
+        use_default_duree, duree_valeur, type_duree } = req.body;
 
   if (!nom || !formation_id) {
     return res.status(400).json({ error: 'Nom et formation sont obligatoires.' });
@@ -46,18 +47,24 @@ const createGroup = async (req, res) => {
     .eq('id', formation_id)
     .single();
   if (fErr) return res.status(500).json({ error: fErr.message });
-  if (formation.a_niveaux && !niveau_id) {
+    if (formation.a_niveaux && !niveau_id) {
     return res.status(400).json({ error: 'Cette formation nécessite un niveau.' });
+  }
+  if (use_default_duree === false && (!duree_valeur || isNaN(duree_valeur) || Number(duree_valeur) <= 0)) {
+    return res.status(400).json({ error: 'La durée personnalisée du groupe doit être un nombre valide.' });
   }
 
   const { data, error } = await supabase
     .from('groups')
-    .insert({
+        .insert({
       nom, formation_id, niveau_id: niveau_id || null, teacher_id: teacher_id || null,
       en_promotion: !!en_promotion,
       prix_promotion: en_promotion ? (prix_promotion || null) : null,
       date_debut: date_debut || null,
       use_default_periods: true,
+      use_default_duree: use_default_duree === undefined ? true : !!use_default_duree,
+      duree_valeur: use_default_duree === false ? Number(duree_valeur) : null,
+      type_duree: use_default_duree === false ? (type_duree || 'heures') : null,
     })
     .select()
     .single();
@@ -70,10 +77,16 @@ const updateGroup = async (req, res) => {
   const { id } = req.params;
   const updates = { ...req.body };
 
-  // Postgres refuse '' pour une colonne `date`
  if (updates.date_debut === '') updates.date_debut = null;
   if (updates.date_fin === '') updates.date_fin = null;
 
+  if (updates.use_default_duree === false && (!updates.duree_valeur || isNaN(updates.duree_valeur) || Number(updates.duree_valeur) <= 0)) {
+    return res.status(400).json({ error: 'La durée personnalisée du groupe doit être un nombre valide.' });
+  }
+  if (updates.use_default_duree === true) {
+    updates.duree_valeur = null;
+    updates.type_duree = null;
+  }
   // Jamais de prix promo si la promo est désactivée
   if ('en_promotion' in updates) {
     updates.prix_promotion = updates.en_promotion ? (updates.prix_promotion || null) : null;
@@ -141,20 +154,31 @@ const archiveGroup = async (req, res) => {
   const { id } = req.params;
   const { annee_scolaire } = req.body || {};
 
-  const updates = { archived: true };
-  if (annee_scolaire?.trim()) updates.annee_scolaire = annee_scolaire.trim();
+  const groupUpdates = { archived: true };
+  if (annee_scolaire?.trim()) groupUpdates.annee_scolaire = annee_scolaire.trim();
 
   const { data, error } = await supabase
     .from('groups')
-    .update(updates)
+    .update(groupUpdates)
     .eq('id', id)
     .select()
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  // Archiver aussi les étudiants inscrits dans ce groupe, avec la même année scolaire.
+  const inscriptionUpdates = { archived: true };
+  if (annee_scolaire?.trim()) inscriptionUpdates.annee_scolaire = annee_scolaire.trim();
+
+  const { error: insErr } = await supabase
+    .from('inscriptions')
+    .update(inscriptionUpdates)
+    .eq('group_id', id);
+
+  if (insErr) return res.status(500).json({ error: insErr.message });
+
   res.json(data);
 };
-
 const restoreGroup = async (req, res) => {
   const { id } = req.params;
 
@@ -187,13 +211,21 @@ const getGroupEtudiants = async (req, res) => {
 };
 const getUnassignedStudents = async (req, res) => {
   const { formation_id } = req.params;
+  const { niveau_id } = req.query;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('inscriptions')
-    .select('id, etudiant_id, etudiant:etudiant_id(id, nom, prenom, telephone)')
+    .select('id, etudiant_id, niveau_id, etudiant:etudiant_id(id, nom, prenom, telephone)')
     .eq('formation_id', formation_id)
     .eq('statut', 'confirmed')
+    .eq('archived', false)          // 👈 ligne ajoutée
     .is('group_id', null);
+
+  if (niveau_id) {
+    query = query.or(`niveau_id.eq.${niveau_id},niveau_id.is.null`);
+  }
+
+  const { data, error } = await query;
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -203,15 +235,16 @@ const getGroupPeriods = async (req, res) => {
 
  const { data: group, error: gErr } = await supabase
   .from('groups')
-  .select('en_promotion, prix_promotion, date_debut, formation:formation_id(prix, prix_etudiant)')
+  .select('formation_id, niveau_id, use_default_periods, en_promotion, prix_promotion, date_debut, formation:formation_id(prix, prix_etudiant, prix_uniforme), niveau:niveau_id(prix)')
   .eq('id', id)
   .single();
 if (gErr) return res.status(500).json({ error: gErr.message });
-  const { data: formationPeriods } = await supabase
+  let periodsQuery = supabase
     .from('formation_payment_periods')
     .select('numero, jours_offset, montant')
-    .eq('formation_id', group.formation_id)
-    .order('numero', { ascending: true });
+    .eq('formation_id', group.formation_id);
+  periodsQuery = group.niveau_id ? periodsQuery.eq('niveau_id', group.niveau_id) : periodsQuery.is('niveau_id', null);
+  const { data: formationPeriods } = await periodsQuery.order('numero', { ascending: true });
 
   let groupPeriods = [];
   if (!group.use_default_periods) {
@@ -224,9 +257,12 @@ if (gErr) return res.status(500).json({ error: gErr.message });
   }
 
   const resolved = resolveGroupPeriods(group, formationPeriods ?? [], groupPeriods);
+  const basePrice = group.formation?.prix_uniforme === false
+    ? Number(group.niveau?.prix ?? 0)
+    : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
   const expected_total = group.en_promotion && group.prix_promotion != null
     ? Number(group.prix_promotion)
-    : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
+    : basePrice;
 
   res.json({
     use_default_periods: group.use_default_periods,
@@ -260,14 +296,18 @@ const setGroupPeriods = async (req, res) => {
 
 const { data: group, error: gErr } = await supabase
     .from('groups')
-    .select('en_promotion, prix_promotion, date_debut, formation:formation_id(prix, prix_etudiant)')
+    .select('en_promotion, prix_promotion, date_debut, niveau_id, formation:formation_id(prix, prix_etudiant, prix_uniforme), niveau:niveau_id(prix)')
     .eq('id', id)
     .single();
   if (gErr) return res.status(500).json({ error: gErr.message });
 
+  const expectedBasePrice = group.formation?.prix_uniforme === false
+    ? Number(group.niveau?.prix ?? 0)
+    : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
+
   const expectedTotal = group.en_promotion && group.prix_promotion != null
     ? Number(group.prix_promotion)
-    : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
+    : expectedBasePrice;
 
   const sum = periods.reduce((s, p) => s + Number(p.montant), 0);
   if (Math.abs(sum - expectedTotal) > 0.01) {

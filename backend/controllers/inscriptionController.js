@@ -54,7 +54,7 @@ const markAttestationsPrinted = async (req, res) => {
 
 const assignToGroup = async (req, res) => {
   const { id } = req.params; // inscription_id
-  const { group_id } = req.body;
+  const { group_id, niveau_id } = req.body;
 
   const { data: current } = await supabase
     .from('inscriptions').select('groups(date_fin)').eq('id', id).single();
@@ -67,9 +67,12 @@ const assignToGroup = async (req, res) => {
     }
   }
 
+  const updates = { group_id: group_id || null };
+  if (niveau_id !== undefined) updates.niveau_id = niveau_id || null;
+
   const { data, error } = await supabase
     .from('inscriptions')
-    .update({ group_id })
+    .update(updates)
     .eq('id', id)
     .select()
     .single();

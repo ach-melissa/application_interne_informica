@@ -2,7 +2,7 @@ import { X, Layers } from 'lucide-react';
 
 const inpSm = 'bg-white border border-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors';
 
-const NiveauxEditor = ({ niveaux, setNiveaux, prixUniforme, dureeUniforme, typeDureeUniforme, typeDureeDefault, echeancierUniforme, capaciteUniforme }) => {
+const NiveauxEditor = ({ niveaux, setNiveaux, prixUniforme, globalPrix, dureeUniforme, typeDureeUniforme, typeDureeDefault, echeancierUniforme, capaciteUniforme }) => {
   const addNiveau = () => setNiveaux(prev => [...prev, { nom: '', prix: '', duree_valeur: '', type_duree: '', periods: [], capacite_groupe: '' }]);
   const removeNiveau = idx => setNiveaux(prev => prev.filter((_, i) => i !== idx));
   const updateNiveau = (idx, field, value) => setNiveaux(prev => prev.map((n, i) => (i === idx ? { ...n, [field]: value } : n)));
@@ -10,7 +10,8 @@ const NiveauxEditor = ({ niveaux, setNiveaux, prixUniforme, dureeUniforme, typeD
   const addPeriod = idx => setNiveaux(prev => prev.map((n, i) => i === idx ? { ...n, periods: [...(n.periods || []), { jours_offset: 0, montant: '' }] } : n));
   const removePeriod = (idx, pIdx) => setNiveaux(prev => prev.map((n, i) => i === idx ? { ...n, periods: n.periods.filter((_, pi) => pi !== pIdx) } : n));
   const updatePeriod = (idx, pIdx, field, value) => setNiveaux(prev => prev.map((n, i) => i === idx ? { ...n, periods: n.periods.map((p, pi) => pi === pIdx ? { ...p, [field]: value } : p) } : n));
-  const unitLabel = u => (u === 'seances' ? 'séances' : 'h');
+    const unitLabel = u => (u === 'seances' ? 'séances' : 'h');
+  const effectivePrice = n => (prixUniforme ? Number(globalPrix || 0) : Number(n.prix || 0));
   const showPerLevelDuree = !dureeUniforme;
   const showPerLevelUnite = !dureeUniforme && !typeDureeUniforme;
 
@@ -57,7 +58,7 @@ const NiveauxEditor = ({ niveaux, setNiveaux, prixUniforme, dureeUniforme, typeD
           {niveaux.map((n, idx) => {
             const levelPeriods = n.periods || [];
             const levelTotal = levelPeriods.reduce((s, p) => s + (Number(p.montant) || 0), 0);
-            const levelPrice = Number(n.prix || 0);
+                        const levelPrice = effectivePrice(n);
             const levelMismatch = levelPeriods.length > 0 && levelPrice > 0 && Math.abs(levelTotal - levelPrice) > 0.01;
 
             return (
