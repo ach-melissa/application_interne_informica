@@ -11,6 +11,7 @@ const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}
 const STATUT_STYLE = { en_attente: 'bg-amber-50 text-amber-600', approuvee: 'bg-emerald-50 text-emerald-600', refusee: 'bg-red-50 text-red-500' };
 const STATUT_LABEL = { en_attente: 'En attente', approuvee: 'Approuvée', refusee: 'Refusée' };
 const PERIODES = { matin: 'Matin', midi: 'A Midi' };
+const PERIODE_BORNES = { matin: ['08:00', '13:00'], midi: ['13:00', '16:00'] };
 const inp = 'w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 disabled:bg-slate-50';
 
 const StatCard = ({ icon: Icon, label, value, color }) => (
@@ -60,10 +61,20 @@ const MesDemandesSalles = () => {
 const [creneauTemp, setCreneauTemp] = useState({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '', ancien_creneau_id: '' });
 const setCT = (k) => (e) => setCreneauTemp((p) => ({ ...p, [k]: e.target.value }));
 
+const [erreurCreneau, setErreurCreneau] = useState(null);
+
 const ajouterCreneau = () => {
   const { jour_semaine, periode, heure_debut, heure_fin, type_demande, date_cible, ancien_creneau_id } = creneauTemp;
-  if (!jour_semaine || !periode || !heure_debut || !heure_fin || !type_demande || !date_cible) return;
-  if (creneauxGroupe.length > 0 && !ancien_creneau_id) return;
+  setErreurCreneau(null);
+  if (!jour_semaine || !periode || !heure_debut || !heure_fin || !type_demande || !date_cible) {
+    return setErreurCreneau('Merci de remplir tous les champs.');
+  }
+  if (creneauxGroupe.length > 0 && !ancien_creneau_id) {
+    return setErreurCreneau('Sélectionnez le créneau existant à changer/remplacer.');
+  }
+  if (heure_debut < '08:00' || heure_fin > '16:00' || heure_debut >= heure_fin) {
+    return setErreurCreneau('Les horaires doivent être compris entre 08:00 et 16:00.');
+  }
   setCreneaux((p) => [...p, { ...creneauTemp }]);
   setCreneauTemp({ jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', type_demande: '', date_cible: '', salle_souhaitee_id: '', ancien_creneau_id: '' });
 };
@@ -84,9 +95,13 @@ const retirerCreneau = (idx) => setCreneaux((p) => p.filter((_, i) => i !== idx)
     setShowEmploi((v) => !v);
   };
 
-    const getOccupants = (salleNom, jour, periode) =>
-    emploiData.filter((s) => s.salle === salleNom && s.jour_semaine === jour && s.periode === periode);
-
+const getOccupants = (salleNom, jour, periode) => {
+  const [debut, fin] = PERIODE_BORNES[periode] || ['08:00', '16:00'];
+  return emploiData.filter((s) =>
+    s.salle === salleNom && s.jour_semaine === jour &&
+    s.heure_debut < fin && s.heure_fin > debut
+  );
+};
   const load = async () => {
     const res = await fetch(`${API}/api/notifications/mes-demandes`, { headers: headers() });
     if (res.ok) setDemandes(await res.json());
@@ -326,8 +341,8 @@ const handleSubmit = async (e) => {
 <div className="grid grid-cols-2 gap-3">
   <Field label="Jour" icon={CalendarDays} value={creneauTemp.jour_semaine} onChange={setCT('jour_semaine')} options={jours} />
   <Field label="Période" icon={Clock} value={creneauTemp.periode} onChange={setCT('periode')} options={Object.entries(PERIODES).map(([value, label]) => ({ value, label }))} />
-  <Field label="Heure début" icon={Clock} type="time" value={creneauTemp.heure_debut} onChange={setCT('heure_debut')} />
-  <Field label="Heure fin" icon={Clock} type="time" value={creneauTemp.heure_fin} onChange={setCT('heure_fin')} />
+  <Field label="Heure début" icon={Clock} type="time" value={creneauTemp.heure_debut} onChange={setCT('heure_debut')} min="08:00" max="16:00" />
+  <Field label="Heure fin" icon={Clock} type="time" value={creneauTemp.heure_fin} onChange={setCT('heure_fin')}  min="08:00" max="16:00"/>
   <Field label="Type de demande" icon={Repeat} value={creneauTemp.type_demande}
     onChange={(e) => setCreneauTemp((p) => ({ ...p, type_demande: e.target.value, date_cible: '' }))}
     options={[{ value: 'remplacement', label: 'Remplacement (un jour)' }, { value: 'changement', label: "Changement d'horaire" }]} />
@@ -336,6 +351,9 @@ const handleSubmit = async (e) => {
   <Field label="Salle souhaitée (optionnel)" icon={DoorOpen} value={creneauTemp.salle_souhaitee_id} onChange={setCT('salle_souhaitee_id')}
     options={salles.map((s) => ({ value: s.id, label: s.nom }))} />
 </div>
+{erreurCreneau && (
+  <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{erreurCreneau}</p>
+)}
                     <button type="button" onClick={ajouterCreneau}
                       className="w-full text-xs font-medium text-[#0369A1] bg-[#DCEBFA]/50 hover:bg-[#DCEBFA] rounded-lg px-3 py-2 transition">
                       + Ajouter ce créneau

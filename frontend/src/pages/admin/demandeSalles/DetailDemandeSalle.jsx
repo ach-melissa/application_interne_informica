@@ -18,6 +18,7 @@ const STATUT_LABEL = {
 };
 
 const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && aEnd > bStart;
+const PERIODE_BORNES = { matin: ['08:00', '13:00'], midi: ['13:00', '16:00'] };
 
 const DetailDemandeSalle = () => {
   const { id } = useParams();
@@ -91,7 +92,6 @@ const conflictsForSalle = (salleNom) => {
   return emploiData.filter((s) =>
     s.salle === salleNom &&
     s.jour_semaine === d.jour_semaine &&
-    s.periode === d.periode &&
     overlaps(s.heure_debut, s.heure_fin, d.heure_debut, d.heure_fin)
   );
 };
@@ -352,8 +352,8 @@ const conflictsForSalle = (salleNom) => {
                                 {s.nom}
                               </td>
                               {jours.map((j) => {
-                                const matinList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine === j && e.periode === 'matin');
-                                const midiList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine === j && e.periode === 'midi');
+const matinList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine === j && overlaps(e.heure_debut, e.heure_fin, ...PERIODE_BORNES.matin));
+const midiList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine === j && overlaps(e.heure_debut, e.heure_fin, ...PERIODE_BORNES.midi));
                                 const highlight = j === d.jour_semaine;
                                 return (
                                   <>

@@ -19,10 +19,25 @@ const DEMANDE_SALLE_STATUT_LABEL = {
   en_attente: 'En attente de réponse',
   approuvee: 'Approuvée',
   refusee: 'Refusée',
+  proposee: 'Alternative proposée',
 };
 
 const getDemandeSalleText = (n, isAdmin) => {
   if (isAdmin) {
+    const viaProposition = (n.data?.propositions?.length || 0) > 0;
+
+    if (n.statut === 'approuvee' && viaProposition) {
+      return {
+        title: 'Proposition acceptée',
+        subtitle: `${n.data?.demandeur_nom || '—'} a choisi une option — salle : ${n.data?.salle_assignee_nom || '—'}`,
+      };
+    }
+    if (n.statut === 'refusee' && viaProposition) {
+      return {
+        title: 'Proposition refusée',
+        subtitle: `${n.data?.demandeur_nom || '—'} a refusé toutes les options proposées`,
+      };
+    }
     return {
       title: 'Nouvelle demande de salle',
       subtitle: n.data?.demandeur_nom || n.message || n.titre,
@@ -34,6 +49,7 @@ const getDemandeSalleText = (n, isAdmin) => {
   const title =
     n.statut === 'approuvee' ? 'Demande approuvée' :
     n.statut === 'refusee' ? 'Demande refusée' :
+    n.statut === 'proposee' ? 'Alternative proposée' :
     'Demande envoyée';
 
   let subtitle;
@@ -41,6 +57,8 @@ const getDemandeSalleText = (n, isAdmin) => {
     subtitle = `Salle : ${n.data?.salle_assignee_nom || '—'}${n.traite_par_nom ? ` — par ${n.traite_par_nom}` : ''}`;
   } else if (n.statut === 'refusee') {
     subtitle = n.traite_par_nom ? `Par ${n.traite_par_nom}` : statutLabel;
+  } else if (n.statut === 'proposee') {
+    subtitle = `${n.data?.propositions?.length || 0} option(s) — merci de confirmer`;
   } else {
     subtitle = statutLabel;
   }
