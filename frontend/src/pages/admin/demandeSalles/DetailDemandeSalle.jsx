@@ -153,14 +153,21 @@ const conflictsForSalle = (salleNom) => {
     setSubmitting(false);
   };
 
-    const envoyerProposition = async () => {
-    const incomplete = propositionsForms.some(
-      (p) => !p.jour_semaine || !p.periode || !p.heure_debut || !p.heure_fin || !p.salle_id
-    );
-    if (incomplete) {
-      setErreur('Merci de remplir tous les champs de chaque option.');
-      return;
-    }
+const envoyerProposition = async () => {
+  const incomplete = propositionsForms.some(
+    (p) => !p.jour_semaine || !p.periode || !p.heure_debut || !p.heure_fin || !p.salle_id
+  );
+  if (incomplete) {
+    setErreur('Merci de remplir tous les champs de chaque option.');
+    return;
+  }
+  const horsBornes = propositionsForms.some(
+    (p) => p.heure_debut < '08:00' || p.heure_fin > '16:00'
+  );
+  if (horsBornes) {
+    setErreur('Les horaires proposés doivent être entre 08:00 et 16:00.');
+    return;
+  }
     setSubmitting(true);
     setErreur(null);
     const res = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/${id}/proposer`, {
@@ -505,8 +512,8 @@ const midiList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine ==
                           <option value="matin">Matin</option>
                           <option value="midi">À midi</option>
                         </select>
-                        <input type="time" value={pf.heure_debut} onChange={setPropField(idx, 'heure_debut')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                        <input type="time" value={pf.heure_fin} onChange={setPropField(idx, 'heure_fin')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        <input type="time" value={pf.heure_debut}  min="08:00" max="16:00" onChange={setPropField(idx, 'heure_debut')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        <input type="time" value={pf.heure_fin} min="08:00" max="16:00" onChange={setPropField(idx, 'heure_fin')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                         <select value={pf.salle_id} onChange={setPropField(idx, 'salle_id')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm col-span-2">
                           <option value="">Salle</option>
                           {salles.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
