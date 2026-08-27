@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   upload, getEtudiants, updateInscription, createEtudiant, updateEtudiant,
-  deleteEtudiant, getGroupsByFormation, assignGroup, archiveInscription, restoreInscription,
+  deleteEtudiant, getGroupsByFormation, assignGroup, archiveInscription, archiveMultipleInscriptions, restoreInscription,
   getInscriptionStatutOptions,
 } = require('../controllers/etudiantController');
 const { verifyToken, requireRole, verifyTokenOptional } = require('../middleware/authMiddleware');
@@ -15,6 +15,7 @@ router.get('/', verifyToken, getEtudiants);
 router.get('/statut-options', verifyToken, getInscriptionStatutOptions);
 router.patch('/etudiant/:id', verifyToken, upload.fields([{ name: 'photo', maxCount: 1 }, { name: 'piece_identite', maxCount: 1 }]), updateEtudiant);
 router.get('/formations/:formation_id/groups', verifyToken, getGroupsByFormation);
+router.patch('/archive-multiple', verifyToken, archiveMultipleInscriptions);
 router.patch('/:id/archive', verifyToken, archiveInscription);
 router.patch('/:id/restore', verifyToken, restoreInscription);
 router.patch('/:id/group', verifyToken, assignGroup);

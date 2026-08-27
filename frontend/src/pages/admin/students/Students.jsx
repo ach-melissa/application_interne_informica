@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react';
 import {
-  Search, Plus, X, CheckCircle2, Phone, PhoneCall, Users,Radio, UserCheck, CalendarDays, Megaphone, MapPin, UserCircle, UserX, Clock, ChevronDown,Layers, 
+  Search, Plus, X, CheckCircle2, Phone, PhoneCall, Users, Radio, UserCheck, CalendarDays, Megaphone, MapPin, UserCircle, UserX, Clock, ChevronDown, Layers, Archive,
 } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddEtudiantModal from './AddEtudiantModal';
 import EtudiantDetailModal from './EtudiantDetailModal';
 
 const API = import.meta.env.VITE_API_URL;
-
+const getAnneesScolaires = () => {
+  const now = new Date();
+  const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+  const years = [];
+  for (let y = startYear + 1; y >= startYear - 5; y--) years.push(`${y}-${y + 1}`);
+  return years;
+};
 
 const statutMeta = {
   confirmed:     { label: 'Confirmé',     cls: 'bg-[#DCEBFA] text-[#0369A1]' },
@@ -107,6 +113,41 @@ const [thirdTryOpts, setThirdTryOpts]   = useState([]);
   const [showAdd, setShowAdd]       = useState(false);
   const [selected, setSelected]     = useState(null);
   const [statutOpts, setStatutOpts] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+const [showBulkArchive, setShowBulkArchive] = useState(false);
+const [bulkArchiveYear, setBulkArchiveYear] = useState('');
+const [bulkArchiving, setBulkArchiving] = useState(false);
+const [bulkError, setBulkError] = useState(null);
+
+const toggleSelect = (id) => setSelectedIds(prev => {
+  const next = new Set(prev);
+  next.has(id) ? next.delete(id) : next.add(id);
+  return next;
+});
+const toggleSelectAll = () => setSelectedIds(prev =>
+  prev.size === filtered.length ? new Set() : new Set(filtered.map(i => i.id))
+);
+
+const doBulkArchive = async () => {
+  setBulkArchiving(true); setBulkError(null);
+  try {
+    const res = await fetch(`${API}/api/etudiants/archive-multiple`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: JSON.stringify({ ids: [...selectedIds], annee_scolaire: bulkArchiveYear || null }),
+    });
+    if (!res.ok) throw new Error((await res.json())?.error || 'Archivage échoué');
+    refetch();
+    setSelectedIds(new Set());
+    setShowBulkArchive(false);
+    setBulkArchiveYear('');
+  } catch (err) {
+    setBulkError(err.message);
+  } finally {
+    setBulkArchiving(false);
+  }
+};
+
 const selectedFormationObj = formations.find(f => f.nom === filters.formation);
 useEffect(() => {
   const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
@@ -158,8 +199,10 @@ const filtered = etudiants.filter(i => {
   if (filters.source        && i.source           !== filters.source)         return false;
   if (filters.registered_by && i.registered_by    !== filters.registered_by)  return false;
   if (filters.formation     && i.formation?.nom   !== filters.formation)      return false;
-  if (filters.niveau        && i.niveau?.nom      !== filters.niveau)         return false; // 👈 add this
-  if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         return false;
+if (filters.niveau        && i.niveau?.nom      !== filters.niveau)         return false;
+if (filters.groupe === 'avec' && !i.group_id) return false;
+if (filters.groupe === 'sans' && i.group_id)  return false;
+if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         return false;
   if (filters.added_by      && i.added_by         !== filters.added_by)       return false;
   if (dateFrom && i.date_inscription && new Date(i.date_inscription) < new Date(dateFrom)) return false;
   if (dateTo   && i.date_inscription && new Date(i.date_inscription) > new Date(dateTo))   return false;
@@ -176,6 +219,7 @@ const filtered = etudiants.filter(i => {
   const pendingCount = etudiants.filter(e => e.statut === 'pending').length;
 
  const COLS = [
+  { label: '', Icon: null, width: 36 },
   { label: 'Étudiant',    Icon: null,        width: 130 },
   { label: 'Tél.',        Icon: Phone,       width: 90  },
   { label: 'Wilaya',      Icon: MapPin,      width: 100 },
@@ -203,12 +247,20 @@ const filtered = etudiants.filter(i => {
       <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {etudiants.length} inscriptions</p>
     </div>
   </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-md text-xs font-medium
-            shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
-          <Plus size={14} /> Ajouter
-        </button>
-      </div>
+  <div className="flex items-center gap-2">
+    <button onClick={() => setShowAdd(true)}
+      className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-md text-xs font-medium
+        shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
+      <Plus size={14} /> Ajouter
+    </button>
+    {selectedIds.size > 0 && (
+      <button onClick={() => setShowBulkArchive(true)}
+        className="flex items-center gap-1.5 bg-amber-500 text-white px-3.5 py-2 rounded-md text-xs font-medium hover:bg-amber-600 transition">
+        <Archive size={14} /> Archiver ({selectedIds.size})
+      </button>
+    )}
+  </div>
+</div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
@@ -249,6 +301,17 @@ const filtered = etudiants.filter(i => {
     opts={selectedFormationObj.niveaux?.map(n => n.nom) ?? []}
   />
 )}
+
+{/* 👇 nouveau filtre à ajouter ici */}
+<FilterSelect
+  icon={Users}
+  label="Groupe"
+  value={filters.groupe || ''}
+  onChange={v => setFilter('groupe', v)}
+  opts={['avec', 'sans']}
+  display={o => o === 'avec' ? 'Avec groupe' : 'Sans groupe'}
+/>
+
 <FilterSelect icon={MapPin}  label="Wilaya"    value={filters.wilaya || ''}    onChange={v => setFilter('wilaya', v)}    opts={wilayas} />
 <FilterSelect icon={UserCheck} label="Ajouté par" value={filters.added_by || ''} onChange={v => setFilter('added_by', v)} opts={addedByOpts} />
         <div className="w-px h-5 bg-[#E2E8F0]" />
@@ -285,14 +348,18 @@ const filtered = etudiants.filter(i => {
               </colgroup>
                            <thead className="bg-[#0F2A4A]">
                 <tr>
-                  {COLS.map(({ label, Icon }, i) => (
-                    <th key={label} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] overflow-hidden ${i === 0 ? 'border-l border-[#0F2A4A]' : ''}`}>
-                      <div className="flex items-center gap-1">
-                        {Icon && <Icon size={11} className="text-white/70 flex-shrink-0" />}
-                        <span className="truncate">{label}</span>
-                      </div>
-                    </th>
-                  ))}
+{COLS.map(({ label, Icon }, i) => (
+  <th key={label || 'checkbox'} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] overflow-hidden ${i === 0 ? 'border-l border-[#0F2A4A]' : ''}`}>
+    {i === 0 ? (
+      <input type="checkbox" checked={filtered.length > 0 && selectedIds.size === filtered.length} onChange={toggleSelectAll} className="cursor-pointer" />
+    ) : (
+      <div className="flex items-center gap-1">
+        {Icon && <Icon size={11} className="text-white/70 flex-shrink-0" />}
+        <span className="truncate">{label}</span>
+      </div>
+    )}
+  </th>
+))}
                 </tr>
               </thead>
               <tbody>
@@ -303,7 +370,10 @@ const filtered = etudiants.filter(i => {
                   return (
                     <tr key={i.id} onClick={() => setSelected(i)}
                       className={`hover:bg-slate-50 transition cursor-pointer ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
-                      <td className="px-3 py-2 overflow-hidden border-b border-l border-slate-100">
+                      <td className="px-3 py-2 border-b border-l border-slate-100" onClick={e => e.stopPropagation()}>
+  <input type="checkbox" checked={selectedIds.has(i.id)} onChange={() => toggleSelect(i.id)} className="cursor-pointer" />
+</td>
+                      <td className="px-3 py-2 overflow-hidden border-b border-slate-100">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
                             {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}
@@ -385,7 +455,26 @@ const filtered = etudiants.filter(i => {
           </div>
         </div>
       )}
-
+{showBulkArchive && (
+  <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => setShowBulkArchive(false)}>
+    <div className="bg-white rounded-xl p-5 w-80 space-y-3" onClick={e => e.stopPropagation()}>
+      <p className="text-sm font-medium text-slate-700">Archiver {selectedIds.size} inscription(s) ?</p>
+<select value={bulkArchiveYear} onChange={e => setBulkArchiveYear(e.target.value)}
+  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+  <option value="">— Année scolaire (optionnel) —</option>
+  {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
+</select>
+      {bulkError && <p className="text-red-500 text-xs">{bulkError}</p>}
+      <div className="flex justify-end gap-2">
+        <button onClick={() => setShowBulkArchive(false)} className="text-xs px-3 py-2 rounded-md text-slate-500 hover:bg-slate-50">Annuler</button>
+        <button onClick={doBulkArchive} disabled={bulkArchiving}
+          className="text-xs px-3 py-2 rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
+          {bulkArchiving ? 'Archivage...' : 'Confirmer'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {showAdd   && <AddEtudiantModal    onClose={() => setShowAdd(false)} onSuccess={() => { refetch(); setShowAdd(false); }} />}
       {selected  && <EtudiantDetailModal inscription={selected}            onClose={() => setSelected(null)}                  onSuccess={refetch} />}
     </AdminLayout>

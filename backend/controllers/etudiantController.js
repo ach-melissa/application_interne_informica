@@ -99,6 +99,25 @@ const { annee_scolaire } = req.body || {};
   res.json(data);
 };
 
+const archiveMultipleInscriptions = async (req, res) => {
+  const { ids, annee_scolaire } = req.body || {};
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Aucun étudiant sélectionné.' });
+  }
+
+  const updates = { archived: true };
+  if (annee_scolaire?.trim()) updates.annee_scolaire = annee_scolaire.trim();
+
+  const { data, error } = await supabase
+    .from('inscriptions')
+    .update(updates)
+    .in('id', ids)
+    .select();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true, count: data.length, data });
+};
 const restoreInscription = async (req, res) => {
   const { id } = req.params;
 
@@ -323,4 +342,4 @@ const getInscriptionStatutOptions = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant, upload, getGroupsByFormation, assignGroup, archiveInscription, restoreInscription, getInscriptionStatutOptions };
+module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant, upload, getGroupsByFormation, assignGroup, archiveInscription, archiveMultipleInscriptions, restoreInscription, getInscriptionStatutOptions };

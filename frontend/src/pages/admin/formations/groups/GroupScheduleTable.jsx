@@ -66,10 +66,12 @@ export default function GroupScheduleTable({ groupId, staged, onAddStaged, onRem
 
   const resetForm = () => { setSalle(''); setContenu(''); setHeureDebut(''); setHeureFin(''); setShowForm(false); };
 
-  const handleAdd = async () => {
-    if (!salle) return alert('Choisissez une salle libre.');
-    if (!heureDebut || !heureFin) return alert('Heure début et heure fin sont obligatoires.');
-
+    const handleAdd = async () => {
+  if (!salle) return alert('Choisissez une salle libre.');
+  if (!heureDebut || !heureFin) return alert('Heure début et heure fin sont obligatoires.');
+  if (heureDebut < '08:00' || heureFin > '16:00') {
+    return alert('Les horaires doivent être compris entre 08:00 et 16:00.');
+  }
     const existing = displayCells[makeKey(jour, salle, periode)] ?? [];
     const conflict = existing.find((e) => heureDebut < e.heure_fin && heureFin > e.heure_debut);
     if (conflict) return alert(`${salle} est déjà occupée ce jour-là de ${conflict.heure_debut} à ${conflict.heure_fin}.`);
@@ -118,8 +120,8 @@ export default function GroupScheduleTable({ groupId, staged, onAddStaged, onRem
       <button type="button" onClick={() => setShowForm(false)} className="text-slate-300 hover:text-slate-600"><X size={14} /></button>
     </div>
     <div className="grid grid-cols-2 gap-2">
-     <div><Label text="Heure début" required /><input type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} className={inp} /></div>
-<div><Label text="Heure fin" required /><input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} className={inp} /></div>
+     <div><Label text="Heure début" required /><input type="time" min="08:00" max="16:00" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} className={inp} /></div>
+<div><Label text="Heure fin" required /><input type="time" min="08:00" max="16:00" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} className={inp} /></div>
     </div>
     <button onClick={handleAdd} disabled={saving || !heureDebut || !heureFin}
       className="w-full flex items-center justify-center gap-1 text-xs font-medium py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 disabled:shadow-none disabled:translate-y-0 transition-all">

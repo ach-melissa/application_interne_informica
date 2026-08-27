@@ -66,9 +66,17 @@ const ScheduleTab = ({ groupId, readOnly = true, groupName, formationNom }) => {
 
   const cancelEdit = () => { setEditingKey(null); };
 
-  const saveEdit = async (jour, salle, periode) => {
-    const k = makeKey(jour, salle, periode);
-    setSaving(true);
+ const saveEdit = async (jour, salle, periode) => {
+  if (editValues.heure_debut && (editValues.heure_debut < '08:00' || editValues.heure_debut > '16:00')) {
+    setError('L\'heure de début doit être entre 08:00 et 16:00.');
+    return;
+  }
+  if (editValues.heure_fin && (editValues.heure_fin < '08:00' || editValues.heure_fin > '16:00')) {
+    setError('L\'heure de fin doit être entre 08:00 et 16:00.');
+    return;
+  }
+  const k = makeKey(jour, salle, periode);
+  setSaving(true);
     try {
       const existing = cells[k];
       const payload = {
@@ -219,19 +227,21 @@ console.log('salles:', salles, 'jours:', jours, 'cells:', cells, 'groupId:', gro
                               }}
                             />
                             <div className="flex gap-1">
-                              <input
-                                type="time"
-                                value={editValues.heure_debut}
-                                onChange={(e) => setEditValues((v) => ({ ...v, heure_debut: e.target.value }))}
-                                className="flex-1 border border-slate-200 rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
-                              />
-                              <span className="text-slate-400 self-center">→</span>
-                              <input
-                                type="time"
-                                value={editValues.heure_fin}
-                                onChange={(e) => setEditValues((v) => ({ ...v, heure_fin: e.target.value }))}
-                                className="flex-1 border border-slate-200 rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
-                              />
+<input
+  type="time"
+  min="08:00" max="16:00"
+  value={editValues.heure_debut}
+  onChange={(e) => setEditValues((v) => ({ ...v, heure_debut: e.target.value }))}
+  className="flex-1 border border-slate-200 rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
+/>
+<span className="text-slate-400 self-center">→</span>
+<input
+  type="time"
+  min="08:00" max="16:00"
+  value={editValues.heure_fin}
+  onChange={(e) => setEditValues((v) => ({ ...v, heure_fin: e.target.value }))}
+  className="flex-1 border border-slate-200 rounded-md px-1 py-0.5 text-[10px] bg-white outline-none"
+/>
                             </div>
                             <div className="flex justify-between items-center pt-0.5">
                               <button onClick={() => clearCell(jour, salle, periode)} className="text-[10px] text-red-400 hover:text-red-600 transition">
