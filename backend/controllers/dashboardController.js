@@ -17,7 +17,7 @@ const getDashboardStats = async (req, res) => {
   supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('statut', 'pending'),
     supabase.from('schedules').select('group_id, jour_semaine, heure_debut, heure_fin, group:group_id(nom, archived, statut, date_fin, formation:formation_id(nom))').eq('jour_semaine', today),
   supabase.from('inscriptions').select('formation_id').eq('statut', 'pending'),
-  supabase.from('formations').select('id, nom, prix_etudiant, capacite_groupe').eq('statut', 'active'),
+    supabase.from('formations').select('id, nom, prix_etudiant, capacite_groupe, a_niveaux, capacite_uniforme').eq('statut', 'active'),
 ]);
     const { data: paymentsData } = await supabase.from('payments').select('etudiant_id, formation_id, montant');
     const { data: inscriptionsForPayments } = await supabase
@@ -43,12 +43,29 @@ const getDashboardStats = async (req, res) => {
     // ── Pending count per formation, 0 included ─────────────────────
     const countMap = {};
     pendingData?.forEach((i) => { countMap[i.formation_id] = (countMap[i.formation_id] ?? 0) + 1; });
+    // ── Capacité réelle pour les formations à niveaux avec capacité non uniforme ──
+    const niveauFormationIds = (formationsData ?? [])
+      .filter((f) => f.a_niveaux && f.capacite_uniforme === false)
+      .map((f) => f.id);
 
+      let niveauCapaciteMap = {};
+    if (niveauFormationIds.length) {
+      const { data: niveauxData } = await supabase
+        .from('formation_niveaux')
+        .select('formation_id, capacite_groupe')
+        .in('formation_id', niveauFormationIds);
+
+      (niveauxData ?? []).forEach((n) => {
+        niveauCapaciteMap[n.formation_id] = (niveauCapaciteMap[n.formation_id] ?? 0) + Number(n.capacite_groupe ?? 0);
+      });
+    }
  const formationsEnAttenteGroupe = (formationsData ?? [])
       .map((f) => ({
         formation_id: f.id,
         nom: f.nom,
-        capacite: f.capacite_groupe ?? 20,
+                capacite: f.a_niveaux && f.capacite_uniforme === false
+          ? (niveauCapaciteMap[f.id] || 20)
+          : (f.capacite_groupe ?? 20),
         count: countMap[f.id] ?? 0,
       }))
       .sort((a, b) => (b.count / b.capacite) - (a.count / a.capacite));

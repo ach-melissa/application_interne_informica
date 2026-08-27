@@ -148,7 +148,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+      <div className="bg-white rounded-md shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-[#0F2A4A]">

@@ -220,7 +220,7 @@ const GroupDetail = () => {
           {error && <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">Erreur : {error}</p>}
 
           {!loading && !error && (
-            <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+            <div className="bg-white rounded-md shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead className="bg-[#0F2A4A]">

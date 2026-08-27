@@ -201,7 +201,8 @@ const getGroupEtudiants = async (req, res) => {
     .select(`
       *,
       etudiant:etudiant_id(*),
-      formation:formation_id(nom)
+      formation:formation_id(nom),
+      niveau:niveau_id(id, nom)
     `)
     .eq('group_id', id)
     .eq('statut', 'confirmed');
