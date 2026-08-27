@@ -1,5 +1,5 @@
 // AttestationsTab.jsx
-import { useState ,useEffect  } from 'react';
+import { useState, useEffect } from 'react';
 import { Printer, FileDown, Phone, Mail, GraduationCap, MapPin, CalendarDays, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -25,34 +25,34 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [periode, setPeriode] = useState('');
   const [dateSignature, setDateSignature] = useState('');
-const [payments, setPayments] = useState([]);
-const [justPrinted, setJustPrinted] = useState(new Set());
+  const [payments, setPayments] = useState([]);
+  const [justPrinted, setJustPrinted] = useState(new Set());
 
-useEffect(() => {
-  const fetchPayments = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/payments/group/${groupId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) setPayments(data);
-    } catch (err) {
-      console.error(err);
-    }
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/payments/group/${groupId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) setPayments(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchPayments();
+  }, [groupId]);
+
+  const isPrinted = (inscriptionId, attestationImprimee) =>
+    attestationImprimee || justPrinted.has(inscriptionId);
+
+  const isEligible = (inscription) => {
+    const p = payments.find(p => p.studentId === inscription.etudiant?.id);
+    const paid = !p || p.remaining <= 0;
+    const printed = isPrinted(inscription.id, inscription.attestation_imprimee);
+    return paid && !printed;
   };
-  fetchPayments();
-}, [groupId]);
-
-const isPrinted = (inscriptionId, attestationImprimee) =>
-  attestationImprimee || justPrinted.has(inscriptionId);
-
-const isEligible = (inscription) => {
-  const p = payments.find(p => p.studentId === inscription.etudiant?.id);
-  const paid = !p || p.remaining <= 0;
-  const printed = isPrinted(inscription.id, inscription.attestation_imprimee);
-  return paid && !printed;
-};
 
   const toggle = (id) => {
     setSelectedIds(prev => {
@@ -62,19 +62,19 @@ const isEligible = (inscription) => {
     });
   };
 
-const toggleAll = () => {
-  const eligibleIds = etudiants.filter(i => isEligible(i)).map(i => i.id);
-  setSelectedIds(prev =>
-    prev.size === eligibleIds.length && eligibleIds.length > 0 ? new Set() : new Set(eligibleIds)
-  );
-};
+  const toggleAll = () => {
+    const eligibleIds = etudiants.filter(i => isEligible(i)).map(i => i.id);
+    setSelectedIds(prev =>
+      prev.size === eligibleIds.length && eligibleIds.length > 0 ? new Set() : new Set(eligibleIds)
+    );
+  };
 
   const handlePrintClick = () => {
     if (selectedIds.size === 0) return;
     setShowPrintModal(true);
   };
 
-const handleConfirmPrint = async () => {
+  const handleConfirmPrint = async () => {
     const idsArray = Array.from(selectedIds);
 
     try {
@@ -151,9 +151,9 @@ const handleConfirmPrint = async () => {
       <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-[#DCEBFA]">
+            <thead className="bg-[#0F2A4A]">
               <tr>
-                <th className="px-3 py-2.5 w-8 border-b border-l border-[#E2E8F0]">
+                <th className="px-3 py-2.5 w-8 border-b border-l border-[#0F2A4A]">
                   <input
                     type="checkbox"
                     checked={selectedIds.size === etudiants.filter(i => isEligible(i.etudiant?.id)).length && etudiants.length > 0}
@@ -162,9 +162,9 @@ const handleConfirmPrint = async () => {
                   />
                 </th>
                 {COLS.map(({ label, Icon }) => (
-                  <th key={label} className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap">
+                  <th key={label} className="text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] whitespace-nowrap">
                     <div className="flex items-center gap-1">
-                      {Icon && <Icon size={11} className="text-[#0369A1] flex-shrink-0" />}
+                      {Icon && <Icon size={11} className="text-white/70 flex-shrink-0" />}
                       <span>{label}</span>
                     </div>
                   </th>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 
 const PERIODES = ['matin', 'midi'];
@@ -47,27 +47,18 @@ if (sallesRes.ok) setSalles((await sallesRes.json()).map((s) => s.nom));
 
   return (
     <AdminLayout>
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-xs mb-3">
-        <button onClick={() => navigate('/admin/formations')} className="text-slate-400 hover:text-[#0369A1] transition">
-          Formations
-        </button>
-        <ChevronRight size={12} className="text-slate-300" />
-        <span className="text-[#0369A1] font-medium">{formation?.nom ?? 'Emploi global'}</span>
-      </div>
-
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="w-8 h-8 flex items-center justify-center rounded-full border border-[#F1F5F9] hover:bg-[#DCEBFA] transition"
-        >
+           <div className="flex items-center gap-3 mb-2">
+        <button onClick={() => navigate('/admin/formations')}
+          className="w-9 h-9 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAFC] transition flex-shrink-0">
           <ArrowLeft size={16} className="text-[#0369A1]" />
         </button>
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Emploi Global</h1>
-          <p className="text-slate-400 text-xs mt-0.5">{formation?.nom ?? `Formation #${id}`} — vue globale des salles</p>
+        <div className="flex items-center gap-1.5 text-xs">
+          <button onClick={() => navigate('/admin/formations')} className="text-slate-400 hover:text-[#0369A1] transition">Formations</button>
+          <span className="text-slate-300">›</span>
+          <span className="text-[#0369A1] font-medium">Emploi global • {formation?.nom ?? `Formation #${id}`}</span>
         </div>
       </div>
+      <p className="mb-6 text-xs text-slate-400 ml-12">Vue globale des salles</p>
 
       {loading && (
         <div className="flex items-center justify-center py-20">

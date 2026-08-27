@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getFormations, getFormationById, createFormation, updateFormation, deleteFormation, getFormationPeriods, setFormationPeriods } = require('../controllers/formationController');
+const { getFormations, getFormationById, createFormation, updateFormation, deleteFormation, getFormationPeriods, setFormationPeriods, getFormationStatutOptions, getStatutScolariteOptions } = require('../controllers/formationController');
 const { getFormationNiveaux, setFormationNiveaux } = require('../controllers/formationNiveauxController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
+router.get('/statut-options', getFormationStatutOptions);
+router.get('/statut-scolarite-options', getStatutScolariteOptions);
 router.get('/', getFormations);
 router.get('/:id', getFormationById);
 router.post('/', verifyToken, createFormation);

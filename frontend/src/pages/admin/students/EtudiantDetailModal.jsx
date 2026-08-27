@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   X, Pencil, Check, Trash2, AlertTriangle, Ban, Printer, Archive,
   User, Phone, Mail, MapPin, GraduationCap, Calendar,
-  Radio, UserCheck, ClipboardList, PhoneCall, UserPlus,
+  Radio, UserCheck, ClipboardList, PhoneCall, UserPlus, Layers,
 } from 'lucide-react';
 import AssignGroupModal from './AssignGroupModal';
 import logo from '../../../assets/images/logo_informica.png';
@@ -14,7 +14,7 @@ const getHeaders = () => ({
 });
 
 
-const STATUT_OPTS     = ['pending','confirmed','non_confirmed','rejected'];
+
 
 const statutLabel = { confirmed:'Confirmé', pending:'En attente', non_confirmed:'Non confirmé', rejected:'Rejeté' };
 const statutCls   = { confirmed:'bg-[#DCEBFA] text-[#0369A1]', pending:'bg-amber-50 text-amber-600', non_confirmed:'bg-red-50 text-red-600', rejected:'bg-slate-100 text-slate-500' };
@@ -286,6 +286,12 @@ const Field = ({ icon, label, field, type = 'text', select, opts, form, set, edi
 
 const EtudiantDetailModal = ({ inscription, onClose, onSuccess, readOnly = false }) => {
   const e = inscription?.etudiant;
+  const isGroupLocked = dateFin => {
+    if (!dateFin) return false;
+    const limit = new Date(dateFin);
+    limit.setDate(limit.getDate() + 30);
+    return new Date() > limit;
+  };
   const [files, setFiles] = useState({ photo: null, piece_identite: null });
   const [showAssign, setShowAssign] = useState(false);
   const handleFile = f => e => setFiles(p => ({ ...p, [f]: e.target.files[0] }));
@@ -302,9 +308,10 @@ const [niveauOpts, setNiveauOpts] = useState([]);
 const [firstTryOpts, setFirstTryOpts]   = useState([]);
 const [secondTryOpts, setSecondTryOpts] = useState([]);
 const [thirdTryOpts, setThirdTryOpts]   = useState([]);
+const [statutOpts, setStatutOpts] = useState([]);
 const [groupInfo, setGroupInfo] = useState(inscription.groups ?? null);
 const [groupId, setGroupId] = useState(inscription.group_id ?? null);
-
+const locked = isGroupLocked(groupInfo?.date_fin);
   const [form, setForm] = useState({
   nom: e?.nom ?? '', prenom: e?.prenom ?? '', telephone: e?.telephone ?? '',
   email: e?.email ?? '', adresse: e?.adresse ?? '',
@@ -318,14 +325,23 @@ const [groupId, setGroupId] = useState(inscription.group_id ?? null);
   first_try: inscription?.first_try ?? '',
   second_try: inscription?.second_try ?? '',
   third_try: inscription?.third_try ?? '',
-  formation_id: inscription?.formation_id ?? '',
+   formation_id: inscription?.formation_id ?? '',
+  niveau_id: inscription?.niveau_id ?? '',
 });
+const selectedFormation = formations.find(f => f.id === form.formation_id);
+const showNiveauField = selectedFormation?.a_niveaux;
+const setFormationField = ev => setForm(p => ({ ...p, formation_id: ev.target.value, niveau_id: '' }));
 
- useEffect(() => {
+
+useEffect(() => {
   const cat = c => fetch(`${API}/api/parametres?categorie=${c}`, { headers: getHeaders() }).then(r => r.json());
   fetch(`${API}/api/formations`, { headers: getHeaders() })
     .then(r => r.json())
     .then(data => setFormations(Array.isArray(data) ? data : []))
+    .catch(() => {});
+  fetch(`${API}/api/etudiants/statut-options`, { headers: getHeaders() })
+    .then(r => r.json())
+    .then(setStatutOpts)
     .catch(() => {});
    Promise.all([
     cat('wilaya'), cat('source'), cat('registered_by'), cat('niveau_scolaire'),
@@ -352,11 +368,12 @@ const [groupId, setGroupId] = useState(inscription.group_id ?? null);
     try {
       const r2 = await fetch(`${API}/api/etudiants/${inscription.id}`, {
         method: 'PATCH', headers: getHeaders(),
-        body: JSON.stringify({
+               body: JSON.stringify({
           source: form.source, registered_by: form.registered_by,
           statut: form.statut, first_try: form.first_try || null,
           second_try: form.second_try || null, third_try: form.third_try || null,
           formation_id: form.formation_id || null,
+          niveau_id: form.niveau_id || null,
         }),
       });
 
@@ -550,9 +567,9 @@ const [groupId, setGroupId] = useState(inscription.group_id ?? null);
                       className="flex items-center gap-1 text-xs bg-[#DCEBFA] text-[#0369A1] px-2.5 py-1.5 rounded-md hover:bg-[#c7e3f7]">
                       <Printer size={11} /> Aperçu / PDF
                     </button>
-                    {form.statut === 'confirmed' && (
-  <button onClick={() => setShowAssign(true)}
-    className="flex items-center gap-1 text-xs bg-emerald-500 text-white px-2.5 py-1.5 rounded-md hover:bg-emerald-600">
+ {form.statut === 'confirmed' && (
+  <button onClick={() => !locked && setShowAssign(true)} disabled={locked}
+    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md ${locked ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}>
     <UserPlus size={11} />
     {groupId ? 'Changer groupe' : 'Affecter groupe'}
   </button>
@@ -667,20 +684,32 @@ const [groupId, setGroupId] = useState(inscription.group_id ?? null);
 
           <div className="grid grid-cols-2 gap-3 border-t border-[#F1F5F9] pt-4">
             <p className={sectionTitleCls}>Inscription</p>
-            <Row icon={GraduationCap} label="Formation">
-              {editing ? (
-                <select value={form.formation_id} onChange={set('formation_id')} className={inp}>
-                  <option value="">— aucune —</option>
-                  {formations.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
-                </select>
-              ) : (
+                      <Row icon={GraduationCap} label="Formation">
+  {editing ? (
+    <select value={form.formation_id} onChange={setFormationField} disabled={locked} className={`${inp} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+      <option value="">— aucune —</option>
+      {formations.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
+    </select>
+  ) : (
                 <p className="text-xs text-slate-700 font-medium">{inscription.formation?.nom || '—'}</p>
               )}
             </Row>
-            <Row icon={ClipboardList} label="Statut">
+            {showNiveauField && (
+              <Row icon={Layers} label="Niveau">
+                {editing ? (
+                  <select value={form.niveau_id} onChange={set('niveau_id')} disabled={locked} className={`${inp} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                    <option value="">— Aucun —</option>
+                    {selectedFormation.niveaux?.map(n => <option key={n.id} value={n.id}>{n.nom}</option>)}
+                  </select>
+                ) : (
+                  <p className="text-xs text-slate-700 font-medium">{inscription.niveau?.nom || '—'}</p>
+                )}
+              </Row>
+            )}
+        <Row icon={ClipboardList} label="Statut">
               {editing
-                ? <select value={form.statut} onChange={set('statut')} className={inp}>
-                    {STATUT_OPTS.map(o => <option key={o} value={o}>{statutLabel[o]}</option>)}
+                ? <select value={form.statut} onChange={set('statut')} disabled={locked} className={`${inp} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                    {statutOpts.map(o => <option key={o} value={o}>{statutLabel[o]}</option>)}
                   </select>
                 : <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${statutCls[form.statut] ?? 'bg-slate-100 text-slate-500'}`}>
                     {statutLabel[form.statut] ?? form.statut}
@@ -694,9 +723,9 @@ const [groupId, setGroupId] = useState(inscription.group_id ?? null);
 <Field icon={Radio}     label="Source"     field="source"        select opts={sourceOpts}       form={form} set={set} editing={editing} />
 <Field icon={UserCheck} label="Rapporteur" field="registered_by" select opts={registeredByOpts} form={form} set={set} editing={editing} />
             <div className="col-span-2 grid grid-cols-3 gap-3 pt-3 border-t border-[#F1F5F9] mt-1">
-              <TryField label="1er appel"  field="first_try"  form={form} set={set} editing={editing} opts={firstTryOpts} />
-<TryField label="2ème appel" field="second_try" prev="first_try"  form={form} set={set} editing={editing} opts={secondTryOpts} />
-<TryField label="3ème appel" field="third_try"  prev="second_try" form={form} set={set} editing={editing} opts={thirdTryOpts} />
+             <TryField label="1er appel"  field="first_try"  form={form} set={set} editing={editing && !locked} opts={firstTryOpts} />
+<TryField label="2ème appel" field="second_try" prev="first_try"  form={form} set={set} editing={editing && !locked} opts={secondTryOpts} />
+<TryField label="3ème appel" field="third_try"  prev="second_try" form={form} set={set} editing={editing && !locked} opts={thirdTryOpts} />
             </div>
 
           <div className="col-span-2 pt-3 border-t border-[#F1F5F9] mt-1">
@@ -719,9 +748,12 @@ const [groupId, setGroupId] = useState(inscription.group_id ?? null);
       )}
 
 
-      {!readOnly && showAssign && (
+ {!readOnly && showAssign && (
   <AssignGroupModal
     inscription={inscription}
+    locked={locked}
+    formations={formations}
+    niveauId={form.niveau_id}
     onClose={() => setShowAssign(false)}
     onSuccess={(selectedGroup) => {
       setGroupInfo(selectedGroup);

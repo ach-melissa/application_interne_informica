@@ -20,9 +20,21 @@ const getFormations = async (req, res) => {
         .from('inscriptions')
         .select('*', { count: 'exact', head: true })
         .eq('formation_id', f.id)
-        .eq('statut', 'confirmed');
+        .eq('statut', 'confirmed')
+        .eq('archived', false);
 
-      return { ...f, nb_groupes: nb_groupes ?? 0, nb_etudiants: nb_etudiants ?? 0 };
+      // NEW: pull the actual levels so the card can show/expand them
+      let niveaux = [];
+      if (f.a_niveaux) {
+        const { data: niveauxData } = await supabase
+          .from('formation_niveaux')
+          .select('id, nom, prix, duree_valeur, type_duree')
+          .eq('formation_id', f.id)
+          .order('ordre', { ascending: true });
+        niveaux = niveauxData ?? [];
+      }
+
+      return { ...f, nb_groupes: nb_groupes ?? 0, nb_etudiants: nb_etudiants ?? 0, niveaux };
     })
   );
 
@@ -30,46 +42,81 @@ const getFormations = async (req, res) => {
 };
 const getFormationById = async (req, res) => {
   const { id } = req.params;
-  const { data, error } = await supabase
+
+  const { data: formation, error } = await supabase
     .from('formations')
     .select('*')
     .eq('id', id)
     .single();
 
   if (error) return res.status(404).json({ error: 'Formation introuvable.' });
-  res.json(data);
+
+  const { data: niveaux, error: nErr } = await supabase
+    .from('formation_niveaux')
+    .select('*')
+    .eq('formation_id', id)
+    .order('ordre', { ascending: true });
+
+  if (nErr) return res.status(500).json({ error: nErr.message });
+
+  const niveauxWithCounts = await Promise.all(
+    (niveaux ?? []).map(async (n) => {
+      const { count: nb_groupes } = await supabase
+        .from('groups')
+        .select('*', { count: 'exact', head: true })
+        .eq('niveau_id', n.id)
+        .eq('archived', false);
+
+      const { count: nb_etudiants } = await supabase
+        .from('inscriptions')
+        .select('*', { count: 'exact', head: true })
+        .eq('niveau_id', n.id)
+        .eq('statut', 'confirmed')
+        .eq('archived', false);
+
+      return { ...n, nb_groupes: nb_groupes ?? 0, nb_etudiants: nb_etudiants ?? 0 };
+    })
+  );
+
+  res.json({ ...formation, niveaux: niveauxWithCounts });
 };
 const createFormation = async (req, res) => {
-const { nom, prix, heures, description, capacite_groupe, a_niveaux, type_duree, prix_uniforme, duree_uniforme, type_duree_uniforme, statut } = req.body;
-  if (type_duree && !['heures', 'seances'].includes(type_duree)) {
+const { nom, prix, heures, description, capacite_groupe, a_niveaux, type_duree, prix_uniforme, duree_uniforme, type_duree_uniforme, echeancier_uniforme, statut, capacite_uniforme } = req.body;  if (type_duree && !['heures', 'seances'].includes(type_duree)) {
     return res.status(400).json({ error: "type_duree doit être 'heures' ou 'seances'." });
   }
   if (!nom || !nom.trim()) {
     return res.status(400).json({ error: 'Le nom de la formation est obligatoire.' });
   }
-  if (prix === undefined || prix === null || isNaN(prix) || Number(prix) < 0) {
+
+  const needsGlobalPrix = !a_niveaux || prix_uniforme !== false;
+  const needsGlobalHeures = !a_niveaux || duree_uniforme !== false;
+
+  if (needsGlobalPrix && (prix === undefined || prix === null || prix === '' || isNaN(prix) || Number(prix) < 0)) {
     return res.status(400).json({ error: 'Le prix doit être un nombre valide.' });
   }
-  if (heures === undefined || heures === null || isNaN(heures) || Number(heures) <= 0) {
+  if (needsGlobalHeures && (heures === undefined || heures === null || heures === '' || isNaN(heures) || Number(heures) <= 0)) {
     return res.status(400).json({ error: "Le nombre d'heures doit être un nombre valide." });
   }
- if (capacite_groupe === undefined || capacite_groupe === null || isNaN(capacite_groupe) || Number(capacite_groupe) <= 0) {
+const needsGlobalCapacite = !a_niveaux || capacite_uniforme !== false;
+if (needsGlobalCapacite && (capacite_groupe === undefined || capacite_groupe === null || isNaN(capacite_groupe) || Number(capacite_groupe) <= 0)) {
   return res.status(400).json({ error: "La capacité est obligatoire et doit être un nombre valide." });
 }
   const { data, error } = await supabase
     .from('formations')
-      .insert([{
+            .insert([{
   nom: nom.trim(),
-  prix: Number(prix),
-  heures: Number(heures),
+  prix: needsGlobalPrix ? Number(prix) : null,
+  heures: needsGlobalHeures ? Number(heures) : null,
   description: description?.trim() || null,
-  capacite_groupe: Number(capacite_groupe),
+  capacite_groupe: needsGlobalCapacite ? Number(capacite_groupe) : null,
   a_niveaux: !!a_niveaux,
   type_duree: type_duree || 'heures',
   prix_uniforme: prix_uniforme === undefined ? true : !!prix_uniforme,
   duree_uniforme: duree_uniforme === undefined ? true : !!duree_uniforme,
   type_duree_uniforme: type_duree_uniforme === undefined ? true : !!type_duree_uniforme,
-  statut: statut === 'non_active' ? 'non_active' : 'active',
+echeancier_uniforme: echeancier_uniforme === undefined ? true : !!echeancier_uniforme,
+capacite_uniforme: capacite_uniforme === undefined ? true : !!capacite_uniforme,
+statut: statut === 'non_active' ? 'non_active' : 'active',
 }])
     .select()
     .single();
@@ -80,37 +127,63 @@ const { nom, prix, heures, description, capacite_groupe, a_niveaux, type_duree, 
 
 const updateFormation = async (req, res) => {
   const { id } = req.params;
-const { nom, prix, heures, description, capacite_groupe, a_niveaux, type_duree, prix_uniforme, duree_uniforme, type_duree_uniforme, statut } = req.body;
+const { nom, prix, heures, description, capacite_groupe, a_niveaux, type_duree, prix_uniforme, duree_uniforme, type_duree_uniforme, echeancier_uniforme, capacite_uniforme, statut, confirm_deactivation } = req.body;
   if (type_duree && !['heures', 'seances'].includes(type_duree)) {
     return res.status(400).json({ error: "type_duree doit être 'heures' ou 'seances'." });
+  }
+
+  if (statut === 'non_active') {
+    const today = new Date().toISOString().slice(0, 10);
+    const { count, error: gErr } = await supabase
+      .from('groups')
+      .select('*', { count: 'exact', head: true })
+      .eq('formation_id', id)
+      .eq('archived', false)
+      .or(`date_fin.is.null,date_fin.gte.${today}`);
+
+    if (gErr) return res.status(500).json({ error: gErr.message });
+
+    if (count > 0 && !confirm_deactivation) {
+      return res.status(409).json({
+        needs_confirmation: true,
+        warning: `${count} groupe(s) sont actuellement en cours sur cette formation et n'ont pas encore terminé. Désactiver quand même ?`,
+      });
+    }
   }
 
   if (!nom || !nom.trim()) {
     return res.status(400).json({ error: 'Le nom de la formation est obligatoire.' });
   }
-  if (prix === undefined || prix === null || isNaN(prix) || Number(prix) < 0) {
+
+  const needsGlobalPrix = !a_niveaux || prix_uniforme !== false;
+  const needsGlobalHeures = !a_niveaux || duree_uniforme !== false;
+
+  if (needsGlobalPrix && (prix === undefined || prix === null || prix === '' || isNaN(prix) || Number(prix) < 0)) {
     return res.status(400).json({ error: 'Le prix doit être un nombre valide.' });
   }
-   if (heures === undefined || heures === null || isNaN(heures) || Number(heures) <= 0) {
+  if (needsGlobalHeures && (heures === undefined || heures === null || heures === '' || isNaN(heures) || Number(heures) <= 0)) {
     return res.status(400).json({ error: "Le nombre d'heures doit être un nombre valide." });
   }
-  if (capacite_groupe === undefined || capacite_groupe === null || isNaN(capacite_groupe) || Number(capacite_groupe) <= 0) {
+  const needsGlobalCapacite = !a_niveaux || capacite_uniforme !== false;
+  if (needsGlobalCapacite && (capacite_groupe === undefined || capacite_groupe === null || isNaN(capacite_groupe) || Number(capacite_groupe) <= 0)) {
     return res.status(400).json({ error: "La capacité est obligatoire et doit être un nombre valide." });
   }
 
  const { data, error } = await supabase
     .from('formations')
- .update({
+  .update({
   nom: nom.trim(),
-  prix: Number(prix),
-  heures: Number(heures),
+  prix: needsGlobalPrix ? Number(prix) : null,
+  heures: needsGlobalHeures ? Number(heures) : null,
   description: description?.trim() || null,
-  capacite_groupe: Number(capacite_groupe),
+  capacite_groupe: needsGlobalCapacite ? Number(capacite_groupe) : null,
   a_niveaux: !!a_niveaux,
   type_duree: type_duree || 'heures',
   prix_uniforme: prix_uniforme === undefined ? true : !!prix_uniforme,
   duree_uniforme: duree_uniforme === undefined ? true : !!duree_uniforme,
   type_duree_uniforme: type_duree_uniforme === undefined ? true : !!type_duree_uniforme,
+  echeancier_uniforme: echeancier_uniforme === undefined ? true : !!echeancier_uniforme,
+  capacite_uniforme: capacite_uniforme === undefined ? true : !!capacite_uniforme,
   statut: statut === 'non_active' ? 'non_active' : 'active',
 })
     .eq('id', id)
@@ -225,4 +298,16 @@ if (periods.length > 0) {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-module.exports = { getFormations, getFormationById, createFormation, updateFormation, archiveFormation, restoreFormation, deleteFormation, getFormationPeriods, setFormationPeriods };
+const getFormationStatutOptions = async (req, res) => {
+  const { data, error } = await supabase.rpc('get_formation_status_values');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+const getStatutScolariteOptions = async (req, res) => {
+  const { data, error } = await supabase.rpc('get_statut_scolarite_values');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+module.exports = { getFormations, getFormationById, createFormation, updateFormation, archiveFormation, restoreFormation, deleteFormation, getFormationPeriods, setFormationPeriods, getFormationStatutOptions, getStatutScolariteOptions };

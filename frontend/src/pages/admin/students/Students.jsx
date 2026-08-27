@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Search, Plus, X, CheckCircle2, Phone, PhoneCall, Users,
-  Radio, UserCheck, CalendarDays, Megaphone, MapPin, UserCircle, UserX, Clock, ChevronDown,
+  Search, Plus, X, CheckCircle2, Phone, PhoneCall, Users,Radio, UserCheck, CalendarDays, Megaphone, MapPin, UserCircle, UserX, Clock, ChevronDown,Layers, 
 } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddEtudiantModal from './AddEtudiantModal';
@@ -9,7 +8,7 @@ import EtudiantDetailModal from './EtudiantDetailModal';
 
 const API = import.meta.env.VITE_API_URL;
 
-const STATUT_OPTS = ['pending','confirmed','non_confirmed','rejected'];
+
 const statutMeta = {
   confirmed:     { label: 'Confirmé',     cls: 'bg-[#DCEBFA] text-[#0369A1]' },
   pending:       { label: 'En attente',   cls: 'bg-amber-50 text-amber-700' },
@@ -85,6 +84,12 @@ const FilterSelect = ({ icon: Icon, label, value, onChange, opts, display }) => 
 );
 
 const Students = () => {
+  const isGroupLocked = dateFin => {
+  if (!dateFin) return false;
+  const limit = new Date(dateFin);
+  limit.setDate(limit.getDate() + 30);
+  return new Date() > limit;
+};
 const [etudiants, setEtudiants]   = useState([]);
 const [formations, setFormations] = useState([]);
 const [wilayas, setWilayas]             = useState([]);
@@ -101,17 +106,20 @@ const [thirdTryOpts, setThirdTryOpts]   = useState([]);
   const [error, setError]           = useState(null);
   const [showAdd, setShowAdd]       = useState(false);
   const [selected, setSelected]     = useState(null);
-
+  const [statutOpts, setStatutOpts] = useState([]);
+const selectedFormationObj = formations.find(f => f.nom === filters.formation);
 useEffect(() => {
   const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
   const cat = c => fetch(`${API}/api/parametres?categorie=${c}`, { headers: h }).then(r => r.json());
-  Promise.all([
+Promise.all([
     fetch(`${API}/api/etudiants`,  { headers: h }).then(r => r.json()),
     fetch(`${API}/api/formations`, { headers: h }).then(r => r.json()),
+    fetch(`${API}/api/etudiants/statut-options`, { headers: h }).then(r => r.json()),
     cat('wilaya'), cat('source'), cat('registered_by'),
     cat('first_try'), cat('second_try'), cat('third_try'),
   ])
-    .then(([e, f, wl, src, rb, ft, st, tt]) => {
+    .then(([e, f, so, wl, src, rb, ft, st, tt]) => {
+      setStatutOpts(so);
       setEtudiants(e); setFormations(f);
       setWilayas((wl || []).filter(v => v.actif).map(v => v.label));
       setSourceOpts((src || []).filter(v => v.actif).map(v => v.label));
@@ -143,19 +151,20 @@ useEffect(() => {
   // Unique "Ajouté par" values found in the data, for the filter dropdown
   const addedByOpts = [...new Set(etudiants.map(e => e.added_by).filter(Boolean))];
 
-  const filtered = etudiants.filter(i => {
-    const name = `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase();
-    if (search && !name.includes(search.toLowerCase()) && !i.etudiant?.telephone?.includes(search)) return false;
-    if (filters.statut        && i.statut           !== filters.statut)         return false;
-    if (filters.source        && i.source           !== filters.source)         return false;
-    if (filters.registered_by && i.registered_by    !== filters.registered_by)  return false;
-    if (filters.formation     && i.formation?.nom   !== filters.formation)      return false;
-if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         return false;
-    if (filters.added_by      && i.added_by         !== filters.added_by)       return false;
-    if (dateFrom && i.date_inscription && new Date(i.date_inscription) < new Date(dateFrom)) return false;
-    if (dateTo   && i.date_inscription && new Date(i.date_inscription) > new Date(dateTo))   return false;
-    return true;
-  });
+const filtered = etudiants.filter(i => {
+  const name = `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase();
+  if (search && !name.includes(search.toLowerCase()) && !i.etudiant?.telephone?.includes(search)) return false;
+  if (filters.statut        && i.statut           !== filters.statut)         return false;
+  if (filters.source        && i.source           !== filters.source)         return false;
+  if (filters.registered_by && i.registered_by    !== filters.registered_by)  return false;
+  if (filters.formation     && i.formation?.nom   !== filters.formation)      return false;
+  if (filters.niveau        && i.niveau?.nom      !== filters.niveau)         return false; // 👈 add this
+  if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         return false;
+  if (filters.added_by      && i.added_by         !== filters.added_by)       return false;
+  if (dateFrom && i.date_inscription && new Date(i.date_inscription) < new Date(dateFrom)) return false;
+  if (dateTo   && i.date_inscription && new Date(i.date_inscription) > new Date(dateTo))   return false;
+  return true;
+});
 
   const activeCount = Object.values(filters).filter(Boolean).length + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
   const clearAll = () => { setFilters({}); setDateFrom(''); setDateTo(''); setSearch(''); };
@@ -166,11 +175,12 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
   const confirmedNoGroupCount = etudiants.filter(e => e.statut === 'confirmed' && !e.group_id).length;
   const pendingCount = etudiants.filter(e => e.statut === 'pending').length;
 
-  const COLS = [
+ const COLS = [
   { label: 'Étudiant',    Icon: null,        width: 130 },
   { label: 'Tél.',        Icon: Phone,       width: 90  },
   { label: 'Wilaya',      Icon: MapPin,      width: 100 },
   { label: 'Formation',   Icon: Users,       width: 130 },
+  { label: 'Niveau',      Icon: Layers,      width: 100 }, // 👈 new
   { label: 'Date',        Icon: CalendarDays,width: 80  },
   { label: '1er appel',   Icon: PhoneCall,   width: 90  },
   { label: '2ème appel',  Icon: PhoneCall,   width: 98  },
@@ -219,11 +229,26 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
         <div className="w-px h-5 bg-[#E2E8F0]" />
 
        
-       <FilterSelect icon={CheckCircle2} label="Statut"         value={filters.statut || ''}        onChange={v => setFilter('statut', v)}        opts={STATUT_OPTS}               display={o => statutMeta[o]?.label ?? o} />
+       <FilterSelect icon={CheckCircle2} label="Statut"         value={filters.statut || ''}        onChange={v => setFilter('statut', v)}        opts={statutOpts}               display={o => statutMeta[o]?.label ?? o} />
       
                <FilterSelect icon={Radio}        label="Source"          value={filters.source || ''}        onChange={v => setFilter('source', v)}        opts={sourceOpts} />
         <FilterSelect icon={UserCheck}    label="Rapporteur"  value={filters.registered_by || ''} onChange={v => setFilter('registered_by', v)} opts={registeredByOpts} />
-     <FilterSelect icon={Users}   label="Formation" value={filters.formation || ''} onChange={v => setFilter('formation', v)} opts={formations.map(f => f.nom)} />
+    <FilterSelect
+  icon={Users}
+  label="Formation"
+  value={filters.formation || ''}
+  onChange={v => { setFilter('formation', v); setFilter('niveau', ''); }}
+  opts={formations.map(f => f.nom)}
+/>
+{selectedFormationObj?.a_niveaux && (
+  <FilterSelect
+    icon={Layers}
+    label="Niveau"
+    value={filters.niveau || ''}
+    onChange={v => setFilter('niveau', v)}
+    opts={selectedFormationObj.niveaux?.map(n => n.nom) ?? []}
+  />
+)}
 <FilterSelect icon={MapPin}  label="Wilaya"    value={filters.wilaya || ''}    onChange={v => setFilter('wilaya', v)}    opts={wilayas} />
 <FilterSelect icon={UserCheck} label="Ajouté par" value={filters.added_by || ''} onChange={v => setFilter('added_by', v)} opts={addedByOpts} />
         <div className="w-px h-5 bg-[#E2E8F0]" />
@@ -297,19 +322,27 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
                           ? <span className="bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium truncate block max-w-full">{i.formation.nom}</span>
                           : <span className="text-slate-300">—</span>}
                       </td>
+                      <td className="px-3 py-2 overflow-hidden border-b border-slate-100">
+  {i.niveau?.nom
+    ? <span className="bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full text-[11px] font-medium truncate block max-w-full">{i.niveau.nom}</span>
+    : <span className="text-slate-300">—</span>}
+</td>
                       <td className="px-3 py-2 text-slate-400 truncate border-b border-slate-100">
                         {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
                       </td>
 
-                                                                                  {[
-                        { f: 'first_try',  disabled: false,         opts: firstTryOpts },
-                        { f: 'second_try', disabled: !i.first_try,  opts: secondTryOpts },
-                        { f: 'third_try',  disabled: !i.second_try, opts: thirdTryOpts },
-                      ].map(({ f, disabled, opts }) => (
-                        <td key={f} className="px-2 py-2 overflow-hidden border-b border-slate-100">
-                          <TrySelect value={i[f]} onChange={val => updateField(i.id, f, val)} disabled={disabled} opts={opts} />
-                        </td>
-                      ))}
+                        {[
+  { f: 'first_try',  disabled: false,         opts: firstTryOpts },
+  { f: 'second_try', disabled: !i.first_try,  opts: secondTryOpts },
+  { f: 'third_try',  disabled: !i.second_try, opts: thirdTryOpts },
+].map(({ f, disabled, opts }) => {
+  const locked = disabled || isGroupLocked(i.groups?.date_fin);
+  return (
+    <td key={f} className="px-2 py-2 overflow-hidden border-b border-slate-100">
+      <TrySelect value={i[f]} onChange={val => updateField(i.id, f, val)} disabled={locked} opts={opts} />
+    </td>
+  );
+})}
 
                       <td className="px-2 py-2 overflow-hidden border-b border-slate-100" onClick={e => e.stopPropagation()}>
                         <select
@@ -336,11 +369,12 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
 </td>
                       <td className="px-2 py-2 overflow-hidden border-b border-slate-100" onClick={e => e.stopPropagation()}>
                         <select
-                          value={i.statut ?? 'pending'}
-                          onChange={e => updateField(i.id, 'statut', e.target.value)}
-                          className={`text-[11px] font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none w-full ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}
-                        >
-                          {STATUT_OPTS.map(o => <option key={o} value={o}>{statutMeta[o]?.label ?? o}</option>)}
+  value={i.statut ?? 'pending'}
+  onChange={e => updateField(i.id, 'statut', e.target.value)}
+  disabled={isGroupLocked(i.groups?.date_fin)}
+  className={`text-[11px] font-medium px-2 py-0.5 rounded-full border-0 focus:outline-none w-full ${isGroupLocked(i.groups?.date_fin) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}
+>
+                          {statutOpts.map(o => <option key={o} value={o}>{statutMeta[o]?.label ?? o}</option>)}
                         </select>
                       </td>
                     </tr>

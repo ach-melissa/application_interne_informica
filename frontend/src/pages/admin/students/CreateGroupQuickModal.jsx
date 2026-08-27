@@ -19,7 +19,7 @@ const Row = ({ icon: Icon, label, children, required }) => (
   </div>
 );
 
-const CreateGroupQuickModal = ({ formation_id, onClose, onCreated }) => {
+const CreateGroupQuickModal = ({ formation_id, niveau_id = null, onClose, onCreated }) => {
   const [teachers, setTeachers] = useState([]);
   const [nom, setNom] = useState('');
   const [teacherId, setTeacherId] = useState('');
@@ -42,25 +42,27 @@ const CreateGroupQuickModal = ({ formation_id, onClose, onCreated }) => {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          nom: nom.trim(),
-          formation_id,
-          teacher_id: teacherId || null,
-          date_debut: dateDebut || null,
-        }),
+  nom: nom.trim(),
+  formation_id,
+  niveau_id,
+  teacher_id: teacherId || null,
+  date_debut: dateDebut || null,
+}),
       });
       if (!res.ok) throw new Error('Erreur lors de la création du groupe');
       const saved = await res.json();
-      onCreated?.({
-        id: saved.id,
-        nom: saved.nom,
-        jours_formation: saved.jours_formation ?? null,
-        heure_formation: saved.heure_formation ?? null,
-        date_debut: saved.date_debut ?? null,
-        date_fin: saved.date_fin ?? null,
-        statut: saved.statut ?? 'active',
-        teacher: teachers.find(t => t.id === teacherId) ?? null,
-        capacite: null,
-      });
+     onCreated?.({
+  id: saved.id,
+  nom: saved.nom,
+  niveau_id: saved.niveau_id ?? niveau_id,
+  jours_formation: saved.jours_formation ?? null,
+  heure_formation: saved.heure_formation ?? null,
+  date_debut: saved.date_debut ?? null,
+  date_fin: saved.date_fin ?? null,
+  statut: saved.statut ?? 'active',
+  teacher: teachers.find(t => t.id === teacherId) ?? null,
+  capacite: null,
+});
     } catch (err) { setError(err.message); }
     finally { setSubmitting(false); }
   };

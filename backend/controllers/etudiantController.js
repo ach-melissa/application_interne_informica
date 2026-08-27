@@ -10,11 +10,12 @@ const getEtudiants = async (req, res) => {
  
   let query = supabase
     .from('inscriptions')
-    .select(`
+        .select(`
       *,
       etudiant:etudiant_id(*),
       formation:formation_id(nom),
-      groups(nom, jours_formation, heure_formation)
+      niveau:niveau_id(id, nom),
+            groups(nom, jours_formation, heure_formation, date_fin)
     `)
     .eq('archived', archived)
     .order('created_at', { ascending: false });
@@ -32,9 +33,23 @@ const getEtudiants = async (req, res) => {
   res.json(data);
 };
 
+const LOCKED_FIELDS = ['statut', 'first_try', 'second_try', 'third_try', 'statut_scolarite', 'formation_id', 'niveau_id'];
 const updateInscription = async (req, res) => {
   const { id } = req.params;
   const updates = {};
+
+  if (LOCKED_FIELDS.some(f => f in req.body)) {
+    const { data: insc } = await supabase
+      .from('inscriptions').select('groups(date_fin)').eq('id', id).single();
+    const dateFin = insc?.groups?.date_fin;
+    if (dateFin) {
+      const limit = new Date(dateFin);
+      limit.setDate(limit.getDate() + 30);
+      if (new Date() > limit) {
+        return res.status(403).json({ error: 'Ce groupe est terminé depuis plus de 30 jours : modification impossible.' });
+      }
+    }
+  }
 
   if ('source' in req.body)        updates.source        = req.body.source || null;
   if ('registered_by' in req.body) updates.registered_by = req.body.registered_by || null;
@@ -42,7 +57,8 @@ const updateInscription = async (req, res) => {
   if ('first_try' in req.body)     updates.first_try     = req.body.first_try || null;
   if ('second_try' in req.body)    updates.second_try    = req.body.second_try || null;
   if ('third_try' in req.body)     updates.third_try     = req.body.third_try || null;
-  if ('formation_id' in req.body)  updates.formation_id  = req.body.formation_id || null;
+    if ('formation_id' in req.body)  updates.formation_id  = req.body.formation_id || null;
+  if ('niveau_id' in req.body)     updates.niveau_id     = req.body.niveau_id || null;
   if ('statut_scolarite' in req.body) updates.statut_scolarite = req.body.statut_scolarite || 'en_cours';
   if ('en_promotion' in req.body)     updates.en_promotion     = !!req.body.en_promotion;
   if ('prix_promotion' in req.body)   updates.prix_promotion   = req.body.en_promotion ? (req.body.prix_promotion || null) : null;
@@ -100,7 +116,7 @@ const createEtudiant = async (req, res) => {
   const {
     nom, prenom, telephone, email, adresse,
     niveau_scolaire, date_naissance, lieu_naissance, wilaya,
-    formation_id, source, registered_by,
+    formation_id, niveau_id, source, registered_by,
   } = req.body;
 
     let addedByName = null;
@@ -149,11 +165,11 @@ if (req.user?.id) {
 
   if (etudiantErr) return res.status(500).json({ error: etudiantErr.message });
 
-  const { data: inscription, error: insErr } = await supabase
+    const { data: inscription, error: insErr } = await supabase
     .from('inscriptions')
     .insert({
       etudiant_id: etudiant.id,
-      formation_id, source, registered_by,
+      formation_id, niveau_id: niveau_id || null, source, registered_by,
       added_by: addedByName,
       date_inscription: new Date().toISOString().split('T')[0],
       statut: 'pending',
@@ -223,19 +239,20 @@ const deleteEtudiant = async (req, res) => {
 
 const getGroupsByFormation = async (req, res) => {
   const { formation_id } = req.params;
+  const { niveau_id } = req.query;
 
   const { data: formation, error: formationErr } = await supabase
     .from('formations')
-    .select('capacite_groupe')
+    .select('capacite_groupe, a_niveaux')
     .eq('id', formation_id)
     .single();
 
   if (formationErr) return res.status(500).json({ error: formationErr.message });
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('groups')
     .select(`
-      id, nom, jours_formation, heure_formation, statut, date_debut, date_fin,
+      id, nom, jours_formation, heure_formation, statut, date_debut, date_fin, niveau_id,
       teachers ( users ( nom, prenom ) ),
       inscriptions ( id, archived ),
       sessions ( id, statut )
@@ -243,8 +260,11 @@ const getGroupsByFormation = async (req, res) => {
     .eq('formation_id', formation_id)
     .eq('archived', false);
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (formation.a_niveaux && niveau_id) query = query.eq('niveau_id', niveau_id);
 
+  const { data, error } = await query;
+
+  if (error) return res.status(500).json({ error: error.message });
   const today = new Date().toISOString().slice(0, 10);
 
   const enriched = data.map(g => {
@@ -272,11 +292,25 @@ const getGroupsByFormation = async (req, res) => {
 };
 const assignGroup = async (req, res) => {
   const { id } = req.params;
-  const { group_id } = req.body;
+  const { group_id, niveau_id } = req.body;
+
+  const { data: current } = await supabase
+    .from('inscriptions').select('groups(date_fin)').eq('id', id).single();
+  const dateFin = current?.groups?.date_fin;
+  if (dateFin) {
+    const limit = new Date(dateFin);
+    limit.setDate(limit.getDate() + 30);
+    if (new Date() > limit) {
+      return res.status(403).json({ error: 'Ce groupe est terminé depuis plus de 30 jours : modification impossible.' });
+    }
+  }
+
+  const updates = { group_id: group_id || null };
+  if (niveau_id !== undefined) updates.niveau_id = niveau_id || null;
 
   const { data, error } = await supabase
     .from('inscriptions')
-    .update({ group_id: group_id || null })
+    .update(updates)
     .eq('id', id)
     .select()
     .single();
@@ -284,4 +318,9 @@ const assignGroup = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant, upload, getGroupsByFormation, assignGroup, archiveInscription, restoreInscription };
+const getInscriptionStatutOptions = async (req, res) => {
+  const { data, error } = await supabase.rpc('get_inscription_status_values');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant, upload, getGroupsByFormation, assignGroup, archiveInscription, restoreInscription, getInscriptionStatutOptions };

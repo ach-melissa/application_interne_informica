@@ -1,9 +1,9 @@
 const supabase = require('../supabaseClient');
 const { resolveGroupPeriods } = require('../utils/periods');
 const getGroupsByFormation = async (req, res) => {
-  const { formation_id } = req.query;
+  const { formation_id, niveau_id } = req.query;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('groups')
     .select(`
       *,
@@ -13,6 +13,10 @@ const getGroupsByFormation = async (req, res) => {
     .eq('formation_id', formation_id)
     .eq('archived', false)
     .order('created_at', { ascending: true });
+
+  if (niveau_id) query = query.eq('niveau_id', niveau_id);
+
+  const { data, error } = await query;
 
   if (error) return res.status(500).json({ error: error.message });
 
@@ -30,12 +34,26 @@ const getGroupsByFormation = async (req, res) => {
 };
 
 const createGroup = async (req, res) => {
-  const { nom, formation_id, teacher_id, en_promotion, prix_promotion, date_debut } = req.body;
+  const { nom, formation_id, niveau_id, teacher_id, en_promotion, prix_promotion, date_debut } = req.body;
+
+  if (!nom || !formation_id) {
+    return res.status(400).json({ error: 'Nom et formation sont obligatoires.' });
+  }
+
+  const { data: formation, error: fErr } = await supabase
+    .from('formations')
+    .select('a_niveaux')
+    .eq('id', formation_id)
+    .single();
+  if (fErr) return res.status(500).json({ error: fErr.message });
+  if (formation.a_niveaux && !niveau_id) {
+    return res.status(400).json({ error: 'Cette formation nécessite un niveau.' });
+  }
 
   const { data, error } = await supabase
     .from('groups')
     .insert({
-      nom, formation_id, teacher_id: teacher_id || null,
+      nom, formation_id, niveau_id: niveau_id || null, teacher_id: teacher_id || null,
       en_promotion: !!en_promotion,
       prix_promotion: en_promotion ? (prix_promotion || null) : null,
       date_debut: date_debut || null,

@@ -17,7 +17,7 @@ const AdminLayout = ({ children }) => {
       <Topbar />
       <div className="flex flex-1 overflow-hidden relative">
         <SidebarAdmin collapsed={collapsed} setCollapsed={handleCollapse} />
-        <main className="flex-1 overflow-y-auto p-8 ml-[60px]">
+        <main className="flex-1 overflow-y-auto p-6 ml-[60px]">
           {children}
         </main>
       </div>

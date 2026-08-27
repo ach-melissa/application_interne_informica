@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, Clock, UserCheck, Users, Plus, CheckCircle2 } from 'lucide-react';
+import { X, Calendar, Clock, UserCheck, Users, Plus, CheckCircle2, Layers } from 'lucide-react';
 import CreateGroupQuickModal from './CreateGroupQuickModal';
 
 const API = import.meta.env.VITE_API_URL;
@@ -16,7 +16,10 @@ const capacityColor = (nb, cap) => {
   return 'text-emerald-600';
 };
 
-const AssignGroupModal = ({ inscription, onClose, onSuccess }) => {
+const AssignGroupModal = ({ inscription, onClose, onSuccess, locked = false, formations = [], niveauId: initialNiveauId }) => {
+  const formation = formations.find(f => f.id === inscription.formation_id);
+  const needsNiveau = !!formation?.a_niveaux;
+  const [niveauId, setNiveauId] = useState(initialNiveauId ?? inscription.niveau_id ?? '');
   const [groups, setGroups]     = useState([]);
   const [selected, setSelected] = useState(inscription.group_id ?? '');
   const [loading, setLoading]   = useState(true);
@@ -24,15 +27,18 @@ const AssignGroupModal = ({ inscription, onClose, onSuccess }) => {
   const [error, setError]       = useState(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const loadGroups = () => {
-    setLoading(true);
-    fetch(`${API}/api/etudiants/formations/${inscription.formation_id}/groups`, { headers: getHeaders() })
-      .then(r => r.json())
-      .then(data => { setGroups(Array.isArray(data) ? data : []); setLoading(false); })
-      .catch(() => { setError('Erreur chargement groupes'); setLoading(false); });
-  };
+const loadGroups = (niveau) => {
+  setLoading(true);
+  const query = niveau ? `?niveau_id=${niveau}` : '';
+  fetch(`${API}/api/etudiants/formations/${inscription.formation_id}/groups${query}`, { headers: getHeaders() })
+    .then(r => r.json())
+    .then(data => { setGroups(Array.isArray(data) ? data : []); setLoading(false); })
+    .catch(() => { setError('Erreur chargement groupes'); setLoading(false); });
+};
 
-  useEffect(() => { loadGroups(); }, []);
+useEffect(() => {
+  if (!needsNiveau || niveauId) loadGroups(niveauId);
+}, [niveauId]);
 
   const handleSave = async () => {
   setSubmit(true); setError(null);
@@ -40,7 +46,7 @@ const AssignGroupModal = ({ inscription, onClose, onSuccess }) => {
     const res = await fetch(`${API}/api/etudiants/${inscription.id}/group`, {
       method: 'PATCH',
       headers: getHeaders(),
-      body: JSON.stringify({ group_id: selected || null }),
+     body: JSON.stringify({ group_id: selected || null, niveau_id: niveauId || null }),
     });
     if (!res.ok) throw new Error('Erreur affectation');
 
@@ -88,18 +94,44 @@ const AssignGroupModal = ({ inscription, onClose, onSuccess }) => {
             )}
           </div>
 
-          <div className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Groupes disponibles</p>
-              <button
-                onClick={() => setShowCreate(true)}
-                className="flex items-center gap-1 text-[11px] font-medium text-[#0369A1] bg-[#DCEBFA] px-2.5 py-1.5 rounded-md hover:bg-[#c7e3f7]"
-              >
-                <Plus size={12} /> Créer un groupe
-              </button>
-            </div>
+         <div className="p-5 space-y-3">
+  {needsNiveau && (
+    <div>
+      <p className="flex items-center gap-1 text-[10px] text-slate-600 uppercase tracking-wide mb-0.5">
+        <Layers size={10} className="text-slate-500" /> Niveau <span className="text-red-500 ml-0.5">*</span>
+      </p>
+      <select
+        value={niveauId}
+        onChange={e => setNiveauId(e.target.value)}
+        disabled={locked}
+        className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
+      >
+        <option value="">— Choisir un niveau —</option>
+        {formation?.niveaux?.map(n => <option key={n.id} value={n.id}>{n.nom}</option>)}
+      </select>
+    </div>
+  )}
 
-            {loading ? (
+  {needsNiveau && !niveauId ? (
+    <p className="text-xs text-slate-400 text-center py-6">Sélectionnez un niveau pour voir les groupes disponibles.</p>
+  ) : (
+  <>
+  <div className="flex items-center justify-between">
+    <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Groupes disponibles</p>
+  <button
+    onClick={() => !locked && setShowCreate(true)}
+    disabled={locked}
+    className={`flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md ${locked ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'text-[#0369A1] bg-[#DCEBFA] hover:bg-[#c7e3f7]'}`}
+  >
+    <Plus size={12} /> Créer un groupe
+  </button>
+  </div>
+{locked && (
+  <p className="text-[11px] text-amber-600 bg-amber-50 rounded-md px-2.5 py-1.5">
+    Ce groupe est terminé depuis plus de 30 jours : affectation verrouillée.
+  </p>
+)}
+  {loading ? (
               <div className="flex justify-center py-6">
                 <div className="w-6 h-6 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
               </div>
@@ -110,16 +142,16 @@ const AssignGroupModal = ({ inscription, onClose, onSuccess }) => {
               </div>
             ) : (
               <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                <label className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition
-                  ${selected === '' ? 'border-[#0369A1] bg-[#DCEBFA]/40' : 'border-[#F1F5F9] hover:border-[#DCEBFA]'}`}>
-                  <input type="radio" name="group" value=""
-                    checked={selected === ''} onChange={() => setSelected('')}
-                    className="accent-[#0369A1]" />
-                  <span className="text-xs text-slate-400 italic">— Aucun groupe —</span>
-                </label>
+                <label className={`flex items-center gap-3 p-3 rounded-md border transition
+  ${locked ? 'opacity-50 cursor-not-allowed border-[#F1F5F9]' : selected === '' ? 'border-[#0369A1] bg-[#DCEBFA]/40 cursor-pointer' : 'border-[#F1F5F9] hover:border-[#DCEBFA] cursor-pointer'}`}>
+  <input type="radio" name="group" value="" disabled={locked}
+    checked={selected === ''} onChange={() => setSelected('')}
+    className="accent-[#0369A1]" />
+  <span className="text-xs text-slate-400 italic">— Aucun groupe —</span>
+</label>
 
-                {groups.map(g => {
-                  const disabled = g.termine;
+{groups.map(g => {
+  const disabled = g.termine || locked;
                   const isNew = g.nb_sessions === 0 && !g.termine;
                   return (
                     <label key={g.id} className={`flex items-start gap-3 p-3 rounded-md border transition
@@ -169,30 +201,33 @@ const AssignGroupModal = ({ inscription, onClose, onSuccess }) => {
                     </label>
                   );
                 })}
-              </div>
+                       </div>
             )}
+  </>
+  )}
 
             <div className="flex justify-end gap-2 pt-1">
               <button onClick={onClose}
                 className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">
                 Annuler
               </button>
-              <button onClick={handleSave} disabled={submitting || loading}
-                className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
-                {submitting ? 'Enregistrement...' : 'Confirmer'}
-              </button>
+              <button onClick={handleSave} disabled={submitting || loading || locked || (needsNiveau && !niveauId)}
+  className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium">
+  {submitting ? 'Enregistrement...' : 'Confirmer'}
+</button>
             </div>
           </div>
         </div>
       )}
 
       {showCreate && (
-        <CreateGroupQuickModal
-          formation_id={inscription.formation_id}
-          onClose={() => setShowCreate(false)}
-          onCreated={handleGroupCreated}
-        />
-      )}
+  <CreateGroupQuickModal
+    formation_id={inscription.formation_id}
+    niveau_id={niveauId || null}
+    onClose={() => setShowCreate(false)}
+    onCreated={handleGroupCreated}
+  />
+)}
     </div>
   );
 };

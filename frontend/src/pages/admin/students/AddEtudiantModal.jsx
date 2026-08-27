@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, MapPin, GraduationCap, Calendar, Users, Radio, UserCheck } from 'lucide-react';
+import { X, User, Phone, Mail, MapPin, GraduationCap, Calendar, Users, Radio, UserCheck, Layers } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
@@ -26,10 +26,10 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [form, setForm] = useState({
-    nom: '', prenom: '', telephone: '', email: '', adresse: '',
-    niveau_scolaire: '', date_naissance: '', lieu_naissance: '', wilaya: '',
-    formation_id: '', source: '', registered_by: '',
-  });
+  nom: '', prenom: '', telephone: '', email: '', adresse: '',
+  niveau_scolaire: '', date_naissance: '', lieu_naissance: '', wilaya: '',
+  formation_id: '', niveau_id: '', source: '', registered_by: '',
+});
 
   useEffect(() => {
     const cat = c => fetch(`${API}/api/parametres?categorie=${c}`, { headers: getHeaders() }).then(r => r.json());
@@ -45,7 +45,13 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
   }, []);
 
   const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }));
+  const selectedFormation = formations.find(f => f.id === form.formation_id);
+const showNiveauField = selectedFormation?.a_niveaux;
 
+const setFormation = e => {
+  const id = e.target.value;
+  setForm(p => ({ ...p, formation_id: id, niveau_id: '' })); // reset niveau when formation changes
+};
   const handleSubmit = async () => {
     if (!form.nom || !form.prenom || !form.telephone || !form.formation_id) {
       setError('Nom, prénom, téléphone et formation sont obligatoires.'); return;
@@ -124,16 +130,25 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
             </div>
           </Section>
 
-          <Section>
-            <div className="col-span-2">
-              <Label icon={Users} text="Formation" required />
-              <select value={form.formation_id} onChange={set('formation_id')} className={inp}>
-                <option value="">Choisir une formation</option>
-                {formations.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
-              </select>
-            </div>
-            <div>
-              <Label icon={Radio} text="Source" />
+        <Section>
+  <div className="col-span-2">
+    <Label icon={Users} text="Formation" required />
+    <select value={form.formation_id} onChange={setFormation} className={inp}>
+      <option value="">Choisir une formation</option>
+      {formations.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
+    </select>
+  </div>
+  {showNiveauField && (
+    <div className="col-span-2">
+      <Label icon={Layers} text="Niveau" />
+      <select value={form.niveau_id} onChange={set('niveau_id')} className={inp}>
+        <option value="">— Aucun (à définir plus tard) —</option>
+        {selectedFormation.niveaux?.map(n => <option key={n.id} value={n.id}>{n.nom}</option>)}
+      </select>
+    </div>
+  )}
+  <div>
+    <Label icon={Radio} text="Source" />
               <select value={form.source} onChange={set('source')} className={inp}>
                 <option value="">—</option>
                 {sourceOpts.map(o => <option key={o} value={o}>{o}</option>)}

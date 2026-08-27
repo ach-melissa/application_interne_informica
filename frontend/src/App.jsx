@@ -10,6 +10,7 @@ import Dashboard from './pages/admin/dashboard/Dashboard';
 import DemandesSalles from './pages/admin/demandeSalles/DemandesSalles';
 import DetailDemandeSalle from './pages/admin/demandeSalles/DetailDemandeSalle';
 import Formations from './pages/admin/formations/Formations';
+import FormationNiveaux from './pages/admin/formations/niveaux/FormationNiveaux';
 import Groups from './pages/admin/formations/groups/Groups';
 import GroupDetail from './pages/admin/formations/groups/GroupDetail';
 import EmploisGlobal from './pages/admin/formations/EmploisGlobal';
@@ -158,6 +159,11 @@ function App() {
     <ProfLayout>
       <ProfGroups />
     </ProfLayout>
+  </PrivateRoute>
+} />
+<Route path="/admin/formations/:id/niveaux" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <FormationNiveaux />
   </PrivateRoute>
 } />
 <Route path="/prof/formations/:formationId/groups/:groupId" element={

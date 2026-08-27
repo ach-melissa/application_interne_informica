@@ -73,12 +73,12 @@ const NavItem = ({ label, Icon, path, isActive, collapsed, onClick }) => {
     <div className="relative" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
       <button
         onClick={onClick}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150
+               className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg transition-colors duration-150
           ${collapsed ? 'justify-center' : ''}
           ${isActive ? 'text-[#0369A1] font-medium' : 'text-slate-500 hover:text-[#0369A1] hover:bg-[#F8FAFC]'}`}
       >
-        <Icon size={18} className="shrink-0" />
-        <FadeLabel collapsed={collapsed} className="text-sm">{label}</FadeLabel>
+                <Icon size={16} className="shrink-0" />
+              <FadeLabel collapsed={collapsed} className="text-xs">{label}</FadeLabel>
       </button>
       {collapsed && rect && <Tooltip label={label} anchorRect={rect} />}
     </div>
@@ -96,7 +96,7 @@ const SidebarAdmin = ({ collapsed, setCollapsed }) => {
   return (
     <aside
   className={`absolute left-0 top-0 flex flex-col h-full bg-white border-r border-[#E2E8F0] transition-[width] duration-300 ease-in-out z-30 ${
-    collapsed ? 'w-[70px]' : 'w-[210px] shadow-xl'
+       collapsed ? 'w-[60px]' : 'w-[190px] shadow-xl'
   }`}
 >
       <div className="h-2" />
@@ -105,7 +105,7 @@ const SidebarAdmin = ({ collapsed, setCollapsed }) => {
         {navGroups.map((group) => (
           <div key={group.label}>
             <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-8 opacity-100 delay-100'}`}>
-              <p className="px-3 pt-3 pb-1.5 text-[11px] font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                            <p className="px-3 pt-3 pb-1 text-[10px] font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
                 {group.label}
               </p>
             </div>
@@ -141,10 +141,10 @@ const SidebarAdmin = ({ collapsed, setCollapsed }) => {
             className={`w-full flex items-center gap-2 px-1 py-1 rounded-lg transition group ${collapsed ? 'justify-center' : ''}`}
           >
             {user?.photo_url ? (
-              <img src={user.photo_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                            <img src={user.photo_url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-[#DCEBFA] flex items-center justify-center shrink-0">
-                <span className="text-[#0369A1] text-xs font-bold">{initials}</span>
+                          <div className="w-7 h-7 rounded-full bg-[#DCEBFA] flex items-center justify-center shrink-0">
+                <span className="text-[#0369A1] text-[10px] font-bold">{initials}</span>
               </div>
             )}
             <FadeLabel collapsed={collapsed} className="text-left min-w-0">
@@ -159,8 +159,8 @@ const SidebarAdmin = ({ collapsed, setCollapsed }) => {
             onClick={handleLogout}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-[#0369A1] transition ${collapsed ? 'justify-center' : ''}`}
           >
-            <LogOut size={18} className="shrink-0" />
-            <FadeLabel collapsed={collapsed} className="text-sm font-medium">Déconnexion</FadeLabel>
+            <LogOut size={16} className="shrink-0" />
+                        <FadeLabel collapsed={collapsed} className="text-xs font-medium">Déconnexion</FadeLabel>
           </button>
         </div>
       </div>

@@ -9,7 +9,20 @@ const getFormationNiveaux = async (req, res) => {
     .order('ordre', { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+
+  const withPeriods = await Promise.all(
+    data.map(async (n) => {
+      const { data: periods, error: pErr } = await supabase
+        .from('formation_payment_periods')
+        .select('jours_offset, montant')
+        .eq('niveau_id', n.id)
+        .order('numero', { ascending: true });
+      if (pErr) return { ...n, periods: [] };
+      return { ...n, periods: periods || [] };
+    })
+  );
+
+  res.json(withPeriods);
 };
 
 const setFormationNiveaux = async (req, res) => {
@@ -21,10 +34,10 @@ const setFormationNiveaux = async (req, res) => {
   }
 
   const { data: formation, error: fErr } = await supabase
-    .from('formations')
-    .select('prix_uniforme, duree_uniforme')
-    .eq('id', id)
-    .single();
+  .from('formations')
+  .select('prix_uniforme, duree_uniforme, type_duree_uniforme, echeancier_uniforme, capacite_uniforme')
+  .eq('id', id)
+  .single();
   if (fErr) return res.status(500).json({ error: fErr.message });
 
   for (const n of niveaux) {
@@ -37,9 +50,35 @@ const setFormationNiveaux = async (req, res) => {
     if (!formation.duree_uniforme && (n.duree_valeur === '' || n.duree_valeur === undefined || n.duree_valeur === null || Number(n.duree_valeur) <= 0)) {
       return res.status(400).json({ error: `Durée requise pour le niveau "${n.nom}".` });
     }
-    if (n.type_duree && !['heures', 'seances'].includes(n.type_duree)) {
+    if (!formation.duree_uniforme && !formation.type_duree_uniforme && !n.type_duree) {
+      return res.status(400).json({ error: `Unité requise pour le niveau "${n.nom}".` });
+    }
+        if (n.type_duree && !['heures', 'seances'].includes(n.type_duree)) {
       return res.status(400).json({ error: `type_duree invalide pour le niveau "${n.nom}".` });
     }
+    if (!formation.capacite_uniforme && (n.capacite_groupe === '' || n.capacite_groupe === undefined || n.capacite_groupe === null || Number(n.capacite_groupe) <= 0)) {
+      return res.status(400).json({ error: `Capacité requise pour le niveau "${n.nom}".` });
+    }
+    if (!formation.echeancier_uniforme) {
+  if (!Array.isArray(n.periods) || n.periods.length === 0) {
+    return res.status(400).json({ error: `Ajoutez au moins une période de paiement pour le niveau "${n.nom}".` });
+  }
+  for (const p of n.periods) {
+    if (p.jours_offset === undefined || p.jours_offset === null || isNaN(p.jours_offset)) {
+      return res.status(400).json({ error: `Décalage en jours invalide pour une période du niveau "${n.nom}".` });
+    }
+    if (p.montant === undefined || p.montant === null || isNaN(p.montant) || Number(p.montant) <= 0) {
+      return res.status(400).json({ error: `Montant invalide pour une période du niveau "${n.nom}".` });
+    }
+  }
+  const sum = n.periods.reduce((s, p) => s + Number(p.montant), 0);
+  const expected = Number(n.prix);
+  if (Math.abs(sum - expected) > 0.01) {
+    return res.status(400).json({
+      error: `Le total des tranches du niveau "${n.nom}" (${sum.toLocaleString('fr-FR')} DA) doit être égal à son prix (${expected.toLocaleString('fr-FR')} DA).`,
+    });
+  }
+}
   }
 
   const { error: delErr } = await supabase.from('formation_niveaux').delete().eq('formation_id', id);
@@ -47,18 +86,39 @@ const setFormationNiveaux = async (req, res) => {
 
   if (niveaux.length === 0) return res.json([]);
 
-  const rows = niveaux.map((n, idx) => ({
+   const rows = niveaux.map((n, idx) => ({
     formation_id: id,
     nom: n.nom.trim(),
     ordre: idx + 1,
     prix: n.prix !== '' && n.prix !== undefined && n.prix !== null ? Number(n.prix) : null,
     duree_valeur: n.duree_valeur !== '' && n.duree_valeur !== undefined && n.duree_valeur !== null ? Number(n.duree_valeur) : null,
     type_duree: n.type_duree || null,
+    capacite_groupe: n.capacite_groupe !== '' && n.capacite_groupe !== undefined && n.capacite_groupe !== null ? Number(n.capacite_groupe) : null,
   }));
 
   const { data, error } = await supabase.from('formation_niveaux').insert(rows).select();
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+
+
+if (!formation.echeancier_uniforme) {
+  for (let i = 0; i < data.length; i++) {
+    const niveauId = data[i].id;
+    const periods = niveaux[i].periods || [];
+    const periodRows = periods.map((p, idx) => ({
+      niveau_id: niveauId,
+      formation_id: id,
+      numero: idx + 1,
+      jours_offset: Number(p.jours_offset),
+      montant: Number(p.montant),
+    }));
+    if (periodRows.length > 0) {
+      const { error: ppErr } = await supabase.from('formation_payment_periods').insert(periodRows);
+      if (ppErr) return res.status(500).json({ error: ppErr.message });
+    }
+  }
+}
+
+res.json(data);
 };
 
 module.exports = { getFormationNiveaux, setFormationNiveaux };

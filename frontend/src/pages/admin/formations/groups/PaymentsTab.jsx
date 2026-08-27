@@ -1,11 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Image, Search, X, CheckCircle2, User, Wallet, PiggyBank, FileText, AlertCircle, Users } from 'lucide-react';
+import { Image, Search, X, CheckCircle2, User, Wallet, PiggyBank, FileText, AlertCircle, Users, ChevronDown } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
+
+// Same pill-style filter used in Formations.jsx / GroupDetail.jsx
+const FilterSelect = ({ icon: Icon, label, value, onChange, opts, display }) => (
+  <div className="relative flex items-center">
+    {Icon && <Icon size={13} className="absolute left-2 text-[#0369A1] pointer-events-none" />}
+    <select value={value || ''} onChange={e => onChange(e.target.value)}
+      className={`appearance-none text-xs rounded-full py-1.5 pr-7 pl-7 bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer transition ${value ? 'text-[#0369A1] font-medium' : 'text-slate-500'}`}>
+      <option value="">{label}</option>
+      {opts.map(o => <option key={o.value ?? o} value={o.value ?? o}>{display ? display(o.value ?? o) : (o.label ?? o)}</option>)}
+    </select>
+    {value ? <button onClick={() => onChange('')} className="absolute right-2 text-slate-300 hover:text-red-400"><X size={11} /></button>
+      : <ChevronDown size={11} className="absolute right-2 text-slate-400 pointer-events-none" />}
+  </div>
+);
 
 const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
   const [payments, setPayments] = useState([]);
-const [promoDraft, setPromoDraft] = useState({});   // { [inscriptionId]: prixString while typing }
-const [promoModal, setPromoModal] = useState(null); // the full payment object `p`, or null
+  const [promoDraft, setPromoDraft] = useState({});   // { [inscriptionId]: prixString while typing }
+  const [promoModal, setPromoModal] = useState(null); // the full payment object `p`, or null
   const [promoPrice, setPromoPrice] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,7 +47,7 @@ const [promoModal, setPromoModal] = useState(null); // the full payment object `
     fetchPayments();
   }, [groupId, refreshKey]);
 
- const savePromo = async (p, enPromotion, prix) => {
+  const savePromo = async (p, enPromotion, prix) => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API}/api/etudiants/${p.inscriptionId}`, {
@@ -75,7 +89,7 @@ const [promoModal, setPromoModal] = useState(null); // the full payment object `
     setPromoEditing(null);
   };
 
- const filtered = payments.filter(p => {
+  const filtered = payments.filter(p => {
     if (search && !p.nom.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus === 'paid' && p.remaining > 0) return false;
     if (filterStatus === 'pending' && p.remaining <= 0) return false;
@@ -163,24 +177,8 @@ const [promoModal, setPromoModal] = useState(null); // the full payment object `
 
         <div className="w-px h-5 bg-[#F1F5F9]" />
 
-        <div className="relative flex items-center">
-          <CheckCircle2 size={13} className="absolute left-2 text-[#0369A1] pointer-events-none" />
-          <select
-            value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-            className={`text-xs rounded-full py-1.5 pl-7 pr-6 bg-white border focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer transition
-              ${filterStatus ? 'border-[#0369A1] text-[#0369A1] font-medium' : 'border-[#E2E8F0] text-slate-500'}`}
-          >
-            <option value="">Statut paiement</option>
-            <option value="paid">Soldé</option>
-            <option value="pending">En attente</option>
-          </select>
-          {filterStatus && (
-            <button onClick={() => setFilterStatus('')} className="absolute right-1.5 text-slate-300 hover:text-red-400 transition">
-              <X size={10} />
-            </button>
-          )}
-        </div>
+        <FilterSelect icon={CheckCircle2} label="Statut paiement" value={filterStatus} onChange={setFilterStatus}
+          opts={[{ value: 'paid', label: 'Soldé' }, { value: 'pending', label: 'En attente' }]} />
 
         {(search || filterStatus) && (
           <button
@@ -196,7 +194,7 @@ const [promoModal, setPromoModal] = useState(null); // the full payment object `
       <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-[#DCEBFA]">
+            <thead className="bg-[#0F2A4A]">
              <tr>
                 {[
                   { label: 'Étudiant', Icon: User },
@@ -207,9 +205,9 @@ const [promoModal, setPromoModal] = useState(null); // the full payment object `
                   { label: 'Restant',  Icon: CheckCircle2 },
                   { label: 'Bons',     Icon: FileText },
                 ].map(({ label, Icon }, i) => (
-                  <th key={label} className={`text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap ${i === 0 ? 'border-l border-[#E2E8F0]' : ''}`}>
+                  <th key={label} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] whitespace-nowrap ${i === 0 ? 'border-l border-[#0F2A4A]' : ''}`}>
                     <div className="flex items-center gap-1">
-                      <Icon size={11} className="text-[#0369A1] flex-shrink-0" />
+                      <Icon size={11} className="text-white/70 flex-shrink-0" />
                       <span>{label}</span>
                     </div>
                   </th>
