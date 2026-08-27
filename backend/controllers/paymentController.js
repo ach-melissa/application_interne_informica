@@ -54,7 +54,7 @@ const getGroupPayments = async (req, res) => {
 
   const { data: inscriptions, error: insErr } = await supabase
     .from('inscriptions')
-    .select('id, etudiant_id, statut_scolarite, en_promotion, prix_promotion, etudiant:etudiant_id(id, nom, prenom)')
+    .select('id, etudiant_id, statut_scolarite, en_promotion, prix_promotion, etudiant:etudiant_id(id, nom, prenom, telephone)')
     .eq('group_id', groupId);
   if (insErr) return res.status(500).json({ error: insErr.message });
 
@@ -97,6 +97,7 @@ const getGroupPayments = async (req, res) => {
       studentId: i.etudiant_id,
       inscriptionId: i.id,
       nom: `${i.etudiant?.nom ?? ''} ${i.etudiant?.prenom ?? ''}`.trim(),
+            telephone: i.etudiant?.telephone ?? null,
       statutScolarite: i.statut_scolarite || 'en_cours',
       enPromotion: i.en_promotion ?? false,
       prixPromotion: i.prix_promotion != null ? Number(i.prix_promotion) : null,

@@ -14,15 +14,15 @@ const getDashboardStats = async (req, res) => {
   { data: formationsData },
 ] = await Promise.all([
   supabase.from('formations').select('*', { count: 'exact', head: true }).eq('statut', 'active'),
-  supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('statut', 'pending'),
+  supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('statut', 'pending').eq('archived', false),
     supabase.from('schedules').select('group_id, jour_semaine, heure_debut, heure_fin, group:group_id(nom, archived, statut, date_fin, formation:formation_id(nom))').eq('jour_semaine', today),
-  supabase.from('inscriptions').select('formation_id').eq('statut', 'pending'),
+  supabase.from('inscriptions').select('formation_id').eq('statut', 'pending').eq('archived', false),
     supabase.from('formations').select('id, nom, prix_etudiant, capacite_groupe, a_niveaux, capacite_uniforme').eq('statut', 'active'),
 ]);
     const { data: paymentsData } = await supabase.from('payments').select('etudiant_id, formation_id, montant');
     const { data: inscriptionsForPayments } = await supabase
       .from('inscriptions').select('etudiant_id, formation_id')
-      .eq('statut', 'confirmed').not('group_id', 'is', null);
+      .eq('statut', 'confirmed').eq('archived', false).not('group_id', 'is', null);
 
     const prixMap = {};
     formationsData?.forEach((f) => { prixMap[f.id] = Number(f.prix_etudiant ?? 0); });

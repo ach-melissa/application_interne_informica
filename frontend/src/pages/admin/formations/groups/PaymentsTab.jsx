@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Image, Search, X, CheckCircle2, User, Wallet, PiggyBank, FileText, AlertCircle, Users, ChevronDown } from 'lucide-react';
+import { Image, Search, X, CheckCircle2, User, Wallet, PiggyBank, FileText, AlertCircle, Users, ChevronDown, Phone } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 
 // Same pill-style filter used in Formations.jsx / GroupDetail.jsx
@@ -198,6 +198,7 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
              <tr>
                 {[
                   { label: 'Étudiant', Icon: User },
+                  { label: 'Téléphone', Icon: Phone },
                   { label: 'Scolarité', Icon: CheckCircle2 },
                   { label: 'Promo',    Icon: Wallet },
                   { label: 'Total',    Icon: Wallet },
@@ -217,7 +218,7 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-10 text-slate-400 bg-white">
+                  <td colSpan={8} className="text-center py-10 text-slate-400 bg-white">
                     Aucun étudiant trouvé.
                   </td>
                 </tr>
@@ -253,6 +254,11 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
                             </span>
                           )}
                         </div>
+                      </td>
+                      <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
+                        {p.telephone ? (
+                          <a href={`tel:${p.telephone}`} className="hover:text-[#0369A1] hover:underline">{p.telephone}</a>
+                        ) : '—'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap border-b border-[#E2E8F0]">
   <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${

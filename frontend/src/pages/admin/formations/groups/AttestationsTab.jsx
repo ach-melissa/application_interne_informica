@@ -200,7 +200,11 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                         <span className="font-medium text-slate-700 whitespace-nowrap">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.telephone ?? '—'}</td>
+                   <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
+  {i.etudiant?.telephone ? (
+    <a href={`tel:${i.etudiant.telephone}`} className="hover:text-[#0369A1] hover:underline">{i.etudiant.telephone}</a>
+  ) : '—'}
+</td>
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.email ?? '—'}</td>
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.niveau_scolaire ?? '—'}</td>
                     <td className="px-3 py-2.5 text-slate-500 max-w-[150px] truncate border-b border-[#E2E8F0]">{i.etudiant?.adresse ?? '—'}</td>
