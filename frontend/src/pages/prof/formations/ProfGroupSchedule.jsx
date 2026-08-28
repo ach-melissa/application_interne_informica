@@ -55,6 +55,7 @@ try {
       contenu: row.contenu ?? '',
       heure_debut: row.heure_debut ?? '',
       heure_fin: row.heure_fin ?? '',
+      niveauNom: row.groups?.niveau?.nom ?? '',
     };
   });
   setCells(map);
@@ -130,6 +131,9 @@ className="border border-slate-200 p-0 align-top min-w-[7rem] w-[7rem]"
                           <div className="w-full h-full min-h-[3.5rem] text-left px-2 py-1.5">
 {(cell?.contenu || cell?.heure_debut || cell?.heure_fin) ? (
   <div className="space-y-0.5">
+    {cell.niveauNom && (
+      <p className="text-[10px] text-[#0369A1] font-semibold">{cell.niveauNom}</p>
+    )}
     {(cell.heure_debut || cell.heure_fin) && (
       <p className="text-[10px] text-slate-500 font-medium">
         {cell.heure_debut?.slice(0, 5)}{cell.heure_fin ? ` → ${cell.heure_fin.slice(0, 5)}` : ''}

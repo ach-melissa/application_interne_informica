@@ -132,6 +132,9 @@ const EmploiDuTemps = () => {
                                   <BookOpen size={10} className="flex-shrink-0" />
                                   {s.groups?.nom}
                                 </p>
+                                {s.groups?.niveau?.nom && (
+                                  <p className="text-[#0369A1] font-semibold leading-tight mt-0.5">{s.groups.niveau.nom}</p>
+                                )}
                                 <p className="text-slate-500 leading-tight flex items-center gap-1 mt-0.5">
                                   <Clock size={10} className="flex-shrink-0" />
                                   {s.heure_debut?.slice(0, 5)} – {s.heure_fin?.slice(0, 5)}
