@@ -94,6 +94,14 @@ const Groups = () => {
     const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
     return Array.from({ length: 6 }, (_, i) => `${startYear + 1 - i}-${startYear + 2 - i}`);
   };
+  const today = new Date().toISOString().slice(0, 10);
+  const groupsAArchiver = groups.filter(g => g.date_fin && g.date_fin <= today);
+const getAnneeScolairePourDate = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const startYear = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+  return `${startYear}-${startYear + 1}`;
+};
 
   const confirmArchiveGroup = async () => {
     await fetch(`${API}/api/groups/${archivingGroup}/archive`, {
@@ -136,7 +144,34 @@ const Groups = () => {
           <Plus size={14} /> Ajouter un groupe
         </button>
       </div>
-
+{!loading && !error && groupsAArchiver.length > 0 && (
+  <div className="mb-6 bg-white rounded-2xl border border-[#F1F5F9] shadow-sm overflow-hidden">
+    <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#F1F5F9]">
+      <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+        <Archive size={15} className="text-amber-700" />
+      </div>
+      <p className="text-sm font-semibold text-slate-700">
+        {groupsAArchiver.length} groupe(s) terminé(s) à archiver
+      </p>
+    </div>
+    <div className="divide-y divide-[#F1F5F9]">
+      {groupsAArchiver.map(g => (
+        <div key={g.id} className="flex items-center justify-between gap-3 px-5 py-2.5">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-slate-700 truncate">{g.nom}</p>
+            <p className="text-[11px] text-slate-400">Terminé le {new Date(g.date_fin).toLocaleDateString('fr-FR')}</p>
+          </div>
+          <button
+            onClick={() => { setArchivingGroup(g.id); setArchiveYear(getAnneeScolairePourDate(g.date_fin)); }}
+            className="flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-2.5 py-1 rounded-full hover:bg-amber-100 hover:shadow-sm active:scale-95 transition flex-shrink-0"
+          >
+            <Archive size={11} /> Archiver
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
       {loading && <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" /></div>}
       {error && <p className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-lg px-4 py-3">Erreur : {error}</p>}
 
@@ -145,7 +180,7 @@ const Groups = () => {
           {filteredGroups.length === 0 ? <p className="text-slate-400 text-sm">Aucun groupe trouvé.</p> : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredGroups.map((g) => (
-                <div key={g.id} className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition">
+               <div key={g.id} className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition flex flex-col h-full">
                                    <div className="flex items-start justify-between mb-4">
                     <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center"><Users size={20} className="text-emerald-600" /></div>
                     <div className="flex items-center gap-1.5">
@@ -159,17 +194,17 @@ const Groups = () => {
                       </span>
                     </div>
                   </div>
-                  <h2 className="text-slate-800 font-semibold text-base mb-1">{g.nom}</h2>
-                  <p className="text-slate-400 text-xs mb-1">{g.teacher?.user ? `${g.teacher.user.nom} ${g.teacher.user.prenom}` : 'Aucun professeur assigné'}</p>
-                  {g.en_promotion && g.prix_promotion && (
-                    <p className="text-xs font-medium text-amber-700 bg-amber-50 inline-block px-2 py-0.5 rounded-full mb-3">Promo: {Number(g.prix_promotion).toLocaleString()} DA</p>
-                  )}
-                  <div className="flex items-center gap-3 text-xs text-slate-400 mb-5">
-                    <span className="flex items-center gap-1"><Users size={13} className="text-[#0369A1]" /> {g.nb_etudiants} étudiant(s)</span>
-                    {g.created_at && <span>Créé le {new Date(g.created_at).toLocaleDateString('fr-FR')}</span>}
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={() => navigate(`/admin/formations/${formation_id}/groups/${g.id}`)} className="flex items-center gap-1 text-xs font-medium text-[#0369A1] bg-[#DCEBFA] border border-[#0369A1]/20 px-3 py-1.5 rounded-full hover:bg-[#c9e2f7] hover:shadow-sm active:scale-95 transition">
+                 <h2 className="text-slate-800 font-semibold text-base mb-1">{g.nom}</h2>
+<p className="text-slate-400 text-xs mb-1">{g.teacher?.user ? `${g.teacher.user.nom} ${g.teacher.user.prenom}` : 'Aucun professeur assigné'}</p>
+<div className="flex items-center gap-3 text-xs text-slate-400 mb-2">
+  <span className="flex items-center gap-1"><Users size={13} className="text-[#0369A1]" /> {g.nb_etudiants} étudiant(s)</span>
+  {g.created_at && <span>Créé le {new Date(g.created_at).toLocaleDateString('fr-FR')}</span>}
+</div>
+{g.en_promotion && g.prix_promotion && (
+  <p className="self-start text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full mb-5">Promo: {Number(g.prix_promotion).toLocaleString()} DA</p>
+)}
+                  <div className="flex items-center gap-2 flex-wrap mt-auto">
+  <button onClick={() => navigate(`/admin/formations/${formation_id}/groups/${g.id}`)} className="flex items-center gap-1 text-xs font-medium text-[#0369A1] bg-[#DCEBFA] border border-[#0369A1]/20 px-3 py-1.5 rounded-full hover:bg-[#c9e2f7] hover:shadow-sm active:scale-95 transition">
                       Voir détails <ChevronRight size={13} />
                     </button>
                     <button onClick={() => openEdit(g)} className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 hover:shadow-sm active:scale-95 transition">
@@ -178,9 +213,11 @@ const Groups = () => {
                     <button onClick={() => handleDelete(g)} className="flex items-center gap-1 text-xs font-medium text-red-500 bg-red-50 border border-red-500/20 px-3 py-1.5 rounded-full hover:bg-red-100 hover:shadow-sm active:scale-95 transition">
                       <Trash2 size={12} /> Supprimer
                     </button>
-                    <button onClick={() => setArchivingGroup(g.id)} className="text-xs font-medium text-slate-500 bg-slate-100 border border-slate-500/20 px-3 py-1.5 rounded-full hover:bg-slate-200 hover:shadow-sm active:scale-95 transition">
-                      Archiver
-                    </button>
+                   {g.date_fin && g.date_fin <= today && (
+  <button onClick={() => setArchivingGroup(g.id)} className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 hover:shadow-sm active:scale-95 transition">
+    <Archive size={12} /> Archiver
+  </button>
+)}
                   </div>
                 </div>
               ))}

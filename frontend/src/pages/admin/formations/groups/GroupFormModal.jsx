@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, GraduationCap, Check, AlertTriangle, X } from 'lucide-react';
+import { Users, GraduationCap, Check, AlertTriangle, X, Flag } from 'lucide-react';
 import GroupScheduleTable from './GroupScheduleTable';
 
 const API = import.meta.env.VITE_API_URL;
@@ -28,10 +28,11 @@ const Toggle = ({ checked, onChange, label, icon: Icon }) => (
 
 export default function GroupFormModal({ formation_id, niveauId, formation, niveau, teachers, editGroup, onClose, onSaved }) {
   const isNewGroup = !editGroup;
-  const [form, setForm] = useState({
-    nom: editGroup?.nom ?? '', teacher_id: editGroup?.teacher_id ?? '', en_promotion: editGroup?.en_promotion ?? false,
-    prix_promotion: editGroup?.prix_promotion ?? '', date_debut: editGroup?.date_debut?.slice(0, 10) ?? '', niveau_id: niveauId || '',
-  });
+ const [form, setForm] = useState({
+  nom: editGroup?.nom ?? '', teacher_id: editGroup?.teacher_id ?? '', en_promotion: editGroup?.en_promotion ?? false,
+  prix_promotion: editGroup?.prix_promotion ?? '', date_debut: editGroup?.date_debut?.slice(0, 10) ?? '',
+  date_fin: editGroup?.date_fin?.slice(0, 10) ?? '', niveau_id: niveauId || '',
+});
   const [periods, setPeriods] = useState([]);
     const [useDefaultPeriods, setUseDefaultPeriods] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -149,8 +150,8 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
         type_duree: useDefaultDuree ? null : typeDuree,
       };
       const body = editGroup
-        ? { nom: form.nom, teacher_id: form.teacher_id || null, en_promotion: form.en_promotion, prix_promotion: form.en_promotion ? form.prix_promotion || null : null, date_debut: form.date_debut || null, ...dureePayload }
-        : { nom: form.nom, formation_id, niveau_id: form.niveau_id || null, teacher_id: form.teacher_id || null, en_promotion: form.en_promotion, prix_promotion: form.en_promotion ? form.prix_promotion || null : null, date_debut: form.date_debut || null, ...dureePayload };
+  ? { nom: form.nom, teacher_id: form.teacher_id || null, en_promotion: form.en_promotion, prix_promotion: form.en_promotion ? form.prix_promotion || null : null, date_debut: form.date_debut || null, date_fin: form.date_fin || null, ...dureePayload }
+  : { nom: form.nom, formation_id, niveau_id: form.niveau_id || null, teacher_id: form.teacher_id || null, en_promotion: form.en_promotion, prix_promotion: form.en_promotion ? form.prix_promotion || null : null, date_debut: form.date_debut || null, ...dureePayload };
       const res = await fetch(url, { method: editGroup ? 'PATCH' : 'POST', headers: jsonHeaders(), body: JSON.stringify(body) });
       if (!res.ok) throw new Error('Erreur serveur');
       const saved = await res.json();
@@ -317,6 +318,29 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
               </div>
             )}
           </div>
+
+         {!isNewGroup && (
+            <div className="border-t border-[#F1F5F9] pt-3">
+              <p className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1">
+                <Flag size={12} className="text-slate-500" /> Statut de fin de groupe
+              </p>
+              <Toggle
+                checked={!!form.date_fin}
+                onChange={(val) => setForm({ ...form, date_fin: val ? (form.date_fin || new Date().toISOString().slice(0, 10)) : '' })}
+                label="Ce groupe est terminé"
+              />
+              {form.date_fin && (
+                <div className="mt-2">
+                  <Label text="Date de fin" />
+                  <input type="date" value={form.date_fin} onChange={(e) => setForm({ ...form, date_fin: e.target.value })} className={inp} />
+                  <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5 mt-1.5 flex items-start gap-1.5">
+                    <AlertTriangle size={11} className="flex-shrink-0 mt-0.5" />
+                    Cette date déclenche le rappel d'archivage et arrête le renvoi normal des alertes de paiement. Décochez « Ce groupe est terminé » si c'était une erreur.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <Label icon={GraduationCap} text="Étudiants confirmés non affectés" />

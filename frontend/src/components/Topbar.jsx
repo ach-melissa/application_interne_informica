@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, User, LogOut, ClipboardList, CreditCard, History, Flag } from 'lucide-react';
+import { Bell, User, LogOut, ClipboardList, CreditCard, History, Flag, Archive } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/images/logo_informica.png';
 
@@ -14,8 +14,8 @@ const NOTIF_ICONS = {
   retard_paiement: { Icon: CreditCard, className: 'text-orange-600 bg-orange-50' },
   demande_salle: { Icon: ClipboardList, className: 'text-[#0369A1] bg-[#EAF4FC]' },
   groupe_complete: { Icon: Flag, className: 'text-emerald-600 bg-emerald-50' },
+  groupe_a_archiver: { Icon: Archive, className: 'text-amber-700 bg-amber-50' },
 };
-
 const DEMANDE_SALLE_STATUT_LABEL = {
   en_attente: 'En attente de réponse',
   approuvee: 'Approuvée',
@@ -198,10 +198,15 @@ const Topbar = () => {
       if (formation_id && group_id) {
         navigate(`/admin/formations/${formation_id}/groups/${group_id}?tab=paiements`);
       }
-    } else if (notification.type === 'groupe_complete') {
+      } else if (notification.type === 'groupe_complete') {
       const { formation_id, groupe_id } = notification.data || {};
       if (formation_id && groupe_id) {
         navigate(`/admin/formations/${formation_id}/groups/${groupe_id}?tab=pointage`);
+      }
+    } else if (notification.type === 'groupe_a_archiver') {
+      const { formation_id } = notification.data || {};
+      if (formation_id) {
+        navigate(`/admin/formations/${formation_id}/groups`);
       }
     }
   };

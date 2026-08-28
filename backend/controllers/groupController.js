@@ -163,6 +163,20 @@ const archiveGroup = async (req, res) => {
   const { id } = req.params;
   const { annee_scolaire } = req.body || {};
 
+  const { data: existing, error: fetchErr } = await supabase
+    .from('groups')
+    .select('date_fin')
+    .eq('id', id)
+    .single();
+  if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (!existing.date_fin || existing.date_fin > today) {
+    return res.status(400).json({
+      error: "Ce groupe n'est pas encore terminé — impossible de l'archiver tant que la date de fin n'est pas atteinte.",
+    });
+  }
+
   const groupUpdates = { archived: true };
   if (annee_scolaire?.trim()) groupUpdates.annee_scolaire = annee_scolaire.trim();
 

@@ -13,4 +13,5 @@ router.patch('/:id/proposer', verifyToken, requireRole('admin'), notifCtrl.propo
 router.patch('/:id/repondre-proposition', verifyToken, requireRole('prof'), notifCtrl.repondreProposition);
 router.post('/:id/repondre', verifyToken, notifCtrl.repondreNotification);
 router.post('/groupe-complete', verifyToken, requireRole('admin'), notifCtrl.notifierGroupeComplete);
+router.post('/verifier-archivage', verifyToken, requireRole('admin'), notifCtrl.declencherVerificationArchivage);
 module.exports = router;

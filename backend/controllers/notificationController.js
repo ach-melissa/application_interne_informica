@@ -1,5 +1,5 @@
 const supabase = require('../supabaseClient');
-
+const { runArchiveReminder } = require('../jobs/archiveReminder');
 const demanderSalle = async (req, res) => {
   const {
     jour_semaine, periode, heure_debut, heure_fin,
@@ -537,6 +537,13 @@ const notifierGroupeComplete = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
+
+
+// Endpoint manuel pour qu'un admin puisse déclencher/tester la vérification à la demande
+const declencherVerificationArchivage = async (req, res) => {
+  await runArchiveReminder();
+  res.json({ success: true });
+};
 const creerCreneauDepuisNotification = async (notif, salleId, salleNom) => {
   const d = notif.data || {};
 
@@ -600,4 +607,5 @@ module.exports = {
   repondreProposition,
   repondreNotification,
   notifierGroupeComplete,
+  declencherVerificationArchivage,
 };

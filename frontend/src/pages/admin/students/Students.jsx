@@ -285,18 +285,20 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
         shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
       <Plus size={14} /> Ajouter
     </button>
-    {selectedIds.size > 0 && (
+       {selectedIds.size > 0 && (
       <button onClick={() => setShowBulkArchive(true)}
-        className="flex items-center gap-1.5 bg-amber-500 text-white px-3.5 py-2 rounded-md text-xs font-medium hover:bg-amber-600 transition">
+        className="flex items-center gap-1.5 bg-amber-500 text-white px-3.5 py-2 rounded-md text-xs font-medium
+          shadow-[0_3px_0_#92400e] hover:shadow-[0_2px_0_#92400e] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
         <Archive size={14} /> Archiver ({selectedIds.size})
       </button>
     )}
     {selectedIds.size > 0 && (
-  <button onClick={printSelectedFiches}
-    className="flex items-center gap-1.5 bg-[#0369A1] text-white px-3.5 py-2 rounded-md text-xs font-medium hover:bg-[#0369A1]/90 transition">
-    <Printer size={14} /> Imprimer ({selectedIds.size})
-  </button>
-)}
+      <button onClick={printSelectedFiches}
+        className="flex items-center gap-1.5 bg-[#0369A1] text-white px-3.5 py-2 rounded-md text-xs font-medium
+          shadow-[0_3px_0_#065986] hover:shadow-[0_2px_0_#065986] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
+        <Printer size={14} /> Imprimer ({selectedIds.size})
+      </button>
+    )}
   </div>
 </div>
 
@@ -494,20 +496,36 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
         </div>
       )}
 {showBulkArchive && (
-  <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => setShowBulkArchive(false)}>
-    <div className="bg-white rounded-xl p-5 w-80 space-y-3" onClick={e => e.stopPropagation()}>
-      <p className="text-sm font-medium text-slate-700">Archiver {selectedIds.size} inscription(s) ?</p>
-<select value={bulkArchiveYear} onChange={e => setBulkArchiveYear(e.target.value)}
-  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
-  <option value="">— Année scolaire (optionnel) —</option>
-  {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
-</select>
-      {bulkError && <p className="text-red-500 text-xs">{bulkError}</p>}
-      <div className="flex justify-end gap-2">
-        <button onClick={() => setShowBulkArchive(false)} className="text-xs px-3 py-2 rounded-md text-slate-500 hover:bg-slate-50">Annuler</button>
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+    onClick={() => { setShowBulkArchive(false); setBulkArchiveYear(''); setBulkError(null); }}>
+    <div onClick={ev => ev.stopPropagation()} className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#F1F5F9]">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
+            <Archive size={15} className="text-white" />
+          </div>
+          <h2 className="text-sm font-semibold text-slate-800">Archiver les inscriptions</h2>
+        </div>
+        <button onClick={() => { setShowBulkArchive(false); setBulkArchiveYear(''); setBulkError(null); }}
+          className="text-slate-300 hover:text-slate-600 flex-shrink-0"><X size={16} /></button>
+      </div>
+
+      <div className="px-5 py-4 space-y-3">
+        <p className="text-xs text-slate-500">Archiver {selectedIds.size} inscription(s) sélectionnée(s) ?</p>
+        <select value={bulkArchiveYear} onChange={e => setBulkArchiveYear(e.target.value)}
+          className="w-full bg-[#F8FAFC] border border-transparent rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors">
+          <option value="">— Année scolaire (optionnel) —</option>
+          {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        {bulkError && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 rounded-md">{bulkError}</p>}
+      </div>
+
+      <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
+        <button onClick={() => { setShowBulkArchive(false); setBulkArchiveYear(''); setBulkError(null); }}
+          className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">Annuler</button>
         <button onClick={doBulkArchive} disabled={bulkArchiving}
-          className="text-xs px-3 py-2 rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
-          {bulkArchiving ? 'Archivage...' : 'Confirmer'}
+          className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
+          {bulkArchiving ? 'Archivage...' : 'Oui, archiver'}
         </button>
       </div>
     </div>

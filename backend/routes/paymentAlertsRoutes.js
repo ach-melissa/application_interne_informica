@@ -1,12 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { runPaymentAlerts } = require('../jobs/paymentAlerts');
-const authMiddleware = require('../middleware/authMiddleware'); // adjust path/name to match your project
+const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 
-router.post('/run', authMiddleware, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Accès refusé.' });
-  }
+router.post('/run', verifyToken, requireRole('admin'), async (req, res) => {
   try {
     await runPaymentAlerts();
     res.json({ success: true, message: 'Payment alerts job executed.' });

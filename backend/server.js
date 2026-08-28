@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -13,13 +14,14 @@ const enumRoutes = require('./routes/enumRoutes');
 const comptableRoutes = require('./routes/comptableRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
-const paymentAlertsRoutes = require('./routes/notificationRoutes.js');
+const paymentAlertsRoutes = require('./routes/paymentAlertsRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const cron = require('node-cron');
 const { runPaymentAlerts } = require('./jobs/paymentAlerts');
 const { runAutoArchiveInscriptions } = require('./jobs/autoArchiveInscriptions');
 const parametreRoutes = require('./routes/parametreRoutes');
+const { runArchiveReminder } = require('./jobs/archiveReminder');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -44,8 +46,11 @@ app.use('/api/archive', require('./routes/archiveRoutes'));
 app.use('/api/statistiques', require('./routes/statistiqueRoutes'));
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/parametres', parametreRoutes);
-// Payment overdue alerts — runs daily at 08:00 server time.
-cron.schedule('0 8 * * *', () => {
+// Payment overdue alerts — runs immediately on startup, then every 2 hours.
+console.log('Running payment alerts job on startup...');
+runPaymentAlerts();
+
+cron.schedule('0 */2 * * *', () => {
   console.log('Running payment alerts job...');
   runPaymentAlerts();
 }, {
@@ -55,6 +60,16 @@ cron.schedule('0 8 * * *', () => {
 cron.schedule('0 3 * * *', () => {
   console.log('Running auto-archive inscriptions job...');
   runAutoArchiveInscriptions();
+}, {
+  timezone: 'Africa/Algiers'
+});
+// Reminder to archive finished groups — runs on startup, then daily in December.
+console.log('Running archive reminder job on startup...');
+runArchiveReminder();
+
+cron.schedule('30 8 * 12 *', () => {
+  console.log('Running archive reminder job...');
+  runArchiveReminder();
 }, {
   timezone: 'Africa/Algiers'
 });
