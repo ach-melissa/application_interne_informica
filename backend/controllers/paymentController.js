@@ -6,21 +6,26 @@ const upload = multer({ storage: multer.memoryStorage() });
 const getGroupPayments = async (req, res) => {
   const { groupId } = req.params;
 
-  const { data: group, error: groupErr } = await supabase
+   const { data: group, error: groupErr } = await supabase
     .from('groups')
-    .select('id, formation_id, en_promotion, prix_promotion, date_debut, use_default_periods, formation:formation_id(prix, prix_etudiant)')
+    .select('id, formation_id, niveau_id, en_promotion, prix_promotion, date_debut, use_default_periods, formation:formation_id(prix, prix_etudiant, prix_uniforme), niveau:niveau_id(prix)')
     .eq('id', groupId)
     .single();
   if (groupErr) return res.status(500).json({ error: groupErr.message });
 
-  const baseTotal = Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
+  const baseTotal = group.formation?.prix_uniforme === false
+    ? Number(group.niveau?.prix ?? 0)
+    : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
   const formationId = group.formation_id;
 
-  const { data: formationPeriods } = await supabase
+  let formationPeriodsQuery = supabase
     .from('formation_payment_periods')
     .select('numero, jours_offset, montant')
-    .eq('formation_id', formationId)
-    .order('numero', { ascending: true });
+    .eq('formation_id', formationId);
+  formationPeriodsQuery = group.niveau_id
+    ? formationPeriodsQuery.eq('niveau_id', group.niveau_id)
+    : formationPeriodsQuery.is('niveau_id', null);
+  const { data: formationPeriods } = await formationPeriodsQuery.order('numero', { ascending: true });
 
   let groupPeriods = [];
   if (!group.use_default_periods) {
@@ -79,9 +84,9 @@ const getGroupPayments = async (req, res) => {
     // This student's own expected-cumulative-by-today, scaled to THEIR price.
     const expectedToday = total * fractionDueToday;
 
-    const isOverdue = expectedToday > 0 && paid < expectedToday - EPSILON;
+       const isAbandonne = i.statut_scolarite === 'abandonne';
+    const isOverdue = !isAbandonne && expectedToday > 0 && paid < expectedToday - EPSILON;
     const overdueAmount = isOverdue ? expectedToday - paid : 0;
-
     // Per-period breakdown, same proportional logic, for future detail views.
     let runningRaw = 0;
     const periodsStatus = resolvedPeriods.map((per) => {

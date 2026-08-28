@@ -284,7 +284,7 @@ const GroupDetail = () => {
 
       {activeTab === 'paiements' && <PaymentsTab groupId={groupId} onSelectStudent={setSelectedStudent} refreshKey={paymentsRefreshKey} />}
       {activeTab === 'emploi' && <ScheduleTab groupId={groupId} groupName={group?.nom} formationNom={formation?.nom} />}
-      {activeTab === 'pointage' && <PointageTab groupId={groupId} etudiants={etudiants.filter(i => (i.statut_scolarite || 'en_cours') === 'en_cours').map(i => i.etudiant)} group={group} />}
+      {activeTab === 'pointage' && <PointageTab groupId={groupId} etudiants={etudiants.map(i => ({ ...i.etudiant, statut_scolarite: i.statut_scolarite, abandonne_at: i.abandonne_at }))} group={group} />}
       {activeTab === 'attestations' && <AttestationsTab etudiants={etudiants.filter(i => (i.statut_scolarite || 'en_cours') === 'en_cours')} formationId={formation_id} formationNom={formation?.nom} groupId={groupId} />}
 
       <PaymentHistoryModal student={selectedStudent} formationId={group?.formation_id} onClose={() => setSelectedStudent(null)} onRefresh={() => setPaymentsRefreshKey(k => k + 1)} />

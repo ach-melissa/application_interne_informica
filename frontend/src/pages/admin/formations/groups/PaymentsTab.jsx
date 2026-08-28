@@ -233,13 +233,15 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
   key={p.studentId}
   onClick={() => onSelectStudent(p)}
   className={`hover:opacity-80 transition cursor-pointer ${
-    p.isOverdue
-      ? 'bg-red-50'
-      : p.remaining <= 0
-        ? 'bg-emerald-50'
-        : p.remaining >= p.total
-          ? 'bg-red-50'
-          : 'bg-amber-50'
+    p.statutScolarite === 'abandonne'
+      ? 'bg-slate-50'
+      : p.isOverdue
+        ? 'bg-red-50'
+        : p.remaining <= 0
+          ? 'bg-emerald-50'
+          : p.remaining >= p.total
+            ? 'bg-red-50'
+            : 'bg-amber-50'
   }`}
 >
                    <td className="px-3 py-2 overflow-hidden border-b border-l border-[#E2E8F0]">

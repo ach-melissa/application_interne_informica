@@ -4,14 +4,15 @@ const { resolveGroupPeriods, computeStudentTotal } = require('../utils/periods')
 const SEND_INTERVALS = [7, 3, 1, 1]; // days to wait before 2nd, 3rd, 4th, 5th notification
 const MAX_SENDS = 5;
 
-// Reuses the exact same proportional overdue logic as getGroupPayments,
-// so "who's late" here always matches what the Paiements tab shows.
 const getOverdueStudentsForGroup = async (group) => {
-  const { data: formationPeriods } = await supabase
+  let formationPeriodsQuery = supabase
     .from('formation_payment_periods')
     .select('numero, jours_offset, montant')
-    .eq('formation_id', group.formation_id)
-    .order('numero', { ascending: true });
+    .eq('formation_id', group.formation_id);
+  formationPeriodsQuery = group.niveau_id
+    ? formationPeriodsQuery.eq('niveau_id', group.niveau_id)
+    : formationPeriodsQuery.is('niveau_id', null);
+  const { data: formationPeriods } = await formationPeriodsQuery.order('numero', { ascending: true });
 
   let groupPeriods = [];
   if (!group.use_default_periods) {
@@ -33,14 +34,15 @@ const getOverdueStudentsForGroup = async (group) => {
   const fractionDueToday = scheduleTotal > 0 ? cumulativeRawToday / scheduleTotal : 0;
   if (fractionDueToday <= 0) return []; // nothing due yet, nobody can be late
 
-  const baseTotal = Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
-
+   const baseTotal = group.formation?.prix_uniforme === false
+    ? Number(group.niveau?.prix ?? 0)
+    : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
   const { data: inscriptions } = await supabase
     .from('inscriptions')
-    .select('id, etudiant_id, en_promotion, prix_promotion, etudiant:etudiant_id(nom, prenom)')
-    .eq('group_id', group.id);
+    .select('id, etudiant_id, statut_scolarite, en_promotion, prix_promotion, etudiant:etudiant_id(nom, prenom)')
+    .eq('group_id', group.id)
+    .or('statut_scolarite.is.null,statut_scolarite.neq.abandonne');
   if (!inscriptions?.length) return [];
-
   const etudiantIds = inscriptions.map((i) => i.etudiant_id);
   const { data: payments } = await supabase
     .from('payments')
@@ -66,9 +68,9 @@ const getOverdueStudentsForGroup = async (group) => {
 const runPaymentAlerts = async () => {
   const today = new Date().toISOString().split('T')[0];
 
-  const { data: groups, error } = await supabase
+    const { data: groups, error } = await supabase
     .from('groups')
-    .select('id, nom, formation_id, en_promotion, prix_promotion, date_debut, use_default_periods, formations:formation_id(nom), formation:formation_id(prix, prix_etudiant)')
+    .select('id, nom, formation_id, niveau_id, en_promotion, prix_promotion, date_debut, date_fin, use_default_periods, formations:formation_id(nom), formation:formation_id(prix, prix_etudiant, prix_uniforme), niveau:niveau_id(prix)')
     .eq('archived', false);
   if (error) { console.error('paymentAlerts: failed to load groups', error); return; }
 
@@ -102,10 +104,13 @@ const runPaymentAlerts = async () => {
       continue;
     }
 
-    if (!tracker.active || tracker.send_count >= MAX_SENDS) continue;
+    const isFinished = group.date_fin && group.date_fin < today;
 
-    const requiredGap = SEND_INTERVALS[tracker.send_count - 1] ?? null;
-    if (requiredGap == null) {
+    if (!tracker.active) continue;
+    if (!isFinished && tracker.send_count >= MAX_SENDS) continue;
+
+    const requiredGap = isFinished ? 7 : (SEND_INTERVALS[tracker.send_count - 1] ?? null);
+    if (!isFinished && requiredGap == null) {
       await supabase.from('group_payment_alerts').update({ active: false }).eq('group_id', group.id);
       continue;
     }
@@ -118,7 +123,7 @@ const runPaymentAlerts = async () => {
       const newCount = tracker.send_count + 1;
       await sendGroupAlert(group, overdue, newCount);
       await supabase.from('group_payment_alerts')
-        .update({ send_count: newCount, last_sent_at: today, active: newCount < MAX_SENDS })
+        .update({ send_count: newCount, last_sent_at: today, active: isFinished ? true : newCount < MAX_SENDS })
         .eq('group_id', group.id);
     }
   }

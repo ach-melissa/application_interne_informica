@@ -183,7 +183,12 @@ setNewDate('');
 
   const firstDate = sessions.length > 0 ? formatDate(sessions[0].date) : '—';
   const lastDate  = sessions.length > 0 ? formatDate(sessions[sessions.length - 1].date) : '—';
-
+  const isPointageLocked = (etudiant) => {
+    if (etudiant.statut_scolarite !== 'abandonne') return false;
+    if (!etudiant.abandonne_at) return true; // no timestamp yet (old data) → lock immediately, safest default
+    const hoursSince = (Date.now() - new Date(etudiant.abandonne_at).getTime()) / 3600000;
+    return hoursSince >= 24;
+  };
 const getNbPresents = (sessionId) =>
   Object.entries(attendance).filter(([k, v]) => k.startsWith(`${sessionId}|`) && (v.statut === 'present' || v.statut === 'retard')).length;
 
@@ -454,8 +459,8 @@ return (
                     const isEditing = editingCell === key;
                     return (
                       <td key={s.id} className="border border-[#F1F5F9] p-0 text-center relative">
-                        {readOnly ? (
-                          <div className={`w-full py-2 px-1 text-xs font-bold ${statut ? STATUT_STYLE[statut] : 'text-slate-300'}`}>
+                                              {readOnly || isPointageLocked(e) ? (
+                          <div className={`w-full py-2 px-1 text-xs font-bold ${isPointageLocked(e) && !readOnly ? 'opacity-40 cursor-not-allowed' : ''} ${statut ? STATUT_STYLE[statut] : 'text-slate-300'}`}>
                             {statut ? STATUT_LABEL[statut] : '—'}
                           </div>
                         ) : (
