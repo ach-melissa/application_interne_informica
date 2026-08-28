@@ -4,9 +4,8 @@ import AdminLayout from '../../../layouts/AdminLayout';
 import EtudiantDetailModal from '../students/EtudiantDetailModal';
 import {
   ArrowLeft, BookOpen, ChevronRight, Users, UserCheck,
-  Search, Phone, CalendarDays, PhoneCall, Megaphone, CheckCircle2,
+  Search, Phone, CalendarDays, PhoneCall, Megaphone, CheckCircle2, ChevronDown, X, Layers,
 } from 'lucide-react';
-
 const API = import.meta.env.VITE_API_URL;
 
 const statutMeta = {
@@ -29,6 +28,19 @@ const Badge = ({ cls, children }) => (
   <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${cls}`}>
     {children}
   </span>
+);
+
+const FilterSelect = ({ icon: Icon, label, value, onChange, opts, display }) => (
+  <div className="relative flex items-center">
+    {Icon && <Icon size={13} className="absolute left-2 text-[#0369A1] pointer-events-none" />}
+    <select value={value || ''} onChange={e => onChange(e.target.value)}
+      className={`appearance-none text-xs rounded-full py-1.5 pr-7 pl-7 bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer transition ${value ? 'text-[#0369A1] font-medium' : 'text-slate-500'}`}>
+      <option value="">{label}</option>
+      {opts.map(o => <option key={o} value={o}>{display ? display(o) : o}</option>)}
+    </select>
+    {value ? <button onClick={() => onChange('')} className="absolute right-2 text-slate-300 hover:text-red-400"><X size={11} /></button>
+      : <ChevronDown size={11} className="absolute right-2 text-slate-400 pointer-events-none" />}
+  </div>
 );
 
 const TABS = [
@@ -56,27 +68,25 @@ const ArchiveYear = () => {
 
   const [tab, setTab] = useState('formations');
 
-  // Formations tab
   const [formations, setFormations] = useState([]);
   const [loadingF, setLoadingF] = useState(true);
   const [errorF, setErrorF] = useState(null);
 
-  // Étudiants tab
   const [etudiants, setEtudiants] = useState([]);
   const [loadingE, setLoadingE] = useState(false);
   const [errorE, setErrorE] = useState(null);
   const [etudiantsLoaded, setEtudiantsLoaded] = useState(false);
   const [search, setSearch] = useState('');
+  const [formationSearch, setFormationSearch] = useState('');
+  const [filterStatut, setFilterStatut] = useState('');
+  const [filterFormation, setFilterFormation] = useState('');
+  const [filterNiveau, setFilterNiveau] = useState('');
   const [selected, setSelected] = useState(null);
-
   useEffect(() => {
     const token = localStorage.getItem('token');
     setLoadingF(true);
     fetch(`${API}/api/archive/years/${year}/formations`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => {
-        if (!r.ok) throw new Error('Erreur serveur');
-        return r.json();
-      })
+      .then((r) => { if (!r.ok) throw new Error('Erreur serveur'); return r.json(); })
       .then(setFormations)
       .catch((err) => setErrorF(err.message))
       .finally(() => setLoadingF(false));
@@ -87,33 +97,44 @@ const ArchiveYear = () => {
     const token = localStorage.getItem('token');
     setLoadingE(true);
     fetch(`${API}/api/archive/years/${year}/etudiants`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => {
-        if (!r.ok) throw new Error('Erreur serveur');
-        return r.json();
-      })
+      .then((r) => { if (!r.ok) throw new Error('Erreur serveur'); return r.json(); })
       .then((data) => { setEtudiants(data); setEtudiantsLoaded(true); })
       .catch((err) => setErrorE(err.message))
       .finally(() => setLoadingE(false));
   }, [tab, etudiantsLoaded, year]);
 
   const filtered = etudiants.filter((i) => {
-    if (!search) return true;
-    const name = `${i.etudiant?.nom ?? ''} ${i.etudiant?.prenom ?? ''}`.toLowerCase();
-    return name.includes(search.toLowerCase()) || (i.etudiant?.telephone ?? '').includes(search);
+    if (search) {
+      const name = `${i.etudiant?.nom ?? ''} ${i.etudiant?.prenom ?? ''}`.toLowerCase();
+      if (!name.includes(search.toLowerCase()) && !(i.etudiant?.telephone ?? '').includes(search)) return false;
+    }
+    if (filterStatut && i.statut !== filterStatut) return false;
+    if (filterFormation && i.formation?.nom !== filterFormation) return false;
+    if (filterNiveau && i.niveau?.nom !== filterNiveau) return false;
+    return true;
   });
+
+  const selectedFormationObj = formations.find(f => f.nom === filterFormation);
+  const niveauOpts = selectedFormationObj?.a_niveaux
+    ? (selectedFormationObj.niveaux ?? []).map(n => n.nom)
+    : [];
 
   return (
     <AdminLayout>
       <div className="flex items-center gap-3 mb-2">
         <button
           onClick={() => navigate('/admin/archive')}
-          className="w-8 h-8 flex items-center justify-center rounded-full border border-[#F1F5F9] hover:bg-[#DCEBFA] transition"
+          className="w-9 h-9 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAFC] transition flex-shrink-0"
         >
           <ArrowLeft size={16} className="text-[#0369A1]" />
         </button>
-        <h1 className="text-xl font-bold text-slate-800">Archive — {year}</h1>
+        <div className="flex items-center gap-1.5 text-xs">
+          <button onClick={() => navigate('/admin/archive')} className="text-slate-400 hover:text-[#0369A1] transition">Archive</button>
+          <span className="text-slate-300">›</span>
+          <span className="text-[#0369A1] font-medium">{year}</span>
+        </div>
       </div>
-      <p className="text-slate-400 text-xs mb-5">
+      <p className="text-slate-400 text-xs mb-5 ml-12">
         {tab === 'formations' ? 'Sélectionnez une formation' : 'Tous les étudiants archivés pour cette année'}
       </p>
 
@@ -149,13 +170,32 @@ const ArchiveYear = () => {
             </p>
           )}
 
+          {!loadingF && !errorF && formations.length > 0 && (
+            <div className="mb-6 flex flex-wrap gap-2 items-center">
+              <div className="relative min-w-[160px] flex-1 max-w-[220px]">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+                <input placeholder="Rechercher une formation..." value={formationSearch} onChange={e => setFormationSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40" />
+              </div>
+              {formationSearch && (
+                <button onClick={() => setFormationSearch('')} className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50">
+                  <X size={11} /> Effacer
+                </button>
+              )}
+            </div>
+          )}
+
           {!loadingF && !errorF && formations.length === 0 && (
             <p className="text-slate-400 text-sm">Aucune formation archivée pour cette année.</p>
           )}
 
+          {!loadingF && !errorF && formations.filter(f => f.nom.toLowerCase().includes(formationSearch.toLowerCase())).length === 0 && formations.length > 0 && (
+            <p className="text-slate-400 text-sm">Aucune formation trouvée.</p>
+          )}
+
           {!loadingF && !errorF && formations.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {formations.map((f) => (
+              {formations.filter(f => f.nom.toLowerCase().includes(formationSearch.toLowerCase())).map((f) => (
                 <div
                   key={f.id}
                   onClick={() => navigate(`/admin/archive/${year}/${f.id}`)}
@@ -182,16 +222,31 @@ const ArchiveYear = () => {
       {/* ── Étudiants tab ──────────────────────────────────────────── */}
       {tab === 'etudiants' && (
         <>
-          <div className="bg-white border border-[#F1F5F9] rounded-xl px-3 py-2.5 mb-4 flex items-center gap-2 shadow-sm">
-            <div className="relative min-w-[160px] max-w-[260px] flex-1">
+          <div className="mb-6 flex flex-wrap gap-2 items-center">
+            <div className="relative min-w-[160px] flex-1 max-w-[220px]">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
               <input
                 placeholder="Nom, téléphone…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 border border-[#E2E8F0] rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 bg-white"
+                className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
               />
             </div>
+            <FilterSelect icon={CheckCircle2} label="Statut" value={filterStatut} onChange={setFilterStatut}
+              opts={Object.keys(statutMeta)} display={o => statutMeta[o]?.label ?? o} />
+            <FilterSelect icon={Users} label="Formation" value={filterFormation}
+              onChange={v => { setFilterFormation(v); setFilterNiveau(''); }}
+              opts={formations.map(f => f.nom)} />
+            {selectedFormationObj?.a_niveaux && (
+              <FilterSelect icon={Layers} label="Niveau" value={filterNiveau} onChange={setFilterNiveau}
+                opts={niveauOpts} />
+            )}
+            {(filterStatut || filterFormation || filterNiveau) && (
+              <button onClick={() => { setFilterStatut(''); setFilterFormation(''); setFilterNiveau(''); }}
+                className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50">
+                <X size={11} /> Effacer
+              </button>
+            )}
             <span className="ml-auto text-[11px] text-slate-400">{filtered.length} / {etudiants.length} inscriptions</span>
           </div>
 
@@ -208,18 +263,18 @@ const ArchiveYear = () => {
           )}
 
           {!loadingE && !errorE && (
-            <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+            <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
               <div className="overflow-x-auto">
                 <table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
                   <colgroup>
                     {COLS.map((c) => <col key={c.label} style={{ width: `${c.width}px` }} />)}
                   </colgroup>
-                  <thead className="bg-[#DCEBFA]">
+                  <thead className="bg-[#0F2A4A]">
                     <tr>
                       {COLS.map(({ label, Icon }, i) => (
-                        <th key={label} className={`text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] overflow-hidden ${i === 0 ? 'border-l border-[#E2E8F0]' : ''}`}>
+                        <th key={label} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] overflow-hidden ${i === 0 ? 'border-l border-[#0F2A4A]' : ''}`}>
                           <div className="flex items-center gap-1">
-                            {Icon && <Icon size={11} className="text-[#0369A1] flex-shrink-0" />}
+                            {Icon && <Icon size={11} className="text-white/70 flex-shrink-0" />}
                             <span className="truncate">{label}</span>
                           </div>
                         </th>
@@ -232,8 +287,8 @@ const ArchiveYear = () => {
                     ) : filtered.map((i, idx) => {
                       const sm = statutMeta[i.statut];
                       return (
-                        <tr key={i.id} onClick={() => setSelected(i)} className={`hover:bg-[#DCEBFA]/30 transition cursor-pointer ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
-                          <td className="px-3 py-2 overflow-hidden border-b border-l border-[#E2E8F0]">
+                        <tr key={i.id} onClick={() => setSelected(i)} className={`hover:bg-slate-50 transition cursor-pointer ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
+                          <td className="px-3 py-2 overflow-hidden border-b border-l border-slate-100">
                             <div className="flex items-center gap-2 min-w-0">
                               <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
                                 {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}
@@ -241,28 +296,28 @@ const ArchiveYear = () => {
                               <span className="font-medium text-slate-700 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
                             </div>
                           </td>
-                          <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.etudiant?.telephone ?? '—'}</td>
-                          <td className="px-3 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                          <td className="px-3 py-2 text-slate-500 truncate border-b border-slate-100">{i.etudiant?.telephone ?? '—'}</td>
+                          <td className="px-3 py-2 overflow-hidden border-b border-slate-100">
                             {i.formation?.nom
                               ? <Badge cls="bg-[#DCEBFA] text-[#0369A1] truncate block max-w-full">{i.formation.nom}</Badge>
                               : <span className="text-slate-300">—</span>}
                           </td>
-                          <td className="px-3 py-2 text-slate-500 truncate border-b border-[#E2E8F0]">{i.groups?.nom ?? '—'}</td>
-                          <td className="px-3 py-2 text-slate-400 truncate border-b border-[#E2E8F0]">
+                          <td className="px-3 py-2 text-slate-500 truncate border-b border-slate-100">{i.groups?.nom ?? '—'}</td>
+                          <td className="px-3 py-2 text-slate-400 truncate border-b border-slate-100">
                             {i.date_inscription ? new Date(i.date_inscription).toLocaleDateString('fr-FR') : '—'}
                           </td>
                           {['first_try', 'second_try', 'third_try'].map((f) => (
-                            <td key={f} className="px-2 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                            <td key={f} className="px-2 py-2 overflow-hidden border-b border-slate-100">
                               {i[f] ? <Badge cls={tryMeta[i[f]] ?? 'bg-slate-100 text-slate-400'}>{i[f]}</Badge> : <span className="text-slate-300">—</span>}
                             </td>
                           ))}
-                          <td className="px-2 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                          <td className="px-2 py-2 overflow-hidden border-b border-slate-100">
                             {i.source ? <Badge cls="bg-slate-100 text-slate-500 truncate block max-w-full">{i.source}</Badge> : <span className="text-slate-300">—</span>}
                           </td>
-                          <td className="px-2 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                          <td className="px-2 py-2 overflow-hidden border-b border-slate-100">
                             {i.registered_by ? <Badge cls="bg-slate-100 text-slate-500 truncate block max-w-full">{i.registered_by}</Badge> : <span className="text-slate-300">—</span>}
                           </td>
-                          <td className="px-2 py-2 overflow-hidden border-b border-[#E2E8F0]">
+                          <td className="px-2 py-2 overflow-hidden border-b border-slate-100">
                             <Badge cls={sm?.cls ?? 'bg-slate-100 text-slate-500'}>{sm?.label ?? i.statut}</Badge>
                           </td>
                         </tr>

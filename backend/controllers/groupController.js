@@ -1,7 +1,7 @@
 const supabase = require('../supabaseClient');
 const { resolveGroupPeriods } = require('../utils/periods');
 const getGroupsByFormation = async (req, res) => {
-  const { formation_id, niveau_id } = req.query;
+  const { formation_id, niveau_id, archived, annee_scolaire } = req.query;
 
   let query = supabase
     .from('groups')
@@ -12,13 +12,13 @@ const getGroupsByFormation = async (req, res) => {
       niveau:niveau_id(id, nom)
     `)
     .eq('formation_id', formation_id)
-    .eq('archived', false)
+    .eq('archived', archived === 'true')
     .order('created_at', { ascending: true });
 
   if (niveau_id) query = query.eq('niveau_id', niveau_id);
+  if (annee_scolaire) query = query.eq('annee_scolaire', annee_scolaire); // 👈 add this line
 
   const { data, error } = await query;
-
   if (error) return res.status(500).json({ error: error.message });
 
   const result = await Promise.all(

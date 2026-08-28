@@ -375,29 +375,41 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
         </div>
       )}
 
-     {/* Promo price modal */}
+         {/* Promo price modal */}
       {promoModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setPromoModal(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-xs mx-4 p-5 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h2 className="text-sm font-semibold text-slate-800 mb-1">Activer la promo</h2>
-            <p className="text-xs text-slate-400 mb-4">{promoModal.nom}</p>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setPromoModal(null)}>
+          <div className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#F1F5F9]">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+                  <Wallet size={15} className="text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-slate-800">Activer la promo</h2>
+                  <p className="text-[11px] text-slate-400 truncate">{promoModal.nom}</p>
+                </div>
+              </div>
+              <button onClick={() => setPromoModal(null)} className="text-slate-300 hover:text-slate-600 flex-shrink-0"><X size={16} /></button>
+            </div>
 
-            <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Prix promotionnel (DA) *</label>
-            <input
-              type="number"
-              autoFocus
-              value={promoPrice}
-              onChange={e => setPromoPrice(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleConfirmPromo()}
-              placeholder="Ex: 8000"
-              className="w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors mb-4"
-            />
+            <div className="px-5 py-4">
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Prix promotionnel (DA) <span className="text-red-500">*</span></label>
+              <input
+                type="number"
+                autoFocus
+                value={promoPrice}
+                onChange={e => setPromoPrice(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleConfirmPromo()}
+                placeholder="Ex: 8000"
+                className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
+              />
+            </div>
 
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setPromoModal(null)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
+              <button onClick={() => setPromoModal(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">
                 Annuler
               </button>
-              <button onClick={handleConfirmPromo} className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium">
+              <button onClick={handleConfirmPromo} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium">
                 Confirmer
               </button>
             </div>

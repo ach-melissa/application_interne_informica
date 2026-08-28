@@ -7,12 +7,19 @@ import EtudiantDetailModal, { printRows, FICHE_CSS, buildFicheInner, imgToBase64
 import logo from '../../../assets/images/logo_informica.png';
 
 const API = import.meta.env.VITE_API_URL;
+
 const getAnneesScolaires = () => {
   const now = new Date();
   const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
   const years = [];
   for (let y = startYear + 1; y >= startYear - 5; y--) years.push(`${y}-${y + 1}`);
   return years;
+};
+
+const getCurrentAnneeScolaire = () => {
+  const now = new Date();
+  const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${startYear}-${startYear + 1}`;
 };
 
 const statutMeta = {
@@ -96,6 +103,8 @@ const Students = () => {
   limit.setDate(limit.getDate() + 30);
   return new Date() > limit;
 };
+const today = new Date().toISOString().slice(0, 10);
+const isGroupNotFinished = (i) => !!i.group_id && (!i.groups?.date_fin || i.groups.date_fin > today);
 const [etudiants, setEtudiants]   = useState([]);
 const [formations, setFormations] = useState([]);
 const [wilayas, setWilayas]             = useState([]);
@@ -129,12 +138,21 @@ const toggleSelectAll = () => setSelectedIds(prev =>
 );
 
 const doBulkArchive = async () => {
+  const blocked = etudiants.filter(i => selectedIds.has(i.id) && isGroupNotFinished(i));
+  if (blocked.length > 0) {
+    setBulkError(`${blocked.length} étudiant(s) sélectionné(s) appartiennent à un groupe non terminé.`);
+    return;
+  }
+  if (!bulkArchiveYear) {
+    setBulkError('Veuillez sélectionner une année scolaire.');
+    return;
+  }
   setBulkArchiving(true); setBulkError(null);
   try {
     const res = await fetch(`${API}/api/etudiants/archive-multiple`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-      body: JSON.stringify({ ids: [...selectedIds], annee_scolaire: bulkArchiveYear || null }),
+      body: JSON.stringify({ ids: [...selectedIds], annee_scolaire: bulkArchiveYear }),
     });
     if (!res.ok) throw new Error((await res.json())?.error || 'Archivage échoué');
     refetch();
@@ -285,13 +303,13 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
         shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
       <Plus size={14} /> Ajouter
     </button>
-       {selectedIds.size > 0 && (
-      <button onClick={() => setShowBulkArchive(true)}
-        className="flex items-center gap-1.5 bg-amber-500 text-white px-3.5 py-2 rounded-md text-xs font-medium
-          shadow-[0_3px_0_#92400e] hover:shadow-[0_2px_0_#92400e] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
-        <Archive size={14} /> Archiver ({selectedIds.size})
-      </button>
-    )}
+{selectedIds.size > 0 && (
+  <button onClick={() => { setBulkArchiveYear(getCurrentAnneeScolaire()); setShowBulkArchive(true); }}
+    className="flex items-center gap-1.5 bg-amber-500 text-white px-3.5 py-2 rounded-md text-xs font-medium
+      shadow-[0_3px_0_#92400e] hover:shadow-[0_2px_0_#92400e] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
+    <Archive size={14} /> Archiver ({selectedIds.size})
+  </button>
+)}
     {selectedIds.size > 0 && (
       <button onClick={printSelectedFiches}
         className="flex items-center gap-1.5 bg-[#0369A1] text-white px-3.5 py-2 rounded-md text-xs font-medium
@@ -510,23 +528,34 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
           className="text-slate-300 hover:text-slate-600 flex-shrink-0"><X size={16} /></button>
       </div>
 
-      <div className="px-5 py-4 space-y-3">
-        <p className="text-xs text-slate-500">Archiver {selectedIds.size} inscription(s) sélectionnée(s) ?</p>
-        <select value={bulkArchiveYear} onChange={e => setBulkArchiveYear(e.target.value)}
-          className="w-full bg-[#F8FAFC] border border-transparent rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors">
-          <option value="">— Année scolaire (optionnel) —</option>
-          {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
+<div className="px-5 py-4 space-y-3">
+  <p className="text-xs text-slate-500">Archiver {selectedIds.size} inscription(s) sélectionnée(s) ?</p>
+  {(() => {
+    const blockedCount = [...selectedIds].filter(id => isGroupNotFinished(etudiants.find(e => e.id === id))).length;
+    return blockedCount > 0 ? (
+      <p className="text-red-500 text-xs bg-red-50 px-3 py-2 rounded-md">
+        {blockedCount} étudiant(s) appartiennent à un groupe non terminé — désélectionnez-les pour continuer.
+      </p>
+    ) : null;
+  })()}
+<select value={bulkArchiveYear} onChange={e => setBulkArchiveYear(e.target.value)} required
+  className="w-full bg-[#F8FAFC] border border-transparent rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors">
+  <option value="" disabled>— Sélectionner une année scolaire —</option>
+  {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
+</select>
         {bulkError && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 rounded-md">{bulkError}</p>}
       </div>
 
       <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
         <button onClick={() => { setShowBulkArchive(false); setBulkArchiveYear(''); setBulkError(null); }}
           className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">Annuler</button>
-        <button onClick={doBulkArchive} disabled={bulkArchiving}
-          className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
-          {bulkArchiving ? 'Archivage...' : 'Oui, archiver'}
-        </button>
+<button onClick={doBulkArchive} disabled={
+  bulkArchiving || !bulkArchiveYear ||
+  [...selectedIds].some(id => isGroupNotFinished(etudiants.find(e => e.id === id)))
+}
+  className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
+  {bulkArchiving ? 'Archivage...' : 'Oui, archiver'}
+</button>
       </div>
     </div>
   </div>

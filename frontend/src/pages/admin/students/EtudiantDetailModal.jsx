@@ -45,6 +45,11 @@ const getAnneesScolaires = () => {
   for (let y = startYear + 1; y >= startYear - 5; y--) years.push(`${y}-${y + 1}`);
   return years;
 };
+const getCurrentAnneeScolaire = () => {
+  const now = new Date();
+  const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${startYear}-${startYear + 1}`;
+};
 const FICHE_HEADER = {
   address: 'Cité Alliliguia, Groupement PR. N°1224, N°01 -2ème étage – Boumerdès',
   phone: 'Tél./Fax : 028 65 80 73 — Mobile : 0561 148 563 - 0560 606 896',
@@ -286,7 +291,7 @@ const Field = ({ icon, label, field, type = 'text', select, opts, form, set, edi
 
 const EtudiantDetailModal = ({ inscription, onClose, onSuccess, readOnly = false }) => {
   const e = inscription?.etudiant;
-  const isGroupLocked = dateFin => {
+const isGroupLocked = dateFin => {
     if (!dateFin) return false;
     const limit = new Date(dateFin);
     limit.setDate(limit.getDate() + 30);
@@ -312,6 +317,8 @@ const [statutOpts, setStatutOpts] = useState([]);
 const [groupInfo, setGroupInfo] = useState(inscription.groups ?? null);
 const [groupId, setGroupId] = useState(inscription.group_id ?? null);
 const locked = isGroupLocked(groupInfo?.date_fin);
+const today = new Date().toISOString().slice(0, 10);
+const groupNotFinished = !!groupInfo && (!groupInfo.date_fin || groupInfo.date_fin > today);
   const [form, setForm] = useState({
   nom: e?.nom ?? '', prenom: e?.prenom ?? '', telephone: e?.telephone ?? '',
   email: e?.email ?? '', adresse: e?.adresse ?? '',
@@ -395,17 +402,21 @@ useEffect(() => {
     finally { setSubmit(false); }
   };
 
-  const doArchive = async () => {
-    setSubmit(true); setError(null);
-    try {
-      const res = await fetch(`${API}/api/etudiants/${inscription.id}/archive`, {
-        method: 'PATCH', headers: getHeaders(),
-        body: JSON.stringify({ annee_scolaire: archiveYear || null }),
-      });
-      if (!res.ok) throw new Error('Archivage échoué');
-      onSuccess?.(); onClose();
-    } catch (err) { setError(err.message); setSubmit(false); }
-  };
+const doArchive = async () => {
+  if (!archiveYear) {
+    setError('Veuillez sélectionner une année scolaire.');
+    return;
+  }
+  setSubmit(true); setError(null);
+  try {
+    const res = await fetch(`${API}/api/etudiants/${inscription.id}/archive`, {
+      method: 'PATCH', headers: getHeaders(),
+      body: JSON.stringify({ annee_scolaire: archiveYear }),
+    });
+    if (!res.ok) throw new Error('Archivage échoué');
+    onSuccess?.(); onClose();
+  } catch (err) { setError(err.message); setSubmit(false); }
+};
 
   const doDelete = async () => {
     setSubmit(true); setError(null);
@@ -555,10 +566,15 @@ useEffect(() => {
                       className="flex items-center gap-1 text-xs bg-[#0369A1] text-white px-2.5 py-1.5 rounded-md hover:bg-[#0284C7]">
                       <Pencil size={11} /> Modifier
                     </button>
-                    <button onClick={() => setConfirm('archive')}
-                      className="flex items-center gap-1 text-xs bg-amber-500 text-white px-2.5 py-1.5 rounded-md hover:bg-amber-600">
-                      <Archive size={11} /> Archiver
-                    </button>
+<button
+  onClick={() => { if (groupNotFinished) return; setArchiveYear(getCurrentAnneeScolaire()); setConfirm('archive'); }}
+  disabled={groupNotFinished}
+  title={groupNotFinished ? "Ce groupe n'est pas encore terminé" : undefined}
+  className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md transition ${
+    groupNotFinished ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-amber-500 text-white hover:bg-amber-600'
+  }`}>
+  <Archive size={11} /> Archiver
+</button>
                     <button onClick={() => setConfirm('delete')}
                       className="flex items-center gap-1 text-xs bg-red-500 text-white px-2.5 py-1.5 rounded-md hover:bg-red-600">
                       <Trash2 size={11} /> Supprimer
@@ -611,21 +627,21 @@ useEffect(() => {
       </div>
     )}
 
-    {!readOnly && confirm === 'archive' && (
-      <div className="bg-amber-50 rounded-md p-3 space-y-2">
-        <p className="text-xs text-amber-700 flex items-center gap-1.5"><AlertTriangle size={13} /> Archiver cette inscription ?</p>
-        <select value={archiveYear} onChange={ev => setArchiveYear(ev.target.value)} className={inp}>
-          <option value="">— Année scolaire (optionnel) —</option>
-          {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
-        <div className="flex justify-end gap-2">
-          <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
-          <button onClick={doArchive} disabled={submitting} className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
-            {submitting ? '...' : 'Oui'}
-          </button>
-        </div>
-      </div>
-    )}
+ {!readOnly && confirm === 'archive' && (
+  <div className="bg-amber-50 rounded-md p-3 space-y-2">
+    <p className="text-xs text-amber-700 flex items-center gap-1.5"><AlertTriangle size={13} /> Archiver cette inscription ?</p>
+    <select value={archiveYear} onChange={ev => setArchiveYear(ev.target.value)} required className={inp}>
+      <option value="" disabled>— Sélectionner une année scolaire —</option>
+      {getAnneesScolaires().map(y => <option key={y} value={y}>{y}</option>)}
+    </select>
+    <div className="flex justify-end gap-2">
+      <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+      <button onClick={doArchive} disabled={submitting || !archiveYear} className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
+        {submitting ? '...' : 'Oui'}
+      </button>
+    </div>
+  </div>
+)}
   </div>
 )}
         </div>

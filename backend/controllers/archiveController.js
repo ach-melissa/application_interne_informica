@@ -54,11 +54,25 @@ const getArchivedFormationsForYear = async (req, res) => {
 
   if (fErr) return res.status(500).json({ error: fErr.message });
 
-  const result = formations.map((f) => ({
-    ...f,
-    nb_groupes_archives: groups.filter((g) => g.formation_id === f.id).length,
-    nb_inscriptions_archivees: inscriptions.filter((i) => i.formation_id === f.id).length,
-  }));
+  const result = await Promise.all(
+    formations.map(async (f) => {
+      let niveaux = [];
+      if (f.a_niveaux) {
+        const { data: niveauxData } = await supabase
+          .from('formation_niveaux')
+          .select('id, nom')
+          .eq('formation_id', f.id)
+          .order('ordre', { ascending: true });
+        niveaux = niveauxData ?? [];
+      }
+      return {
+        ...f,
+        niveaux,
+        nb_groupes_archives: groups.filter((g) => g.formation_id === f.id).length,
+        nb_inscriptions_archivees: inscriptions.filter((i) => i.formation_id === f.id).length,
+      };
+    })
+  );
 
   res.json(result);
 };
@@ -73,12 +87,12 @@ const getArchivedEtudiantsForYear = async (req, res) => {
       *,
       etudiant:etudiant_id(*),
       formation:formation_id(nom),
+      niveau:niveau_id(id, nom),
       groups(nom, jours_formation, heure_formation)
     `)
     .eq('archived', true)
     .eq('annee_scolaire', year)
     .order('created_at', { ascending: false });
-
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };

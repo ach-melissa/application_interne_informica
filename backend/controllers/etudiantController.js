@@ -26,6 +26,9 @@ const getEtudiants = async (req, res) => {
   if (req.query.annee_scolaire) {
     query = query.eq('annee_scolaire', req.query.annee_scolaire);
   }
+  if (req.query.niveau_id) {
+    query = query.eq('niveau_id', req.query.niveau_id);
+  }
 
   const { data, error } = await query;
 
@@ -86,7 +89,16 @@ if ('statut' in req.body && req.body.statut !== 'confirmed') {
 };
 const archiveInscription = async (req, res) => {
   const { id } = req.params;
-const { annee_scolaire } = req.body || {};
+  const { annee_scolaire } = req.body || {};
+
+  const { data: current, error: fetchErr } = await supabase
+    .from('inscriptions').select('group_id, groups(date_fin)').eq('id', id).single();
+  if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (current.group_id && (!current.groups?.date_fin || current.groups.date_fin > today)) {
+    return res.status(400).json({ error: "Ce groupe n'est pas encore terminé — impossible d'archiver cet étudiant." });
+  }
 
   const updates = { archived: true };
   if (annee_scolaire?.trim()) updates.annee_scolaire = annee_scolaire.trim();
@@ -107,6 +119,20 @@ const archiveMultipleInscriptions = async (req, res) => {
 
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'Aucun étudiant sélectionné.' });
+  }
+
+  const { data: selected, error: fetchErr } = await supabase
+    .from('inscriptions')
+    .select('id, group_id, groups(date_fin)')
+    .in('id', ids);
+  if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const notFinished = selected.filter(i => i.group_id && (!i.groups?.date_fin || i.groups.date_fin > today));
+  if (notFinished.length > 0) {
+    return res.status(400).json({
+      error: `${notFinished.length} étudiant(s) sélectionné(s) appartiennent à un groupe non terminé. Désélectionnez-les avant d'archiver.`,
+    });
   }
 
   const updates = { archived: true };
