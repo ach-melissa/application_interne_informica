@@ -6,16 +6,20 @@ const getSessions = async (req, res) => {
     .from('sessions')
     .select('*')
     .eq('group_id', group_id)
-    .order('date', { ascending: true });
+    .order('date', { ascending: true });  
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-
 const createSession = async (req, res) => {
-  const { group_id, date, statut, type_seance } = req.body;
+  const { group_id, date, statut, type_seance, heure_debut, heure_fin, duree_effectuee } = req.body;
   const { data, error } = await supabase
     .from('sessions')
-    .insert({ group_id, date, statut: statut ?? 'effectuee', type_seance: type_seance ?? 'normale' })
+    .insert({
+      group_id, date, statut: statut ?? 'effectuee', type_seance: type_seance ?? 'normale',
+      heure_debut: heure_debut || null,
+      heure_fin: heure_fin || null,
+      duree_effectuee: duree_effectuee ?? null,
+    })
     .select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);

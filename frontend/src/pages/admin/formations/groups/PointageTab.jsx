@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Check, X, UserCheck, UserX, Clock } from 'lucide-react';
+import { Plus, Trash2, Check, X, UserCheck, UserX, Clock, Flag, Pencil } from 'lucide-react';
 import AddSessionModal from './AddSessionModal';
+import ConfirmDialog from '../../../../components/ConfirmDialog';
 import { computeNextSessionDate, resolveGroupDuration } from "../../../../utils/pointageHelpers";
 import { useAuth } from "../../../../context/AuthContext";
 const API = import.meta.env.VITE_API_URL;
@@ -11,9 +12,9 @@ const getHeaders = () => ({
 
 const STATUT_LABEL = { present: 'P', absent: 'A', retard: 'R' };
 const STATUT_STYLE = {
-  present: 'bg-emerald-50 text-emerald-700',
-  absent:  'bg-red-50 text-red-600',
-  retard:  'bg-amber-50 text-amber-700',
+  present: 'text-emerald-700',
+  absent:  'text-red-600',
+  retard:  'text-amber-700',
 };
 
 const toDecimalHours = (start, end) => {
@@ -39,11 +40,15 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
     jours_formation: '', heure_formation: '',
   });
   const [savingInfo, setSavingInfo] = useState(false);
+   const [confirmDeleteSession, setConfirmDeleteSession] = useState(null); // session id pending delete
+  const [alertDialog, setAlertDialog] = useState(null); // { title, message } generic error alert
+  const [showFinishGroup, setShowFinishGroup] = useState(false);
+  const [finishDate, setFinishDate] = useState('');
+  const [finishingGroup, setFinishingGroup] = useState(false);
   const dropdownRef = useRef(null);
-
   const { type_duree: durationType, total: durationTotal } = resolveGroupDuration(group || {}, formation, niveau);
   const isHourBased = durationType === 'heures';
-
+const [editMode, setEditMode] = useState(false);
   // ── Sync ficheInfo when group loads ─────────────────────
   useEffect(() => {
     if (group) setFicheInfo({
@@ -93,20 +98,16 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
     fetchData();
   }, [groupId]);
 
-  // ── Save fiche info (dates/jours/heure) ──────────────────
-  const saveInfo = async () => {
+   const saveInfo = async () => {
     setSavingInfo(true);
     try {
-      const payload = {
-        ...ficheInfo,
-        date_debut: ficheInfo.date_debut || null,
-        date_fin: ficheInfo.date_fin || null,
-      };
+      const { date_debut, date_fin, ...editableFields } = ficheInfo;
+      const payload = { ...editableFields };
       const res = await fetch(`${API}/api/groups/${groupId}`, {
         method: 'PATCH', headers: getHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        alert("La fiche n'a pas pu être enregistrée. Réessayez.");
+          if (!res.ok) {
+        setAlertDialog({ title: 'Erreur', message: "La fiche n'a pas pu être enregistrée. Réessayez." });
         return;
       }
       const data = await res.json();
@@ -116,7 +117,7 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
         jours_formation: data.jours_formation ?? '',
         heure_formation: data.heure_formation ?? '',
       });
-    } catch (err) {
+        } catch (err) {
       console.error(err);
       alert("La fiche n'a pas pu être enregistrée. Réessayez.");
     } finally {
@@ -146,9 +147,9 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
       if (!res.ok) throw new Error();
       setSessions(prev => prev.map(x => x.id === sessionId ? { ...x, [field]: value } : x)
         .sort((a, b) => new Date(a.date) - new Date(b.date)));
-    } catch (err) {
+      } catch (err) {
       console.error(err);
-      alert("La modification n'a pas pu être enregistrée. Réessayez.");
+      setAlertDialog({ title: 'Erreur', message: "La modification n'a pas pu être enregistrée. Réessayez." });
     }
   };
 
@@ -159,18 +160,48 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
       });
       if (!res.ok) throw new Error();
       setSessions(prev => prev.map(x => x.id === sessionId ? { ...x, duree_effectuee: value === '' ? null : Number(value) } : x));
-    } catch (err) {
+      } catch (err) {
       console.error(err);
-      alert("La durée n'a pas pu être enregistrée. Réessayez.");
+      setAlertDialog({ title: 'Erreur', message: "La durée n'a pas pu être enregistrée. Réessayez." });
     }
   };
 
   // ── Delete session ───────────────────────────────────────
-  const deleteSession = async (sessionId) => {
-    if (!confirm('Supprimer cette séance ?')) return;
-    await fetch(`${API}/api/sessions/${sessionId}`, { method: 'DELETE', headers: getHeaders() });
-    setSessions(s => s.filter(x => x.id !== sessionId));
-    if (pendingSessionId === sessionId) { setPendingSessionId(null); setPendingAttendance({}); }
+  const deleteSession = (sessionId) => {
+    setConfirmDeleteSession(sessionId);
+  };
+
+  const doDeleteSession = async () => {
+    const sessionId = confirmDeleteSession;
+    if (!sessionId) return;
+    try {
+      await fetch(`${API}/api/sessions/${sessionId}`, { method: 'DELETE', headers: getHeaders() });
+      setSessions(s => s.filter(x => x.id !== sessionId));
+      if (pendingSessionId === sessionId) { setPendingSessionId(null); setPendingAttendance({}); }
+    } catch (err) {
+      console.error(err);
+      setAlertDialog({ title: 'Erreur', message: "La séance n'a pas pu être supprimée." });
+    } finally {
+      setConfirmDeleteSession(null);
+    }
+  };
+    const confirmFinishGroup = async () => {
+    if (!finishDate) return;
+    setFinishingGroup(true);
+    try {
+      const res = await fetch(`${API}/api/groups/${groupId}`, {
+        method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ date_fin: finishDate }),
+      });
+      if (!res.ok) throw new Error();
+      setFicheInfo(f => ({ ...f, date_fin: finishDate }));
+      setShowFinishGroup(false);
+      setFinishDate('');
+    } catch (err) {
+      console.error(err);
+      setAlertDialog({ title: 'Erreur', message: "Le groupe n'a pas pu être marqué comme terminé." });
+    } finally {
+      setFinishingGroup(false);
+    }
   };
 
   // ── Immediate single-cell save (non-pending, editable session) ──
@@ -197,57 +228,53 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
       }
     } catch (err) { console.error(err); }
   };
+const updateCell = (session, etudiant_id, next) => {
+  setEditingCell(null);
+  if (pendingSessionId === session.id) {
+    setPendingAttendance(prev => ({ ...prev, [etudiant_id]: next }));
+  } else {
+    saveStatutNow(session.id, etudiant_id, next);
+  }
+};
+ const submitBatch = async (sessionId, edits) => {
+  const entries = etudiants.map(e => ({ etudiant_id: e.id, statut: edits[e.id] ?? null }));
+  try {
+    await fetch(`${API}/api/attendance/batch`, {
+      method: 'POST', headers: getHeaders(),
+      body: JSON.stringify({ session_id: sessionId, entries }),
+    });
+    await refetchAttendance();
+    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, finalized_at: new Date().toISOString() } : s));
+  } catch (err) {
+    console.error(err);
+    setAlertDialog({ title: 'Erreur', message: "La mise à jour n'a pas pu être enregistrée." });
+  }
+};
 
-  const updateCell = (session, etudiant_id, next) => {
-    setEditingCell(null);
-    if (pendingSessionId === session.id) {
-      setPendingAttendance(prev => ({ ...prev, [etudiant_id]: next }));
-    } else {
-      saveStatutNow(session.id, etudiant_id, next);
-    }
-  };
-
-  // ── Terminer: batch-save pending session ─────────────────
-  const handleTerminer = async () => {
-    if (!pendingSessionId) return;
-    const entries = etudiants.map(e => ({ etudiant_id: e.id, statut: pendingAttendance[e.id] ?? null }));
-    try {
-      await fetch(`${API}/api/attendance/batch`, {
-        method: 'POST', headers: getHeaders(),
-        body: JSON.stringify({ session_id: pendingSessionId, entries }),
-      });
-      await refetchAttendance();
-      setSessions(prev => prev.map(s => s.id === pendingSessionId ? { ...s, finalized_at: new Date().toISOString() } : s));
-      setPendingSessionId(null);
-      setPendingAttendance({});
-    } catch (err) { console.error(err); }
-  };
+const handleTerminer = async () => {
+  if (!pendingSessionId) return;
+  await submitBatch(pendingSessionId, pendingAttendance);
+  setPendingSessionId(null);
+  setPendingAttendance({});
+};
 
   const formatDate = (d) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const firstDate = sessions.length > 0 ? formatDate(sessions[0].date) : '—';
   const lastDate  = sessions.length > 0 ? formatDate(sessions[sessions.length - 1].date) : '—';
 
-  const isSessionEditable = (session) => {
-    if (readOnly) return false;
-    if (isAdmin) return true;
-    if (pendingSessionId === session.id) return true;
-    if (!session.finalized_at) return false;
-    const hoursSince = (Date.now() - new Date(session.finalized_at).getTime()) / 3600000;
-    return hoursSince < 24;
-  };
+const isSessionEditable = (session) => {
+  if (readOnly) return false;
+  if (pendingSessionId === session.id) return true;
+  if (isAdmin) return editMode;
+  if (!session.finalized_at) return false;
+  const hoursSince = (Date.now() - new Date(session.finalized_at).getTime()) / 3600000;
+  return hoursSince < 24;
+};
 
-  const isPointageLocked = (etudiant) => {
-    if (etudiant.statut_scolarite !== 'abandonne') return false;
-    if (!etudiant.abandonne_at) return true;
-    const hoursSince = (Date.now() - new Date(etudiant.abandonne_at).getTime()) / 3600000;
-    return hoursSince >= 24;
-  };
-
-  const getCellStatut = (session, etudiant_id) => {
-    if (pendingSessionId === session.id) return pendingAttendance[etudiant_id] ?? null;
-    return attendance[`${session.id}|${etudiant_id}`]?.statut ?? null;
-  };
-
+const getCellStatut = (session, etudiant_id) => {
+  if (pendingSessionId === session.id) return pendingAttendance[etudiant_id] ?? null;
+  return attendance[`${session.id}|${etudiant_id}`]?.statut ?? null;
+};
   const getNbPresents = (session) => {
     if (pendingSessionId === session.id) {
       return Object.values(pendingAttendance).filter(v => v === 'present' || v === 'retard').length;
@@ -255,11 +282,32 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
     return Object.entries(attendance).filter(([k, v]) => k.startsWith(`${session.id}|`) && (v.statut === 'present' || v.statut === 'retard')).length;
   };
 
-   const totalLoggedHours = sessions.reduce((sum, s) => sum + (Number(s.duree_effectuee) || 0), 0);
+  const totalLoggedHours = sessions.reduce((sum, s) => sum + (Number(s.duree_effectuee) || 0), 0);
   const progressLabel = isHourBased
-    ? `${totalLoggedHours.toFixed(1)}h / ${durationTotal ?? '—'}h`
+       ? `${totalLoggedHours.toFixed(2)}h / ${durationTotal ?? '—'}h`
     : `${sessions.length} / ${durationTotal ?? '—'} séances`;
+  const targetReached = durationTotal != null && (
+    isHourBased ? totalLoggedHours >= Number(durationTotal) : sessions.length >= Number(durationTotal)
+  );
+  const showFinishBanner = targetReached && isAdmin && !readOnly && !ficheInfo.date_fin;
 
+  const notifiedRef = useRef(false);
+  useEffect(() => {
+    if (targetReached && isAdmin && !readOnly && !ficheInfo.date_fin && !notifiedRef.current) {
+      notifiedRef.current = true;
+      fetch(`${API}/api/notifications/groupe-complete`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ group_id: groupId }),
+      }).catch(() => {});
+    }
+  }, [targetReached, isAdmin, readOnly, ficheInfo.date_fin, groupId]);
+
+  if (loading) return (
+    <div className="flex justify-center py-16">
+      <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
   if (loading) return (
     <div className="flex justify-center py-16">
       <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
@@ -283,29 +331,66 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
         .pointage-scroll::-webkit-scrollbar-thumb:hover { background-color: #94A3B8; }
       `}</style>
       <div className="space-y-4">
-        {/* ── Toolbar ── */}
-        <div className="flex items-center justify-between print:hidden">
-          <p className="text-sm text-slate-400">{sessions.length} séance(s) · <span className="font-medium text-slate-600">{progressLabel}</span></p>
-          {!readOnly && (
-            pendingSessionId ? (
-              <div className="flex gap-2">
-                <button onClick={() => deleteSession(pendingSessionId)}
-                  className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9] font-medium">
-                  Annuler
+              <div className="flex items-center justify-between print:hidden">
+          <p className="text-sm text-slate-400">
+            {sessions.length} séance(s) · <span className="font-medium text-slate-600">{progressLabel}</span>
+          </p>
+
+                  <div className="flex items-center gap-2">
+            {isAdmin && !readOnly && (
+              <>
+                {editMode && (
+                  <button onClick={() => setEditMode(false)}
+                    className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9] font-medium">
+                    Annuler
+                  </button>
+                )}
+                               <button onClick={() => setEditMode(m => !m)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white font-medium hover:bg-[#16385f] transition-colors">
+                  {editMode ? <><Check size={14} /> Terminer</> : <><Pencil size={14} /> Modifier</>}
                 </button>
-                <button onClick={handleTerminer}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all font-medium">
-                  <Check size={14} /> Terminer
-                </button>
-              </div>
-            ) : (
-              <button onClick={() => setAddingSession(true)}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all font-medium">
-                <Plus size={14} /> Ajouter séance
+              </>
+            )}
+
+            {!readOnly && isAdmin && !pendingSessionId && (
+              <button onClick={() => setShowFinishGroup(true)}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-amber-600 text-white font-medium hover:bg-amber-700 transition-colors">
+                <Flag size={14} /> Ce groupe a terminé
               </button>
-            )
-          )}
+            )}
+
+            {!readOnly && (
+              pendingSessionId ? (
+                <div className="flex gap-2">
+                  <button onClick={() => deleteSession(pendingSessionId)}
+                    className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9] font-medium">
+                    Annuler
+                  </button>
+                                  <button onClick={handleTerminer}
+                    className="flex items-center gap-1.5 text-xs px-4 py-1.5 rounded-md bg-[#0F2A4A] text-white font-semibold hover:bg-[#16385f] transition-colors">
+                    <Check size={14} /> Terminer
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setAddingSession(true)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white font-medium hover:bg-[#16385f] transition-colors">
+                  <Plus size={14} /> Ajouter séance
+                </button>
+              )
+            )}
+          </div>
         </div>
+              {showFinishBanner && (
+          <div className="flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-100 rounded-md px-4 py-2.5 print:hidden">
+            <p className="text-xs text-emerald-700">
+              <strong>Objectif atteint</strong> — ce groupe a atteint {progressLabel}. Vous pouvez le marquer comme terminé.
+            </p>
+            <button onClick={() => setShowFinishGroup(true)}
+              className="text-xs px-3 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition font-medium flex-shrink-0">
+              Marquer comme terminé
+            </button>
+          </div>
+        )}
 
         {!readOnly && addingSession && (
           <AddSessionModal
@@ -317,51 +402,26 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
           />
         )}
 
+          
         <div id="pointage-print-area">
           {/* ── Fiche info header ── */}
           <div className="bg-white border border-[#F1F5F9] rounded-md px-4 py-3 text-xs text-slate-800 space-y-2">
             <div className="flex gap-6 flex-wrap items-center">
               <span><strong>Formation :</strong> {group?.formations?.nom ?? '—'}</span>
-              <label className="flex items-center gap-1.5">
-                <strong>Date de début :</strong>
-                {readOnly ? (
-                  <span className="px-1">{ficheInfo.date_debut ? formatDate(ficheInfo.date_debut) : firstDate}</span>
-                ) : (
-                  <input type="date" value={ficheInfo.date_debut} onChange={e => setFicheInfo(f => ({ ...f, date_debut: e.target.value }))} onBlur={saveInfo}
-                    className="border-b border-slate-300 bg-transparent focus:outline-none focus:border-[#0369A1] px-1" />
-                )}
-              </label>
-              <label className="flex items-center gap-1.5">
-                <strong>Date de fin :</strong>
-                {readOnly ? (
-                  <span className="px-1">{ficheInfo.date_fin ? formatDate(ficheInfo.date_fin) : lastDate}</span>
-                ) : (
-                  <input type="date" value={ficheInfo.date_fin} onChange={e => setFicheInfo(f => ({ ...f, date_fin: e.target.value }))} onBlur={saveInfo}
-                    className="border-b border-slate-300 bg-transparent focus:outline-none focus:border-[#0369A1] px-1" />
-                )}
-              </label>
+                         <span><strong>Date de début :</strong> <span className="px-1">{ficheInfo.date_debut ? formatDate(ficheInfo.date_debut) : firstDate}</span></span>
+                           {ficheInfo.date_fin && (
+                <span><strong>Date de fin :</strong> <span className="px-1">{formatDate(ficheInfo.date_fin)}</span></span>
+              )}
             </div>
             <div className="flex gap-4 flex-wrap items-center">
               <span><strong>Enseignant :</strong>{' '}{group?.teacher?.user ? `${group.teacher.user.nom} ${group.teacher.user.prenom}` : '—'}</span>
-              <label className="flex items-center gap-1.5">
+                           <label className="flex items-center gap-1.5">
                 <strong>Jour(s) :</strong>
-                {readOnly ? (
-                  <span className="px-1">{ficheInfo.jours_formation || '—'}</span>
-                ) : (
-                  <input type="text" value={ficheInfo.jours_formation}
-                    onChange={e => setFicheInfo(f => ({ ...f, jours_formation: e.target.value }))} onBlur={saveInfo}
-                    placeholder="ex: Lundi, Mercredi" className="border-b border-slate-300 bg-transparent focus:outline-none focus:border-[#0369A1] px-1 w-36" />
-                )}
+                <span className="px-1">{ficheInfo.jours_formation || '—'}</span>
               </label>
               <label className="flex items-center gap-1.5">
                 <strong>Heure :</strong>
-                {readOnly ? (
-                  <span className="px-1">{ficheInfo.heure_formation || '—'}</span>
-                ) : (
-                  <input type="text" value={ficheInfo.heure_formation}
-                    onChange={e => setFicheInfo(f => ({ ...f, heure_formation: e.target.value }))} onBlur={saveInfo}
-                    placeholder="ex: 09:00 - 11:00" className="border-b border-slate-300 bg-transparent focus:outline-none focus:border-[#0369A1] px-1 w-28" />
-                )}
+                <span className="px-1">{ficheInfo.heure_formation || '—'}</span>
               </label>
               {!readOnly && savingInfo && <span className="text-slate-300 italic">Sauvegarde…</span>}
             </div>
@@ -373,16 +433,14 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
             <div className="overflow-auto pointage-scroll rounded-md border border-[#F1F5F9] print:overflow-visible print:border-0 mt-4 max-h-[65vh]">
               <table className="text-xs border-collapse bg-white" style={{ minWidth: `${140 + sessions.length * 80}px` }}>
                 <tbody>
-
-                  <tr className="bg-[#DCEBFA]">
-                    <td className="border border-[#F1F5F9] px-3 py-2 font-bold text-[#0369A1] sticky left-0 bg-[#DCEBFA] z-10 min-w-[160px]">Séance №</td>
+                                  <tr className="bg-slate-50">
+                    <td className="border border-slate-200 px-3 py-2 font-semibold text-slate-600 sticky left-0 bg-slate-50 z-10 min-w-[160px]">Séance №</td>
                     {sessions.map((s, i) => (
-                      <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center font-bold text-[#0369A1] min-w-[80px]">{i + 1}</td>
+                      <td key={s.id} className="border border-slate-200 px-2 py-2 text-center font-semibold text-slate-600 min-w-[80px]">{i + 1}</td>
                     ))}
                   </tr>
-
                   <tr>
-                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-white z-10">Date de la Séance</td>
+                    <td className="border border-[#F1F5F9] px-3 py-2  sticky left-0 bg-white z-10">Date de la Séance</td>
                     {sessions.map(s => (
                       <td key={s.id} className="border border-[#F1F5F9] px-1 py-1 text-center text-slate-800">
                         {isSessionEditable(s) ? (
@@ -393,37 +451,34 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
                     ))}
                   </tr>
 
-                  <tr className="bg-[#F8FCFF]">
-                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-[#F8FCFF] z-10">Type</td>
-                    {sessions.map(s => (
-                      <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center">
-                        {isSessionEditable(s) ? (
-                          <select value={s.type_seance} onChange={e => updateSessionField(s.id, 'type_seance', e.target.value)}
-                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border-0 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 ${s.type_seance === 'remplacement' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                            <option value="normale">Normale</option>
-                            <option value="remplacement">Remplacement</option>
-                          </select>
-                        ) : (
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${s.type_seance === 'remplacement' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                            {s.type_seance === 'remplacement' ? 'Remplacement' : 'Normale'}
-                          </span>
-                        )}
-                      </td>
-                    ))}
-                  </tr>
+                 <tr>
+  <td className="border border-[#F1F5F9] px-3 py-2 sticky left-0  z-10">Horaire</td>
+  {sessions.map(s => {
+    const editable = isSessionEditable(s);
+    return (
+      <td key={s.id} className="border border-[#F1F5F9] px-1 py-1 text-center text-xs">
+        {editable ? (
+          <div className="flex items-center justify-center gap-1">
+                      <input type="time" defaultValue={s.heure_debut ? s.heure_debut.slice(0, 5) : ''}
+              onBlur={e => updateSessionField(s.id, 'heure_debut', e.target.value || null)}
+              className="w-[62px] text-center text-xs border-b border-transparent hover:border-slate-300 focus:border-[#0369A1] bg-transparent focus:outline-none" />
+            <span className="text-slate-300">-</span>
+            <input type="time" defaultValue={s.heure_fin ? s.heure_fin.slice(0, 5) : ''}
+              onBlur={e => updateSessionField(s.id, 'heure_fin', e.target.value || null)}
+              className="w-[62px] text-center text-xs border-b border-transparent hover:border-slate-300 focus:border-[#0369A1] bg-transparent focus:outline-none" />
+          </div>
+        ) : (
+                   s.heure_debut ? (s.heure_fin ? `${s.heure_debut.slice(0,5)} - ${s.heure_fin.slice(0,5)}` : s.heure_debut.slice(0,5)) : '—'
+        )}
+      </td>
+    );
+  })}
+</tr>
 
-                                  <tr className="bg-[#F8FCFF]">
-                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-[#F8FCFF] z-10">Horaire</td>
-                    {sessions.map(s => (
-                      <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center text-xs">
-                        {s.heure_debut ? (s.heure_fin ? `${s.heure_debut} - ${s.heure_fin}` : s.heure_debut) : '—'}
-                      </td>
-                    ))}
-                  </tr>
 
                   {isHourBased && (
-                    <tr className="bg-[#F8FCFF]">
-                      <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-[#F8FCFF] z-10">Durée de la Séance (h)</td>
+                    <tr >
+                      <td className="border border-[#F1F5F9] px-3 py-2  sticky left-0  z-10">Durée de la Séance (h)</td>
                       {sessions.map(s => {
                         const editable = isSessionEditable(s);
                         return (
@@ -455,12 +510,11 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
                     })}
                   </tr>
 
-                  <tr>
-                    <td colSpan={sessions.length + 1} className="bg-[#DCEBFA] border border-[#F1F5F9] px-3 py-1.5 font-semibold text-[#0369A1]">Présences</td>
+                                   <tr>
+                    <td colSpan={sessions.length + 1} className="bg-slate-100 border border-slate-200 px-3 py-1.5 font-semibold text-slate-600">Présences</td>
                   </tr>
-
                   {etudiants.map((e, idx) => (
-                    <tr key={e.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#F8FCFF]'}>
+            <tr key={e.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
                       <td className="border border-[#F1F5F9] px-3 py-2 text-slate-800 sticky left-0 bg-inherit z-10 whitespace-nowrap">
                         <span className="text-slate-300 mr-1">{idx + 1})</span>{e.nom} {e.prenom}
                       </td>
@@ -468,7 +522,7 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
                         const key = `${s.id}|${e.id}`;
                         const statut = getCellStatut(s, e.id);
                         const isEditing = editingCell === key;
-                        const editable = isSessionEditable(s) && !isPointageLocked(e);
+                                               const editable = isSessionEditable(s);
                         return (
                           <td key={s.id} className="border border-[#F1F5F9] p-0 text-center relative">
                             {!editable ? (
@@ -490,8 +544,8 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
                   ))}
 
                   {!readOnly && (
-                    <tr className="bg-red-50/40 print:hidden">
-                      <td className="border border-[#F1F5F9] px-3 py-1.5 text-slate-300 sticky left-0 bg-red-50/40 z-10 text-[10px]">Supprimer</td>
+                                   <tr className="print:hidden">
+                      <td className="border border-slate-200 px-3 py-1.5 text-slate-300 sticky left-0 bg-white z-10 text-[10px]">Supprimer</td>
                       {sessions.map(s => (
                         <td key={s.id} className="border border-[#F1F5F9] px-2 py-1.5 text-center">
                           <button onClick={() => deleteSession(s.id)} className="text-red-300 hover:text-red-500 transition">
@@ -551,6 +605,49 @@ const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = 
             </div>
           );
         })()}
+          {confirmDeleteSession && (
+          <ConfirmDialog
+            title="Supprimer la séance"
+            message="Cette séance et son pointage seront définitivement supprimés. Action irréversible."
+            variant="danger"
+            confirmLabel="Supprimer"
+            onConfirm={doDeleteSession}
+            onClose={() => setConfirmDeleteSession(null)}
+          />
+        )}
+                {showFinishGroup && (
+          <ConfirmDialog
+            title="Marquer ce groupe comme terminé"
+            message="Indiquez la date réelle de fin du groupe. Cette date sera enregistrée comme date de fin officielle."
+            variant="warning"
+            confirmLabel="Confirmer"
+            confirmDisabled={!finishDate}
+            loading={finishingGroup}
+            onConfirm={confirmFinishGroup}
+            onClose={() => { setShowFinishGroup(false); setFinishDate(''); }}
+          >
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Date de fin <span className="text-red-500">*</span></p>
+              <input
+                type="date" value={finishDate} autoFocus
+                onChange={e => setFinishDate(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
+              />
+            </div>
+          </ConfirmDialog>
+        )}
+
+        {alertDialog && (
+          <ConfirmDialog
+            title={alertDialog.title}
+            message={alertDialog.message}
+            variant="danger"
+            hideCancel
+            confirmLabel="Compris"
+            onConfirm={() => setAlertDialog(null)}
+            onClose={() => setAlertDialog(null)}
+          />
+        )}
       </div>
     </>
   );

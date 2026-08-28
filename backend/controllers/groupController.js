@@ -100,8 +100,17 @@ const updateGroup = async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   if (updates.use_default_periods === true) {
-  await supabase.from('group_payment_periods').delete().eq('group_id', id);
-}
+    await supabase.from('group_payment_periods').delete().eq('group_id', id);
+  }
+
+  if (updates.date_fin) {
+    await supabase
+      .from('notifications')
+      .update({ lu: true, lu_admin: true })
+      .eq('type', 'groupe_complete')
+      .eq('data->>groupe_id', String(id));
+  }
+
   res.json(data);
 };
 

@@ -490,7 +490,53 @@ const repondreNotification = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
+const notifierGroupeComplete = async (req, res) => {
+  const { group_id } = req.body;
+  if (!group_id) return res.status(400).json({ error: 'group_id requis.' });
 
+  const { data: group, error: gErr } = await supabase
+    .from('groups')
+    .select('id, nom, date_fin, formation_id, formations:formation_id(nom)')
+    .eq('id', group_id)
+    .single();
+  if (gErr) return res.status(500).json({ error: gErr.message });
+  if (!group) return res.status(404).json({ error: 'Groupe introuvable.' });
+
+  if (group.date_fin) return res.json({ skipped: true });
+
+  const { data: existingNotif, error: exErr } = await supabase
+    .from('notifications')
+    .select('id')
+    .eq('type', 'groupe_complete')
+    .eq('destinataire_role', 'admin')
+    .eq('lu_admin', false)
+    .eq('data->>groupe_id', String(group_id))
+    .maybeSingle();
+  if (exErr) return res.status(500).json({ error: exErr.message });
+  if (existingNotif) return res.json({ skipped: true, existing: true });
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .insert({
+      type: 'groupe_complete',
+      destinataire_role: 'admin',
+      titre: `Objectif atteint - ${group.nom}`,
+      message: `${group.formations?.nom || ''} — ce groupe a atteint son objectif, vous pouvez le marquer comme terminé.`,
+      lu: false,
+      lu_admin: false,
+      data: {
+        groupe_id: group.id,
+        groupe_nom: group.nom,
+        formation_id: group.formation_id,
+        formation_nom: group.formations?.nom || null,
+      },
+    })
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
 const creerCreneauDepuisNotification = async (notif, salleId, salleNom) => {
   const d = notif.data || {};
 
@@ -553,4 +599,5 @@ module.exports = {
   proposerAlternative,
   repondreProposition,
   repondreNotification,
+  notifierGroupeComplete,
 };

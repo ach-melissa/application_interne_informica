@@ -289,16 +289,31 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
                 Par défaut : {defaultDureeValeur} {defaultTypeDuree === 'seances' ? 'séances' : 'heures'}
               </span>
             </div>
-            <Toggle checked={useDefaultDuree} onChange={setUseDefaultDuree}
+                     <Toggle checked={useDefaultDuree} onChange={setUseDefaultDuree}
               label="Utiliser la durée par défaut de la formation" />
             {!useDefaultDuree && (
-              <div className="flex gap-1.5 mt-2">
-                <select value={typeDuree} onChange={(e) => setTypeDuree(e.target.value)} className={`${inp} w-[110px] flex-shrink-0`}>
-                  <option value="heures">Heures</option>
-                  <option value="seances">Séances</option>
-                </select>
-                <input type="number" min="1" value={dureeValeur} onChange={(e) => setDureeValeur(e.target.value)}
-                  className={`${inp} flex-1`} placeholder={typeDuree === 'seances' ? 'Nb séances' : 'Nb heures'} />
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div>
+                  <Label text="Type de durée" />
+                  <select value={typeDuree} onChange={(e) => setTypeDuree(e.target.value)} className={inp}>
+                    <option value="heures">Heures</option>
+                    <option value="seances">Séances</option>
+                  </select>
+                </div>
+                <div>
+                  <Label text={typeDuree === 'seances' ? 'Nombre de séances' : "Nombre d'heures"} />
+                  <div className="relative">
+                    <input
+                      type="number" min="1" value={dureeValeur}
+                      onChange={(e) => setDureeValeur(e.target.value)}
+                      placeholder={typeDuree === 'seances' ? 'Ex: 30' : 'Ex: 40'}
+                      className={`${inp} pr-14`}
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-slate-400 pointer-events-none">
+                      {typeDuree === 'seances' ? 'séances' : 'heures'}
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
           </div>

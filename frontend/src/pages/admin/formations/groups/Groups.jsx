@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Users, Pencil, Trash2, X, ChevronRight, Search, AlertTriangle, Archive } from 'lucide-react';
+import { ArrowLeft, Plus, Users, Pencil, Trash2, X, ChevronRight, Search, AlertTriangle, Archive, Flag } from 'lucide-react';
 import AdminLayout from '../../../../layouts/AdminLayout';
 import GroupFormModal from './GroupFormModal';
 
@@ -146,11 +146,18 @@ const Groups = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredGroups.map((g) => (
                 <div key={g.id} className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition">
-                  <div className="flex items-start justify-between mb-4">
+                                   <div className="flex items-start justify-between mb-4">
                     <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center"><Users size={20} className="text-emerald-600" /></div>
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${g.statut === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                      {g.statut === 'active' ? 'Actif' : 'Inactif'}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {g.date_fin && (
+                        <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-800 text-white">
+                          <Flag size={11} /> Terminé
+                        </span>
+                      )}
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${g.statut === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                        {g.statut === 'active' ? 'Actif' : 'Inactif'}
+                      </span>
+                    </div>
                   </div>
                   <h2 className="text-slate-800 font-semibold text-base mb-1">{g.nom}</h2>
                   <p className="text-slate-400 text-xs mb-1">{g.teacher?.user ? `${g.teacher.user.nom} ${g.teacher.user.prenom}` : 'Aucun professeur assigné'}</p>

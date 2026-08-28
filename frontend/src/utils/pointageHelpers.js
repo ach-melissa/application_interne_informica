@@ -20,8 +20,11 @@ export function resolveGroupDuration(group, formation, niveau) {
   if (group.use_default_duree === false) {
     return { type_duree: group.type_duree, total: group.duree_valeur };
   }
-  if (niveau && formation?.type_duree_uniforme === false) {
-    return { type_duree: niveau.type_duree, total: niveau.duree_valeur };
-  }
-  return { type_duree: formation?.type_duree, total: formation?.heures };
+  const total = (formation?.duree_uniforme === false && niveau)
+    ? niveau.duree_valeur
+    : formation?.heures;
+  const type_duree = (formation?.type_duree_uniforme === false && niveau)
+    ? niveau.type_duree
+    : formation?.type_duree;
+  return { type_duree, total };
 }

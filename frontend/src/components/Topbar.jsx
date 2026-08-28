@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, User, LogOut, ClipboardList, CreditCard, History } from 'lucide-react';
+import { Bell, User, LogOut, ClipboardList, CreditCard, History, Flag } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/images/logo_informica.png';
 
@@ -13,6 +13,7 @@ const ROLE_LABELS = {
 const NOTIF_ICONS = {
   retard_paiement: { Icon: CreditCard, className: 'text-orange-600 bg-orange-50' },
   demande_salle: { Icon: ClipboardList, className: 'text-[#0369A1] bg-[#EAF4FC]' },
+  groupe_complete: { Icon: Flag, className: 'text-emerald-600 bg-emerald-50' },
 };
 
 const DEMANDE_SALLE_STATUT_LABEL = {
@@ -192,10 +193,15 @@ const Topbar = () => {
 
     if (notification.type === 'demande_salle') {
       navigate(isAdmin ? `/admin/demandes-salles/${notification.id}` : `/prof/mes-demandes-salles/${notification.id}`);
-    } else if (notification.type === 'retard_paiement') {
+       } else if (notification.type === 'retard_paiement') {
       const { formation_id, group_id } = notification.data || {};
       if (formation_id && group_id) {
         navigate(`/admin/formations/${formation_id}/groups/${group_id}?tab=paiements`);
+      }
+    } else if (notification.type === 'groupe_complete') {
+      const { formation_id, groupe_id } = notification.data || {};
+      if (formation_id && groupe_id) {
+        navigate(`/admin/formations/${formation_id}/groups/${groupe_id}?tab=pointage`);
       }
     }
   };
