@@ -1,5 +1,62 @@
 const supabase = require('../supabaseClient');
 const { resolveGroupPeriods } = require('../utils/periods');
+
+const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+// Calcule dynamiquement, pour chaque group_id fourni, un résumé lisible de
+// son planning à partir de la table `schedules` — jamais depuis des colonnes
+// stockées sur `groups` (jours_formation/heure_formation supprimées).
+// L'ordre des jours vient de la même RPC que /api/schedules/jours
+// (get_day_enum_values) — jamais codé en dur, pour rester synchro avec
+// l'enum réel de la DB (qui commence par samedi et n'a pas de vendredi).
+const getScheduleSummaries = async (groupIds) => {
+  const summaries = {};
+  if (!groupIds || groupIds.length === 0) return summaries;
+
+  const { data: joursOrdre, error: joursErr } = await supabase.rpc('get_day_enum_values');
+  if (joursErr) throw joursErr;
+  const ordre = joursOrdre || [];
+  const jourRank = (j) => {
+    const i = ordre.indexOf((j || '').toLowerCase());
+    return i === -1 ? ordre.length : i;
+  };
+
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('group_id, jour_semaine, heure_debut, heure_fin')
+    .in('group_id', groupIds);
+
+  if (error) throw error;
+
+  const byGroup = {};
+  (data || []).forEach((row) => {
+    (byGroup[row.group_id] ??= []).push(row);
+  });
+
+  Object.entries(byGroup).forEach(([groupId, rows]) => {
+    const sorted = rows.slice().sort((a, b) => {
+      const r = jourRank(a.jour_semaine) - jourRank(b.jour_semaine);
+      if (r !== 0) return r;
+      return (a.heure_debut || '').localeCompare(b.heure_debut || '');
+    });
+
+    const joursDistincts = [...new Set(sorted.map((r) => r.jour_semaine))]
+      .sort((a, b) => jourRank(a) - jourRank(b))
+      .map(capitalize);
+
+    const creneaux = sorted
+      .filter((r) => r.heure_debut && r.heure_fin)
+      .map((r) => `${capitalize(r.jour_semaine)} : ${r.heure_debut.slice(0, 5)}-${r.heure_fin.slice(0, 5)}`);
+
+    summaries[groupId] = {
+      jours_formation: joursDistincts.join(', '),
+      heure_formation: creneaux.join(', '),
+    };
+  });
+
+  return summaries;
+};
+
 const getGroupsByFormation = async (req, res) => {
   const { formation_id, niveau_id, archived, annee_scolaire } = req.query;
 
@@ -21,13 +78,26 @@ const getGroupsByFormation = async (req, res) => {
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
 
+  const groupIds = data.map((g) => g.id);
+  let scheduleSummaries = {};
+  try {
+    scheduleSummaries = await getScheduleSummaries(groupIds);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+
   const result = await Promise.all(
     data.map(async (g) => {
       const { count } = await supabase
         .from('inscriptions')
         .select('*', { count: 'exact', head: true })
         .eq('group_id', g.id);
-      return { ...g, nb_etudiants: count ?? 0 };
+      return {
+        ...g,
+        nb_etudiants: count ?? 0,
+        jours_formation: scheduleSummaries[g.id]?.jours_formation ?? '',
+        heure_formation: scheduleSummaries[g.id]?.heure_formation ?? '',
+      };
     })
   );
 
@@ -376,11 +446,31 @@ const getMyGroups = async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from('groups')
-    .select('id, nom, formation_id, date_fin, formations:formation_id(id, nom)')
+    .select(`
+      id, nom, formation_id, date_debut, date_fin,
+      formations:formation_id(id, nom),
+      teacher:teacher_id(id, user:user_id(nom, prenom)),
+      niveau:niveau_id(id, nom)
+    `)
     .eq('teacher_id', teacher.id)
     .eq('archived', false)
     .or(`date_fin.is.null,date_fin.gte.${today}`);
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+
+  const groupIds = data.map((g) => g.id);
+  let scheduleSummaries = {};
+  try {
+    scheduleSummaries = await getScheduleSummaries(groupIds);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+
+  const result = data.map((g) => ({
+    ...g,
+    jours_formation: scheduleSummaries[g.id]?.jours_formation ?? '',
+    heure_formation: scheduleSummaries[g.id]?.heure_formation ?? '',
+  }));
+
+  res.json(result);
 };module.exports = { getGroupsByFormation, createGroup, updateGroup, deleteGroup, getGroupEtudiants, getUnassignedStudents, archiveGroup, restoreGroup, getGroupPeriods, setGroupPeriods, getMyGroups };
