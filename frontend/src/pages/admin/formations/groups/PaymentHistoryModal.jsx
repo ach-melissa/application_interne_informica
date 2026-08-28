@@ -140,13 +140,12 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
       />
 
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-        <div className="bg-white rounded-2xl w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto shadow-xl" onClick={e => e.stopPropagation()}>
-
+               <div className="bg-white rounded-md w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto shadow-xl" onClick={e => e.stopPropagation()}>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9] sticky top-0 bg-white z-10">
-            <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
-              <span className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center">
-                <Wallet size={14} />
+                       <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+                <Wallet size={14} className="text-white" />
               </span>
               {student.nom}
             </h2>
@@ -157,20 +156,18 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
 
           <div className="p-5 space-y-4">
             {error && (
-              <p className="text-red-500 text-xs bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-red-500 text-xs bg-red-50 rounded-md px-3 py-2">{error}</p>
             )}
 
             {/* Summary pills */}
-            <div className="flex gap-2">
-              <div className="flex-1 bg-[#DCEBFA]/40 rounded-xl border border-[#F1F5F9] px-3 py-2 text-center">
+                      <div className="flex gap-2">
+              <div className="flex-1 bg-[#F8FAFC] rounded-md border border-[#F1F5F9] px-3 py-2 text-center">
                 <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Payé</p>
                 <p className="text-sm font-semibold text-slate-800">{totalPaid.toLocaleString('fr-FR')} DA</p>
               </div>
-              <div className={`flex-1 rounded-xl border px-3 py-2 text-center ${
-                remaining <= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'
-              }`}>
+              <div className="flex-1 bg-[#F8FAFC] rounded-md border border-[#F1F5F9] px-3 py-2 text-center">
                 <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Restant</p>
-                <p className={`text-sm font-semibold ${remaining <= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                <p className={`text-sm font-semibold ${remaining <= 0 ? 'text-emerald-600' : 'text-slate-800'}`}>
                   {remaining.toLocaleString('fr-FR')} DA
                 </p>
               </div>
@@ -187,12 +184,12 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                   <li className="text-center text-slate-400 text-xs py-6">Aucun paiement enregistré.</li>
                 ) : (
                   history.map((p) => (
-                    <li key={p.id} className="bg-[#DCEBFA]/40 rounded-xl border border-[#F1F5F9] px-3 py-2">
+                                                                                <li key={p.id} className="bg-[#F8FAFC] rounded-md border border-[#F1F5F9] px-3 py-2">
                       {editingId === p.id ? (
                         <div className="flex gap-2 items-center">
-                          <input
+                                                    <input
                             type="number"
-                            className="border border-transparent bg-[#F8FAFC] rounded-lg px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA]"
+                            className="bg-white border border-slate-200 rounded-md px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
                             value={editMontant}
                             onChange={e => setEditMontant(e.target.value)}
                             placeholder="Montant"
@@ -210,7 +207,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                           {/* Row 1 */}
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-2">
-                              <span className="text-[11px] bg-[#DCEBFA] text-[#0369A1] font-medium px-2 py-0.5 rounded-full">
+                                                          <span className="text-[11px] bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded-full">
                                 T{p.tranche}
                               </span>
                               <span className="text-xs text-slate-400">
@@ -245,7 +242,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                                   <img
                                     src={p.bon_photo}
                                     alt="bon"
-                                    className="w-10 h-10 rounded-lg object-cover border border-[#DCEBFA] group-hover:opacity-80 transition"
+        className="w-10 h-10 rounded-md object-cover border border-slate-200 group-hover:opacity-80 transition"
                                   />
                                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                                     <ZoomIn size={14} className="text-white drop-shadow" />
@@ -269,7 +266,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                                 <button
                                   onClick={() => triggerUpload(p.id)}
                                   disabled={uploadingId === p.id}
-                                  className="flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-[#0369A1] border border-dashed border-[#DCEBFA] hover:border-[#0369A1]/40 rounded-lg px-2 py-1 transition disabled:opacity-40"
+                                                                                   className="flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-[#0369A1] border border-dashed border-slate-200 hover:border-[#0369A1]/40 rounded-md px-2 py-1 transition disabled:opacity-40"
                                 >
                                   {uploadingId === p.id
                                     ? <div className="w-3 h-3 border border-[#0369A1] border-t-transparent rounded-full animate-spin" />
@@ -290,9 +287,9 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
             {/* Add payment */}
             {!readOnly && student.statutScolarite !== 'abandonne' && student.statutScolarite !== 'termine' && (
               <div className="flex justify-end gap-2 pt-1">
-                <input
+                               <input
                   type="number"
-                  className="bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors"
+                  className="bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
                   placeholder="Montant (DA)"
                   value={montant}
                   onChange={e => setMontant(e.target.value)}
@@ -301,7 +298,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                 <button
                   onClick={handleAdd}
                   disabled={submitting || !montant}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium flex items-center gap-1"
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium"
                 >
                   <Plus size={14} /> Ajouter
                 </button>
@@ -321,7 +318,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
             >
               <X size={16} />
             </button>
-            <img src={lightboxUrl} alt="Bon de paiement" className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]" />
+                        <img src={lightboxUrl} alt="Bon de paiement" className="w-full rounded-md shadow-2xl object-contain max-h-[80vh]" />
           </div>
         </div>
       )}
