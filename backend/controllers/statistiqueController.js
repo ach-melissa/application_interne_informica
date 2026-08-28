@@ -26,25 +26,24 @@ const getStatistiques = async (req, res) => {
 
   if (formationsErr) return res.status(500).json({ error: formationsErr.message });
 
-  const { data: inscriptionsBrutes, error: insErr } = await supabase
-    .from('inscriptions')
-    .select(`
-      date_inscription,
-      source,
-      registered_by,
-      formation:formation_id(nom),
-      etudiant:etudiant_id(wilaya, date_naissance, archived)
-    `)
-    .eq('archived', false)
-    .eq('statut', 'confirmed');
+const { data: inscriptionsBrutes, error: insErr } = await supabase
+  .from('inscriptions')
+  .select(`
+    date_inscription,
+    source,
+    registered_by,
+    formation:formation_id(nom),
+    etudiant:etudiant_id(wilaya, date_naissance)
+  `)
+  .eq('statut', 'confirmed');
+  // 👈 no .eq('archived', ...) — we want both active AND archived inscriptions,
+  // so every year that ever had activity shows up in the stats.
 
-  if (insErr) return res.status(500).json({ error: insErr.message });
+if (insErr) return res.status(500).json({ error: insErr.message });
 
-  const inscriptions = inscriptionsBrutes
-    // On exclut les inscriptions sans date ET celles liées à un étudiant archivé
-    // (un étudiant supprimé/désactivé ne doit pas polluer les statistiques).
-    .filter((i) => i.date_inscription && i.etudiant?.archived !== true)
-    .map((i) => {
+const inscriptions = inscriptionsBrutes
+  .filter((i) => i.date_inscription)
+  .map((i) => {
       const date = new Date(i.date_inscription);
       return {
         annee: date.getFullYear(),

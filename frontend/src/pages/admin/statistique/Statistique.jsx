@@ -5,13 +5,32 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
 } from 'recharts';
 import {
-  Users, BookOpen, AlertTriangle, MapPin, Home, ChevronRight,
-  Calendar, Filter, Info, BarChart3, PieChart as PieChartIcon,
-  Users2, Share2 as Share2Icon, CalendarClock,
+  Users, BookOpen, AlertTriangle, MapPin,
+  Calendar, BarChart3, PieChart as PieChartIcon,
+  Users2, Share2 as Share2Icon, CalendarClock, ChevronDown, X,
 } from 'lucide-react';
 
 const moisOrdre = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-
+const FilterSelect = ({ icon: Icon, label, value, onChange, opts, display, disabled }) => (
+  <div className="relative flex items-center">
+    {Icon && <Icon size={13} className="absolute left-2 text-[#0369A1] pointer-events-none" />}
+    <select
+      value={value || ''}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+      className={`appearance-none text-xs rounded-full py-1.5 pr-7 pl-7 bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer transition
+        ${value ? 'text-[#0369A1] font-medium' : 'text-slate-500'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+    >
+      <option value="">{label}</option>
+      {opts.map(o => <option key={o} value={o}>{display ? display(o) : o}</option>)}
+    </select>
+    {value && !disabled ? (
+      <button onClick={() => onChange('')} className="absolute right-2 text-slate-300 hover:text-red-400"><X size={11} /></button>
+    ) : (
+      <ChevronDown size={11} className="absolute right-2 text-slate-400 pointer-events-none" />
+    )}
+  </div>
+);
 const trancheAge = (age) => {
   if (age < 18) return '- 18';
   if (age <= 25) return '18 - 25';
@@ -120,23 +139,30 @@ const computeStats = (data, toutesLesFormations) => {
 // COMPOSANTS UTILITAIRES
 // ────────────────────────────────────────────────────────────
 
-const StatCard = ({ icon: Icon, label, value, accentBar, iconBg, iconColor }) => (
-  <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
-    <div className={`h-1 ${accentBar}`} />
-    <div className="p-5">
-      <div className="flex items-center gap-3">
-        <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
-          <Icon size={20} className={iconColor} />
-        </div>
-        <p className="text-sm text-slate-500">{label}</p>
+const STAT_COLORS = {
+  blue:    { bg: 'bg-[#DCEBFA]',  text: 'text-[#0369A1]' },
+  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+  amber:   { bg: 'bg-amber-50',   text: 'text-amber-600' },
+  violet:  { bg: 'bg-violet-50',  text: 'text-violet-600' },
+};
+
+const StatCard = ({ icon: Icon, label, value, color = 'blue' }) => {
+  const c = STAT_COLORS[color] ?? STAT_COLORS.blue;
+  return (
+    <div className="flex items-center gap-3 bg-white rounded-xl border border-[#F1F5F9] px-4 py-3">
+      <div className={`w-9 h-9 rounded-full ${c.bg} flex items-center justify-center flex-shrink-0`}>
+        <Icon size={16} className={c.text} />
       </div>
-      <p className="text-3xl font-bold text-slate-800 mt-3 leading-none">{value}</p>
+      <div>
+        <p className="text-lg font-bold text-slate-800 leading-none">{value}</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">{label}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const ChartCard = ({ title, icon: Icon, iconBg = 'bg-[#DCEBFA]', iconColor = 'text-[#0369A1]', children }) => (
-  <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] p-5">
+  <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm">
     <div className="flex items-center gap-2 mb-4">
       {Icon && (
         <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
@@ -275,93 +301,42 @@ const Statistique = () => {
         
         </div>
 
-        {/* ── Barre de filtres ── */}
-        <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] p-5">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-[180px]">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500 mb-1.5">
-                <Calendar size={13} /> Année
-              </label>
-              <select
-                value={selectedYear}
-                onChange={(e) => {
-                  setSelectedYear(e.target.value);
-                  setSelectedMonth('all'); // reset le mois quand on change d'année
-                }}
-                className="w-full text-sm font-medium text-slate-600 bg-white border border-[#E2E8F0] rounded-lg px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer"
-              >
-                <option value="all">Toutes les années</option>
-                {anneesDisponibles.map((annee) => (
-                  <option key={annee} value={annee}>{annee}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex-1 min-w-[180px]">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500 mb-1.5">
-                <Calendar size={13} /> Mois
-              </label>
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                disabled={selectedYear === 'all'}
-                className="w-full text-sm font-medium text-slate-600 bg-white border border-[#E2E8F0] rounded-lg px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <option value="all">Tous les mois</option>
-                {moisOrdre.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
-
+                {/* ── Barre de filtres ── */}
+        <div className="mb-2 flex flex-wrap gap-2 items-center">
+          <FilterSelect
+            icon={Calendar}
+            label="Toutes les années"
+            value={selectedYear === 'all' ? '' : selectedYear}
+            onChange={(v) => { setSelectedYear(v || 'all'); setSelectedMonth('all'); }}
+            opts={anneesDisponibles.map(String)}
+          />
+          <FilterSelect
+            icon={Calendar}
+            label="Tous les mois"
+            value={selectedMonth === 'all' ? '' : selectedMonth}
+            onChange={(v) => setSelectedMonth(v || 'all')}
+            opts={moisOrdre}
+            disabled={selectedYear === 'all'}
+          />
+          {(selectedYear !== 'all' || selectedMonth !== 'all') && (
             <button
-              type="button"
-              className="bg-[#0369A1] hover:bg-[#0369A1]/90 transition-colors text-white text-sm font-medium px-5 py-2.5 rounded-lg flex items-center gap-2 shrink-0"
+              onClick={() => { setSelectedYear('all'); setSelectedMonth('all'); }}
+              className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"
             >
-              <Filter size={15} />
-              Filtrer
+              <X size={11} /> Tout effacer
             </button>
-          </div>
+          )}
         </div>
 
         {/* ── Cartes résumé ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            icon={Users}
-            label="Total étudiants"
-            value={totalEtudiants}
-            accentBar="bg-[#2563EB]"
-            iconBg="bg-[#DCEBFA]"
-            iconColor="text-[#2563EB]"
-          />
-          <StatCard
-            icon={BookOpen}
-            label="Formations actives"
-            value={formationsActives.length}
-            accentBar="bg-[#059669]"
-            iconBg="bg-emerald-50"
-            iconColor="text-emerald-600"
-          />
-          <StatCard
-            icon={AlertTriangle}
-            label="Formations oubliées"
-            value={formationsOubliees.length}
-            accentBar="bg-[#F97316]"
-            iconBg="bg-orange-50"
-            iconColor="text-orange-500"
-          />
-          <StatCard
-            icon={MapPin}
-            label="Wilayas couvertes"
-            value={wilayaData.length}
-            accentBar="bg-[#7C3AED]"
-            iconBg="bg-violet-50"
-            iconColor="text-violet-600"
-          />
+          <StatCard icon={Users}         label="Total étudiants"       value={totalEtudiants}            color="blue" />
+          <StatCard icon={BookOpen}      label="Formations actives"    value={formationsActives.length}  color="emerald" />
+          <StatCard icon={AlertTriangle} label="Formations oubliées"   value={formationsOubliees.length} color="amber" />
+          <StatCard icon={MapPin}        label="Wilayas couvertes"     value={wilayaData.length}         color="violet" />
         </div>
 
-        {/* ── Formations oubliées (détail) ── */}
-        <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] p-5">
+        <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle size={16} className="text-amber-500" />
             <h3 className="text-sm font-semibold text-slate-700">
@@ -410,7 +385,7 @@ const Statistique = () => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Étudiants par formation" icon={PieChartIcon}>
+          <ChartCard title="Étudiants par formation" icon={PieChartIcon} iconBg="bg-violet-50" iconColor="text-violet-600">
             {formationPieData.length === 0 ? (
               <p className="text-sm text-slate-400 py-10 text-center">Aucune donnée pour cette période.</p>
             ) : (
