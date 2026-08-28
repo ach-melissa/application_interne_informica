@@ -74,11 +74,7 @@ const retirerFormulaireAlternative = (idx) => {
         setSalleId(found?.data?.salle_souhaitee_id || '');
       }
           if (s.ok) setSalles(await s.json());
-      if (j.ok) {
-        const raw = await j.json();
-        const ORDRE_SEMAINE = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-        setJours([...raw].sort((a, b) => ORDRE_SEMAINE.indexOf(a) - ORDRE_SEMAINE.indexOf(b)));
-      }
+if (j.ok) setJours(await j.json());
       if (a.ok) setEmploiData(await a.json());
     };
     load();

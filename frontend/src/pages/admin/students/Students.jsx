@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
-  Search, Plus, X, CheckCircle2, Phone, PhoneCall, Users, Radio, UserCheck, CalendarDays, Megaphone, MapPin, UserCircle, UserX, Clock, ChevronDown, Layers, Archive,
+  Search, Plus, X, CheckCircle2, Phone, PhoneCall, Users, Radio, UserCheck, CalendarDays, Megaphone, MapPin, UserCircle, UserX, Clock, ChevronDown, Layers, Archive, Printer,
 } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
-import AddEtudiantModal from './AddEtudiantModal';
-import EtudiantDetailModal from './EtudiantDetailModal';
+import EtudiantDetailModal, { printRows, FICHE_CSS, buildFicheInner, imgToBase64 } from './EtudiantDetailModal';
+import logo from '../../../assets/images/logo_informica.png';
 
 const API = import.meta.env.VITE_API_URL;
 const getAnneesScolaires = () => {
@@ -147,6 +147,38 @@ const doBulkArchive = async () => {
     setBulkArchiving(false);
   }
 };
+const printSelectedFiches = async () => {
+  const logoBase64 = await imgToBase64(logo);
+  const logoHtml = logoBase64
+    ? `<img src="${logoBase64}" alt="INFORMICA" style="height:80px;width:auto;object-fit:contain" />`
+    : `<div class="logo-text">INFORMICA</div>`;
+
+  const selectedInscriptions = etudiants.filter(i => selectedIds.has(i.id));
+
+  const sheetsHtml = selectedInscriptions.map((i, idx) => {
+    const printData = {
+      nom: i.etudiant?.nom, prenom: i.etudiant?.prenom, ddn: i.etudiant?.date_naissance,
+      lieu: i.etudiant?.lieu_naissance, adresse: i.etudiant?.adresse, niveau: i.etudiant?.niveau_scolaire,
+      email: i.etudiant?.email, tel: i.etudiant?.telephone,
+      formation_label: i.formation?.nom || '',
+    };
+    const rows = printRows.map(r => ({ ...r, value: r.key ? printData[r.key] || '' : '' }));
+    const breakStyle = idx > 0 ? 'page-break-before: always;' : '';
+    return `<div class="page-wrap" style="${breakStyle}"><div class="sheet">${buildFicheInner(logoHtml, rows)}</div></div>`;
+  }).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>fiches_inscription</title>
+  <style>${FICHE_CSS}</style></head>
+  <body>
+    <div class="toolbar">
+      <button class="btn-print" onclick="window.print()">Imprimer tout (${selectedInscriptions.length})</button>
+      <button class="btn-close" onclick="window.close()">Fermer</button>
+    </div>
+    ${sheetsHtml}
+  </body></html>`);
+  win.document.close();
+};
 
 const selectedFormationObj = formations.find(f => f.nom === filters.formation);
 useEffect(() => {
@@ -259,6 +291,12 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
         <Archive size={14} /> Archiver ({selectedIds.size})
       </button>
     )}
+    {selectedIds.size > 0 && (
+  <button onClick={printSelectedFiches}
+    className="flex items-center gap-1.5 bg-[#0369A1] text-white px-3.5 py-2 rounded-md text-xs font-medium hover:bg-[#0369A1]/90 transition">
+    <Printer size={14} /> Imprimer ({selectedIds.size})
+  </button>
+)}
   </div>
 </div>
 

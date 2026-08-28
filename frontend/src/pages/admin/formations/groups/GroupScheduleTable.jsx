@@ -51,7 +51,7 @@ export default function GroupScheduleTable({ groupId, staged, onAddStaged, onRem
     loadSchedules();
     fetch(`${import.meta.env.VITE_API_URL}/api/schedules/salles`, { headers: getHeaders() })
       .then(r => r.json()).then((data) => setSalles(data.map((s) => s.nom)));
-    fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeaders() })
+fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeaders() })
       .then(r => r.json()).then(setJours);
   }, []);
 

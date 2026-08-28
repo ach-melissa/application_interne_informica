@@ -768,3 +768,4 @@ useEffect(() => {
 };
 
 export default EtudiantDetailModal;
+export { printRows, FICHE_CSS, buildFicheInner, imgToBase64 };
