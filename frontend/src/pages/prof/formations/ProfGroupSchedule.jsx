@@ -42,12 +42,12 @@ try {
     fetch(`${API}/api/schedules/salles`, { headers: getHeaders() }),
   ]);
   const data = await res.json();
+  console.log(JSON.stringify(data, null, 2));
   if (!res.ok) throw new Error(data.error || 'Erreur de chargement');
   if (joursRes.ok) setJours(await joursRes.json());
   if (sallesRes.ok) setSalles((await sallesRes.json()).map((s) => s.nom));
 
-  const filtered = data.filter((row) => String(row.groups?.id) === String(groupId));
-
+const filtered = data.filter((row) => String(row.groups?.id) === String(groupId));
   const map = {};
   filtered.forEach((row) => {
     const k = makeKey(row.jour_semaine, row.salle, row.periode);

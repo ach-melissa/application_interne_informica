@@ -7,6 +7,9 @@ const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 const todayAlgeria = () =>
   new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
 
+const getJourSemaine = (dateStr) =>
+  new Date(dateStr).toLocaleDateString('fr-FR', { weekday: 'long', timeZone: 'Africa/Algiers' });
+
 // Helper : compare une date de séance (YYYY-MM-DD ou ISO) à aujourd'hui
 const isSessionToday = (sessionDate) => {
   if (!sessionDate) return false;
@@ -155,7 +158,7 @@ const getProfGroup = async (req, res) => {
 
     const { data: group, error } = await supabase
       .from('groups')
-      .select('id, nom, date_debut, date_fin, jours_formation, heure_formation, formations(nom)')
+      .select('id, nom, date_debut, date_fin, formations(nom)')
       .eq('id', req.params.groupId)
       .eq('teacher_id', teacher.id)
       .single();
@@ -164,7 +167,34 @@ const getProfGroup = async (req, res) => {
       return res.status(403).json({ message: 'Accès refusé' });
     }
 
-    res.json({ ...group, teacher: { user: teacher.user } });
+    const { data: joursOrdre, error: joursErr } = await supabase.rpc('get_day_enum_values');
+    if (joursErr) return res.status(500).json({ message: joursErr.message });
+    const ordre = joursOrdre || [];
+    const jourRank = (j) => {
+      const i = ordre.indexOf((j || '').toLowerCase());
+      return i === -1 ? ordre.length : i;
+    };
+
+    const { data: schedules, error: schedErr } = await supabase
+      .from('schedules')
+      .select('jour_semaine, heure_debut, heure_fin')
+      .eq('group_id', req.params.groupId);
+    if (schedErr) return res.status(500).json({ message: schedErr.message });
+
+    const sorted = (schedules || []).slice().sort((a, b) => {
+      const r = jourRank(a.jour_semaine) - jourRank(b.jour_semaine);
+      return r !== 0 ? r : (a.heure_debut || '').localeCompare(b.heure_debut || '');
+    });
+    const jours_formation = [...new Set(sorted.map((s) => s.jour_semaine))]
+      .sort((a, b) => jourRank(a) - jourRank(b))
+      .map(capitalize)
+      .join(', ');
+    const heure_formation = sorted
+      .filter((s) => s.heure_debut && s.heure_fin)
+      .map((s) => `${capitalize(s.jour_semaine)} : ${s.heure_debut.slice(0, 5)}-${s.heure_fin.slice(0, 5)}`)
+      .join(', ');
+
+    res.json({ ...group, jours_formation, heure_formation, teacher: { user: teacher.user } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erreur serveur' });

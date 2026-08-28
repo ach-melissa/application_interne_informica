@@ -16,6 +16,8 @@ const STATUT_STYLE = {
 const todayAlgeria = () =>
   new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
 
+const getJourSemaine = (dateStr) =>
+  new Date(dateStr).toLocaleDateString('fr-FR', { weekday: 'long', timeZone: 'Africa/Algiers' });
 /**
  * GroupAttendance — prof-facing "fiche de pointage".
  * Same fiche header / table layout as the admin PointageTab, but scopes
@@ -57,7 +59,7 @@ const GroupAttendance = ({ groupId }) => {
   const [newDate, setNewDate] = useState('');
   const [newType, setNewType] = useState('normale');
   const [pendingSession, setPendingSession] = useState(false);
-
+  const [joursEmploi, setJoursEmploi] = useState([]);
   const [editingCell, setEditingCell] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const dropdownRef = useRef(null);
@@ -74,10 +76,11 @@ const GroupAttendance = ({ groupId }) => {
     setLoading(true);
     setLoadError(null);
     try {
-      const [resGroup, resStudents, resAttendance] = await Promise.all([
+      const [resGroup, resStudents, resAttendance, resSchedule] = await Promise.all([
         fetch(apiBase, { headers: getHeaders() }),
         fetch(`${apiBase}/students`, { headers: getHeaders() }),
         fetch(`${apiBase}/attendance`, { headers: getHeaders() }),
+        fetch(`${API}/api/schedules/me`, { headers: getHeaders() }),
       ]);
 
       if (!resGroup.ok) throw new Error('Impossible de charger les informations du groupe.');
@@ -109,6 +112,13 @@ const GroupAttendance = ({ groupId }) => {
         map[`${a.session_id}|${a.etudiant_id}`] = { id: a.id, statut: a.statut };
       });
       setAttendance(map);
+
+      if (resSchedule.ok) {
+        const scheduleJson = await resSchedule.json();
+        const filteredSchedule = (Array.isArray(scheduleJson) ? scheduleJson : [])
+  .filter((row) => String(row.groups?.id) === String(groupId));
+        setJoursEmploi([...new Set(filteredSchedule.map((row) => row.jour_semaine))]);
+      }
     } catch (err) {
       console.error(err);
       setLoadError(err.message || 'Erreur lors du chargement des données.');
@@ -131,6 +141,13 @@ const GroupAttendance = ({ groupId }) => {
     return () => document.removeEventListener('mousedown', close);
   }, []);
 
+  useEffect(() => {
+    if (!newDate) return;
+    const jour = getJourSemaine(newDate);
+    if (!joursEmploi.includes(jour) && newType === 'normale') {
+      setNewType('remplacement');
+    }
+  }, [newDate, joursEmploi]);
   // ── Update durée séance ──────────────────────────────────────────
   const updateDuree = async (sessionId, duree) => {
     try {
@@ -235,6 +252,9 @@ const teacherName = groupData?.teacher?.user
     ? `${groupData.teacher.user.nom ?? ''} ${groupData.teacher.user.prenom ?? ''}`.trim()
     : (user ? `${user.nom ?? ''} ${user.prenom ?? ''}`.trim() : '—');
 
+  const jourSemaineSelectionne = newDate ? getJourSemaine(newDate) : null;
+  const jourValide = jourSemaineSelectionne ? joursEmploi.includes(jourSemaineSelectionne) : true;
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -316,9 +336,14 @@ const teacherName = groupData?.teacher?.user
                     onChange={(e) => setNewType(e.target.value)}
                     className="w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors"
                   >
-                    <option value="normale">Normale</option>
+                    <option value="normale" disabled={!jourValide}>Normale</option>
                     <option value="remplacement">Remplacement</option>
                   </select>
+                  {newDate && !jourValide && (
+                    <p className="text-[10px] text-amber-600 mt-1">
+                      Ce jour ne fait pas partie de l'emploi du temps du groupe — seul "Remplacement" est disponible.
+                    </p>
+                  )}
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
                   <button onClick={() => setAddingSession(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
