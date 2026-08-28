@@ -118,6 +118,9 @@ className="border border-slate-200 px-2 py-2 text-center text-slate-500 min-w-[9
                           {cell ? (
 <div className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 font-medium text-[10px]">
   <div>{cell.groups?.nom ?? '—'}</div>
+  {formation?.a_niveaux && cell.groups?.niveau?.nom && (
+    <div className="text-[9px] text-[#0369A1]">{cell.groups.niveau.nom}</div>
+  )}
   <div className="text-slate-500">{cell.heure_debut?.slice(0,5)} - {cell.heure_fin?.slice(0,5)}</div>
 </div>
                           ) : (

@@ -39,7 +39,7 @@ const getGroupSchedule = async (req, res) => {
 
 const { data, error } = await supabase
   .from('schedules')
-  .select('id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin, type_special, expire_le, applicable_depuis, groups(date_fin, archived, statut)')
+  .select('id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin, type_special, expire_le, applicable_depuis, groups(nom, date_fin, archived, statut, niveau:formation_niveaux(id, nom))')
   .eq('group_id', groupId);
 if (error) return res.status(500).json({ error: error.message });
 res.json(filtrerCreneauxActifs(data));
@@ -215,7 +215,7 @@ const { data: groups, error: gErr } = await supabase
     .select(`
       id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin,
       type_special, expire_le, applicable_depuis,
-      groups(id, nom, date_fin)
+      groups(id, nom, date_fin, niveau:formation_niveaux(id, nom))
     `)
     .in('group_id', groupIds);
 
@@ -240,7 +240,7 @@ const getSchedulesByFormation = async (req, res) => {
 
    const { data, error } = await supabase
     .from('schedules')
-    .select('*, groups(id, nom, date_fin, archived, statut)')
+    .select('*, groups(id, nom, date_fin, archived, statut, niveau:formation_niveaux(id, nom))')
     .in('group_id', groupIds);
 
   if (error) return res.status(500).json({ error: error.message });
@@ -257,6 +257,10 @@ const getAllSchedules = async (req, res) => {
         date_fin,
         archived,
         statut,
+        niveau:formation_niveaux (
+          id,
+          nom
+        ),
         formations (
           id,
           nom
@@ -281,7 +285,7 @@ const getScheduleApercu = async (req, res) => {
     .select(`
       id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin,
       type_special, expire_le, applicable_depuis,
-      groups ( id, nom, date_fin, archived, statut, formations ( nom ) )
+            groups ( id, nom, date_fin, archived, statut, niveau:formation_niveaux ( nom ), formations ( nom ) )
     `);
   if (error) return res.status(500).json({ error: error.message });
   res.json(filtrerCreneauxActifs(data));

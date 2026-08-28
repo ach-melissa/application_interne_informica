@@ -39,6 +39,8 @@ export default function GroupScheduleTable({ groupId, staged, onAddStaged, onRem
             contenu: row.contenu ?? '',
             heure_debut: row.heure_debut ?? '',
             heure_fin: row.heure_fin ?? '',
+            groupNom: row.groups?.nom ?? '',
+            niveauNom: row.groups?.niveau?.nom ?? '',
             isOwn: row.group_id === groupId,
           });
         });
@@ -158,6 +160,9 @@ fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeade
                               <p className={`text-[10px] font-medium ${entry.isOwn ? 'text-[#0369A1]' : 'text-slate-500'}`}>{entry.heure_debut?.slice(0, 5)}{entry.heure_fin ? ` → ${entry.heure_fin.slice(0, 5)}` : ''}</p>
                             )}
                             <p className={`text-xs ${entry.isOwn ? 'text-[#0369A1] font-medium' : 'text-slate-800'}`}>{entry.contenu}</p>
+                            {entry.niveauNom && (
+                              <p className="text-[9px] text-slate-400">{entry.niveauNom}</p>
+                            )}
                             {entry.isOwn && <button onClick={() => handleRemove(entry)} className="text-[9px] text-red-400 hover:text-red-600 mt-0.5">Retirer</button>}
                           </div>
                         ))}

@@ -12,7 +12,7 @@ const PERIODE_LABEL = { matin: 'Matin', midi: 'A Midi' };
 
 const makeKey = (jour, salle, periode) => `${jour}|${salle}|${periode}`;
 
-const ScheduleTab = ({ groupId, readOnly = true, groupName, formationNom }) => {
+const ScheduleTab = ({ groupId, readOnly = true, groupName, formationNom, niveauNom }) => {
   const [cells, setCells] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -140,7 +140,7 @@ const ScheduleTab = ({ groupId, readOnly = true, groupName, formationNom }) => {
 
  const renderCellBody = (cell) => {
     if (!cell?.contenu && !cell?.heure_debut && !cell?.heure_fin) return null;
-    const groupeLabel = formationNom ? `${groupName ?? ''} · ${formationNom}` : groupName;
+    const groupeLabel = [groupName, niveauNom, formationNom].filter(Boolean).join(' · ');
     return (
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-left">
         {(cell.heure_debut || cell.heure_fin) && (
