@@ -181,7 +181,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                   {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
                 </button>
               </div>
-            </div>         <div><Label icon={Lock} text="Mot de passe" required /><input type="password" value={form.mot_de_passe} onChange={set('mot_de_passe')} className={inp} /></div>
+            </div>      
+            
             <div><Label icon={Phone} text="Téléphone" /><input value={form.telephone} onChange={set('telephone')} className={inp} /></div>
             <div><Label icon={CalendarDays} text="Date naissance" /><input type="date" value={form.date_naissance} onChange={set('date_naissance')} className={inp} /></div>
             <div>

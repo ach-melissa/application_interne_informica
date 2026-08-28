@@ -1,7 +1,17 @@
 // AttestationsTab.jsx
 import { useState, useEffect } from 'react';
-import { Printer, FileDown, Phone, Mail, GraduationCap, MapPin, CalendarDays, CheckCircle2 } from 'lucide-react';
+import { Printer, FileDown, Phone, Mail, GraduationCap, MapPin, CalendarDays, CheckCircle2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
+
+const inp = 'w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors';
+
+const Label = ({ icon: Icon, text, required }) => (
+  <p className="flex items-center gap-1 text-[10px] text-slate-600 uppercase tracking-wide mb-0.5">
+    {Icon && <Icon size={10} className="text-slate-500" />}
+    {text}
+    {required && <span className="text-red-500 ml-0.5">*</span>}
+  </p>
+);
 
 const statutMeta = {
   confirmed:     { label: 'Confirmé',     cls: 'bg-emerald-50 text-emerald-700' },
@@ -48,11 +58,10 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     attestationImprimee || justPrinted.has(inscriptionId);
 
   const isEligible = (inscription) => {
-    const p = payments.find(p => p.studentId === inscription.etudiant?.id);
-    const paid = !p || p.remaining <= 0;
-    const printed = isPrinted(inscription.id, inscription.attestation_imprimee);
-    return paid && !printed;
-  };
+  const p = payments.find(p => p.studentId === inscription.etudiant?.id);
+  const paid = !p || p.remaining <= 0;
+  return paid;
+};
 
   const toggle = (id) => {
     setSelectedIds(prev => {
@@ -231,49 +240,62 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
         </div>
       </div>
 
-      {showPrintModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl border border-[#F1F5F9] shadow-lg w-full max-w-sm p-5">
-            <h3 className="text-sm font-semibold text-slate-800 mb-4">
-              Informations de l'attestation
-            </h3>
+           {showPrintModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowPrintModal(false)}>
+          <div className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
-            <label className="block text-xs text-slate-500 mb-1">
-              Période (ex: du 01 Janvier 2026 au 30 Mars 2026)
-            </label>
-            <input
-              type="text"
-              value={periode}
-              onChange={(e) => setPeriode(e.target.value)}
-              placeholder="du 01 Janvier 2026 au 30 Mars 2026"
-              className="w-full border border-[#E2E8F0] rounded-full px-3.5 py-2 text-xs mb-3 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
-            />
+            <div className="sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
+              <div className="flex items-center justify-between px-5 py-4">
+                <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+                    <Printer size={14} className="text-white" />
+                  </span>
+                  Informations de l'attestation
+                </h2>
+                <button onClick={() => setShowPrintModal(false)} className="text-slate-300 hover:text-slate-600">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
 
-            <label className="block text-xs text-slate-500 mb-1">
-              Date de signature
-            </label>
-            <input
-              type="text"
-              value={dateSignature}
-              onChange={(e) => setDateSignature(e.target.value)}
-              placeholder="15 Juin 2026"
-              className="w-full border border-[#E2E8F0] rounded-full px-3.5 py-2 text-xs mb-4 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
-            />
+            <div className="p-5 space-y-4">
+              <div>
+                <Label icon={CalendarDays} text="Période" required />
+                <input
+                  type="text"
+                  value={periode}
+                  onChange={(e) => setPeriode(e.target.value)}
+                  placeholder="du 01 Janvier 2026 au 30 Mars 2026"
+                  className={inp}
+                />
+              </div>
 
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowPrintModal(false)}
-                className="text-xs font-medium text-slate-500 px-3.5 py-1.5 rounded-full hover:bg-slate-100 transition"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleConfirmPrint}
-                disabled={!periode || !dateSignature}
-                className="text-xs font-medium text-white bg-[#0369A1] px-3.5 py-1.5 rounded-full hover:bg-[#065e8f] active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
-              >
-                Confirmer
-              </button>
+              <div>
+                <Label icon={CalendarDays} text="Date de signature" required />
+                <input
+                  type="text"
+                  value={dateSignature}
+                  onChange={(e) => setDateSignature(e.target.value)}
+                  placeholder="15 Juin 2026"
+                  className={inp}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  onClick={() => setShowPrintModal(false)}
+                  className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleConfirmPrint}
+                  disabled={!periode || !dateSignature}
+                  className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium flex items-center gap-1"
+                >
+                  <Printer size={12} /> Confirmer
+                </button>
+              </div>
             </div>
           </div>
         </div>
