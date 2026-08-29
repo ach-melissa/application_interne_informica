@@ -22,6 +22,7 @@ const { runPaymentAlerts } = require('./jobs/paymentAlerts');
 const { runAutoArchiveInscriptions } = require('./jobs/autoArchiveInscriptions');
 const parametreRoutes = require('./routes/parametreRoutes');
 const { runArchiveReminder } = require('./jobs/archiveReminder');
+const { runPointageReminder } = require('./jobs/pointageReminder');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -70,6 +71,16 @@ runArchiveReminder();
 cron.schedule('30 8 * 12 *', () => {
   console.log('Running archive reminder job...');
   runArchiveReminder();
+}, {
+  timezone: 'Africa/Algiers'
+});
+// Rappel de pointage pour les profs — tourne au démarrage, puis chaque jour à 7h.
+console.log('Running pointage reminder job on startup...');
+runPointageReminder();
+
+cron.schedule('0 7 * * *', () => {
+  console.log('Running pointage reminder job...');
+  runPointageReminder();
 }, {
   timezone: 'Africa/Algiers'
 });

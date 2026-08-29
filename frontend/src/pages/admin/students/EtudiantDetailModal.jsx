@@ -567,13 +567,14 @@ const doArchive = async () => {
                       <Pencil size={11} /> Modifier
                     </button>
 <button
-  onClick={() => { if (groupNotFinished) return; setArchiveYear(getCurrentAnneeScolaire()); setConfirm('archive'); }}
-  disabled={groupNotFinished}
-  title={groupNotFinished ? "Ce groupe n'est pas encore terminé" : undefined}
-  className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md transition ${
-    groupNotFinished ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-amber-500 text-white hover:bg-amber-600'
-  }`}>
-  <Archive size={11} /> Archiver
+  onClick={() => {
+    setNewDate(computeNextSessionDate(groupData?.jours_formation, sessions.length ? sessions[sessions.length - 1].date : null));
+    setHeureDebut(''); setHeureFin(''); setDureeEffectuee(''); setDureeTouched(false);
+    setAddingSession(true);
+  }}
+  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0F2A4A] text-white text-xs font-medium rounded-lg hover:bg-[#065e8f] transition"
+>
+  <Plus size={14} /> Ajouter séance
 </button>
                     <button onClick={() => setConfirm('delete')}
                       className="flex items-center gap-1 text-xs bg-red-500 text-white px-2.5 py-1.5 rounded-md hover:bg-red-600">
