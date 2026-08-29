@@ -13,16 +13,12 @@ const calculerAge = (dateNaissance) => {
   return age;
 };
 
-// GET /api/statistiques
-// Renvoie : 1) la liste de toutes les formations (pour détecter celles jamais lancées)
+
 //           2) une ligne aplatie par inscription confirmée (annee, mois, formation, wilaya, age, apporteur, source)
 const getStatistiques = async (req, res) => {
-  // On ne retient que les formations actives : une formation désactivée
-  // (statut = 'non_active') ne doit pas apparaître dans "formations jamais lancées".
-  const { data: formations, error: formationsErr } = await supabase
-    .from('formations')
-    .select('nom')
-    .eq('statut', 'active');
+const { data: formations, error: formationsErr } = await supabase
+  .from('formations')
+  .select('nom');
 
   if (formationsErr) return res.status(500).json({ error: formationsErr.message });
 

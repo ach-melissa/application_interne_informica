@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie,
+  BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
 } from 'recharts';
 import {
@@ -51,6 +51,9 @@ const formationColors = {
   'Design Graphique': '#0EA5E9',
 };
 
+// Palette élargie réutilisée sur les graphiques en barres pour un rendu plus vivant
+const CHART_PALETTE = ['#2563EB', '#0D9488', '#7C3AED', '#F97316', '#DB2777', '#65A30D', '#0EA5E9', '#EAB308', '#EF4444', '#14B8A6'];
+
 const computeStats = (data, toutesLesFormations) => {
   const totalEtudiants = data.length;
 
@@ -99,28 +102,30 @@ const computeStats = (data, toutesLesFormations) => {
 
   const monthlyMap = {};
   data.forEach((i) => {
-    if (!monthlyMap[i.mois]) monthlyMap[i.mois] = { mois: i.mois, inscriptions: 0, formationCounts: {} };
-    monthlyMap[i.mois].inscriptions += 1;
-    monthlyMap[i.mois].formationCounts[i.formation] =
-      (monthlyMap[i.mois].formationCounts[i.formation] || 0) + 1;
+    const key = `${i.annee}-${i.mois}`;
+    if (!monthlyMap[key]) monthlyMap[key] = { annee: i.annee, mois: i.mois, inscriptions: 0, formationCounts: {} };
+    monthlyMap[key].inscriptions += 1;
+    monthlyMap[key].formationCounts[i.formation] =
+      (monthlyMap[key].formationCounts[i.formation] || 0) + 1;
   });
-  const monthlyData = moisOrdre
-    .filter((m) => monthlyMap[m])
-    .map((m) => {
-      const entry = monthlyMap[m];
+  const anneesPresentes = new Set(data.map((i) => i.annee));
+  const monthlyData = Object.values(monthlyMap)
+    .sort((a, b) => a.annee - b.annee || moisOrdre.indexOf(a.mois) - moisOrdre.indexOf(b.mois))
+    .map((entry) => {
       const [topFormation, topCount] = Object.entries(entry.formationCounts)
         .sort((a, b) => b[1] - a[1])[0] || ['—', 0];
-      return { mois: m, inscriptions: entry.inscriptions, topFormation, topCount };
+      const label = anneesPresentes.size > 1 ? `${entry.mois} ${entry.annee}` : entry.mois;
+      return { mois: label, inscriptions: entry.inscriptions, topFormation, topCount };
     });
 
   const topFormations = [...formationsActives].sort((a, b) => b.etudiants - a.etudiants);
 
   // Données du donut "Étudiants par formation" (basées sur les formations actives)
-  const formationPieData = topFormations.map((f) => ({
+  const formationPieData = topFormations.map((f, i) => ({
     name: f.nom,
     value: f.etudiants,
     pct: totalEtudiants ? Math.round((f.etudiants / totalEtudiants) * 100) : 0,
-    color: formationColors[f.nom] || '#94A3B8',
+    color: formationColors[f.nom] || CHART_PALETTE[i % CHART_PALETTE.length],
   }));
 
   return {
@@ -128,11 +133,6 @@ const computeStats = (data, toutesLesFormations) => {
     wilayaData, ageData, topApporteurs, sourceData, monthlyData, topFormations, formationPieData,
   };
 };
-
-
-// ────────────────────────────────────────────────────────────
-// COMPOSANTS UTILITAIRES
-// ────────────────────────────────────────────────────────────
 
 
 // ────────────────────────────────────────────────────────────
@@ -161,15 +161,16 @@ const StatCard = ({ icon: Icon, label, value, color = 'blue' }) => {
   );
 };
 
+// ChartCard modernisé : icône colorée dédiée + légère élévation au survol
 const ChartCard = ({ title, icon: Icon, iconBg = 'bg-[#DCEBFA]', iconColor = 'text-[#0369A1]', children }) => (
-  <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm">
+  <div className="bg-white rounded-md border border-[#F1F5F9] p-5 shadow-sm hover:shadow-lg transition-shadow duration-300">
     <div className="flex items-center gap-2 mb-4">
       {Icon && (
-        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
-          <Icon size={14} className={iconColor} />
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${iconBg} ring-1 ring-black/[0.03]`}>
+          <Icon size={15} className={iconColor} />
         </div>
       )}
-      <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+      <h3 className="text-sm font-semibold text-slate-700 tracking-tight">{title}</h3>
     </div>
     {children}
   </div>
@@ -178,9 +179,11 @@ const ChartCard = ({ title, icon: Icon, iconBg = 'bg-[#DCEBFA]', iconColor = 'te
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-lg shadow-md px-3 py-2 text-xs">
+    <div className="bg-white/95 backdrop-blur border border-[#E2E8F0] rounded-xl shadow-lg px-3 py-2 text-xs">
       <p className="font-medium text-slate-700 mb-0.5">{label}</p>
-      <p className="text-[#0369A1]">{payload[0].value} étudiant(s)</p>
+      <p className="font-semibold" style={{ color: payload[0].payload.fill || payload[0].color || '#0369A1' }}>
+        {payload[0].value} étudiant(s)
+      </p>
     </div>
   );
 };
@@ -189,9 +192,9 @@ const MonthlyTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-lg shadow-md px-3 py-2 text-xs">
+    <div className="bg-white/95 backdrop-blur border border-[#E2E8F0] rounded-xl shadow-lg px-3 py-2 text-xs">
       <p className="font-medium text-slate-700 mb-1">{label}</p>
-      <p className="text-[#0369A1] mb-1">{d.inscriptions} inscription(s) au total</p>
+      <p className="text-[#2563EB] font-semibold mb-1">{d.inscriptions} inscription(s) au total</p>
       <p className="text-slate-400">
         Formation la plus demandée : <span className="text-slate-600 font-medium">{d.topFormation}</span> ({d.topCount})
       </p>
@@ -203,9 +206,9 @@ const PieTooltip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-lg shadow-md px-3 py-2 text-xs">
+    <div className="bg-white/95 backdrop-blur border border-[#E2E8F0] rounded-xl shadow-lg px-3 py-2 text-xs">
       <p className="font-medium text-slate-700 mb-0.5">{d.name}</p>
-      <p style={{ color: d.color }}>{d.value} étudiant(s) ({d.pct}%)</p>
+      <p className="font-semibold" style={{ color: d.color }}>{d.value} étudiant(s) ({d.pct}%)</p>
     </div>
   );
 };
@@ -336,7 +339,7 @@ const Statistique = () => {
           <StatCard icon={MapPin}        label="Wilayas couvertes"     value={wilayaData.length}         color="violet" />
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm">
+        <div className="bg-white rounded-2md border border-[#F1F5F9] p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle size={16} className="text-amber-500" />
             <h3 className="text-sm font-semibold text-slate-700">
@@ -358,7 +361,7 @@ const Statistique = () => {
             </div>
           )}
           <p className="text-xs text-slate-400 mt-3">
-            Aucun groupe créé et aucun étudiant inscrit sur ces formations d'apres une semaine.
+            Aucun groupe créé et aucun étudiant inscrit sur ces formations.
           </p>
         </div>
 
@@ -366,22 +369,29 @@ const Statistique = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ChartCard title="Évolution des inscriptions par mois" icon={BarChart3}>
             <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={monthlyData} margin={{ top: 25, right: 10, left: -10, bottom: 5 }}>
+              <AreaChart data={monthlyData} margin={{ top: 30, right: 10, left: -10, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="inscriptionsFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2563EB" stopOpacity={0.28} />
+                    <stop offset="100%" stopColor="#2563EB" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                 <XAxis dataKey="mois" tick={{ fontSize: 11, fill: '#64748B' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} allowDecimals={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} allowDecimals={false} domain={[0, (max) => max + 4]} />
                 <Tooltip content={<MonthlyTooltip />} cursor={{ stroke: '#DCEBFA', strokeWidth: 2 }} />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="inscriptions"
                   stroke="#2563EB"
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: '#2563EB', strokeWidth: 0 }}
+                  strokeWidth={2.5}
+                  fill="url(#inscriptionsFill)"
+                  dot={{ r: 4, fill: '#2563EB', strokeWidth: 2, stroke: '#fff' }}
                   activeDot={{ r: 6 }}
                 >
                   <LabelList dataKey="inscriptions" position="top" style={{ fontSize: 11, fill: '#334155', fontWeight: 600 }} />
-                </Line>
-              </LineChart>
+                </Area>
+              </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
 
@@ -403,6 +413,7 @@ const Statistique = () => {
                         endAngle={-270}
                         stroke="#fff"
                         strokeWidth={2}
+                        paddingAngle={2}
                       >
                         {formationPieData.map((entry, i) => (
                           <Cell key={i} fill={entry.color} />
@@ -418,7 +429,7 @@ const Statistique = () => {
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: f.color }} />
                       <div>
                         <p className="text-sm text-slate-600 leading-tight">{f.name}</p>
-                        <p className="text-sm font-semibold text-slate-800 leading-tight">
+                        <p className="text-sm font-semibold leading-tight" style={{ color: f.color }}>
                           {f.value} ({f.pct}%)
                         </p>
                       </div>
@@ -432,28 +443,39 @@ const Statistique = () => {
 
         {/* ── Wilaya + Âge ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Étudiants par wilaya" icon={MapPin}>
+          <ChartCard title="Étudiants par wilaya" icon={MapPin} iconBg="bg-orange-50" iconColor="text-orange-500">
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={wilayaData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
+              <BarChart data={wilayaData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }} barCategoryGap="30%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="wilaya" tick={{ fontSize: 11, fill: '#64748B' }} />
+                <XAxis
+                  dataKey="wilaya"
+                  tick={{ fontSize: 10, fill: '#64748B' }}
+                  interval={0}
+                  tickMargin={8}
+                />
                 <YAxis tick={{ fontSize: 11, fill: '#64748B' }} allowDecimals={false} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F8FAFC' }} />
-                <Bar dataKey="etudiants" fill="#2563EB" radius={[6, 6, 0, 0]}>
+                <Bar dataKey="etudiants" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                  {wilayaData.map((_, i) => (
+                    <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
+                  ))}
                   <LabelList dataKey="etudiants" position="top" style={{ fontSize: 11, fill: '#334155', fontWeight: 600 }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Répartition des étudiants par âge" icon={CalendarClock}>
+          <ChartCard title="Répartition des étudiants par âge" icon={CalendarClock} iconBg="bg-emerald-50" iconColor="text-emerald-600">
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={ageData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
+              <BarChart data={ageData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }} barCategoryGap="30%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="tranche" tick={{ fontSize: 11, fill: '#64748B' }} />
+                <XAxis dataKey="tranche" tick={{ fontSize: 11, fill: '#64748B' }} interval={0} tickMargin={8} />
                 <YAxis tick={{ fontSize: 11, fill: '#64748B' }} allowDecimals={false} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F8FAFC' }} />
-                <Bar dataKey="etudiants" fill="#2563EB" radius={[6, 6, 0, 0]}>
+                <Bar dataKey="etudiants" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                  {ageData.map((_, i) => (
+                    <Cell key={i} fill={CHART_PALETTE[(i + 3) % CHART_PALETTE.length]} />
+                  ))}
                   <LabelList dataKey="etudiants" position="top" style={{ fontSize: 11, fill: '#334155', fontWeight: 600 }} />
                 </Bar>
               </BarChart>
@@ -463,7 +485,7 @@ const Statistique = () => {
 
         {/* ── Top 5 apporteurs + Top 5 sources ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Top 5 des apporteurs" icon={Users2}>
+          <ChartCard title="Top 5 des rapporteurs" icon={Users2} iconBg="bg-blue-50" iconColor="text-blue-600">
             <ResponsiveContainer width="100%" height={260}>
               <BarChart
                 data={topApporteurs}
@@ -481,14 +503,17 @@ const Statistique = () => {
                   tickLine={false}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F8FAFC' }} />
-                <Bar dataKey="etudiants" fill="#2563EB" radius={[0, 6, 6, 0]} barSize={18}>
+                <Bar dataKey="etudiants" radius={[0, 4, 4, 0]} barSize={18}>
+                  {topApporteurs.map((_, i) => (
+                    <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
+                  ))}
                   <LabelList dataKey="etudiants" position="right" style={{ fontSize: 12, fill: '#334155', fontWeight: 600 }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Top 5 des sources" icon={Share2Icon}>
+          <ChartCard title="Top 5 des sources" icon={Share2Icon} iconBg="bg-pink-50" iconColor="text-pink-600">
             <ResponsiveContainer width="100%" height={260}>
               <BarChart
                 data={sourceData.slice(0, 5)}
@@ -506,7 +531,10 @@ const Statistique = () => {
                   tickLine={false}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F8FAFC' }} />
-                <Bar dataKey="etudiants" fill="#2563EB" radius={[0, 6, 6, 0]} barSize={18}>
+                <Bar dataKey="etudiants" radius={[0, 4, 4, 0]} barSize={18}>
+                  {sourceData.slice(0, 5).map((_, i) => (
+                    <Cell key={i} fill={CHART_PALETTE[(i + 5) % CHART_PALETTE.length]} />
+                  ))}
                   <LabelList dataKey="etudiants" position="right" style={{ fontSize: 12, fill: '#334155', fontWeight: 600 }} />
                 </Bar>
               </BarChart>
