@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, User, LogOut, ClipboardList, CreditCard, History, Flag, Archive } from 'lucide-react';
+import { Bell, User, LogOut, ClipboardList, CreditCard, History, Flag, Archive, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/images/logo_informica.png';
 
@@ -15,6 +15,7 @@ const NOTIF_ICONS = {
   demande_salle: { Icon: ClipboardList, className: 'text-[#0369A1] bg-[#EAF4FC]' },
   groupe_complete: { Icon: Flag, className: 'text-emerald-600 bg-emerald-50' },
   groupe_a_archiver: { Icon: Archive, className: 'text-amber-700 bg-amber-50' },
+  rappel_pointage: { Icon: Clock, className: 'text-sky-600 bg-sky-50' },
 };
 const DEMANDE_SALLE_STATUT_LABEL = {
   en_attente: 'En attente de réponse',

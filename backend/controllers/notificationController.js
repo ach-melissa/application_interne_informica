@@ -1,5 +1,6 @@
 const supabase = require('../supabaseClient');
 const { runArchiveReminder } = require('../jobs/archiveReminder');
+const { runPointageReminder } = require('../jobs/pointageReminder');
 const demanderSalle = async (req, res) => {
   const {
     jour_semaine, periode, heure_debut, heure_fin,
@@ -119,7 +120,7 @@ const mesDemandes = async (req, res) => {
   const { data, error } = await supabase
     .from('notifications')
     .select('*')
-    .eq('expediteur_id', req.user.id)
+    .or(`expediteur_id.eq.${req.user.id},destinataire_id.eq.${req.user.id}`)
     .order('created_at', { ascending: false });
 
   if (error) return res.status(500).json({ error: error.message });
@@ -451,8 +452,7 @@ const repondreNotification = async (req, res) => {
   if (fetchErr) return res.status(500).json({ error: fetchErr.message });
 
   const estExpediteur = notif.expediteur_id === req.user.id;
-  const estDestinataire = notif.destinataire_role === req.user.role;
-
+const estDestinataire = notif.destinataire_role === req.user.role && (!notif.destinataire_id || notif.destinataire_id === req.user.id);
   if (!estExpediteur && !estDestinataire) {
     return res.status(403).json({ error: 'Accès refusé' });
   }
@@ -540,8 +540,14 @@ const notifierGroupeComplete = async (req, res) => {
 
 
 // Endpoint manuel pour qu'un admin puisse déclencher/tester la vérification à la demande
+// Endpoint manuel pour qu'un admin puisse déclencher/tester la vérification à la demande
 const declencherVerificationArchivage = async (req, res) => {
   await runArchiveReminder();
+  res.json({ success: true });
+};
+
+const declencherRappelPointage = async (req, res) => {
+  await runPointageReminder();
   res.json({ success: true });
 };
 const creerCreneauDepuisNotification = async (notif, salleId, salleNom) => {
@@ -608,4 +614,5 @@ module.exports = {
   repondreNotification,
   notifierGroupeComplete,
   declencherVerificationArchivage,
+  declencherRappelPointage,
 };

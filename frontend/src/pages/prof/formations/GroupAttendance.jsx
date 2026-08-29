@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, X, CalendarDays, Lock } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { resolveGroupDuration, computeNextSessionDate } from '../../../utils/pointageHelpers';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -63,6 +64,22 @@ const GroupAttendance = ({ groupId }) => {
   const [editingCell, setEditingCell] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const dropdownRef = useRef(null);
+  const [heureDebut, setHeureDebut] = useState('');
+const [heureFin, setHeureFin] = useState('');
+const [dureeEffectuee, setDureeEffectuee] = useState('');
+const [dureeTouched, setDureeTouched] = useState(false);
+const { type_duree: durationType } = resolveGroupDuration(
+  groupData || {}, groupData?.formations, groupData?.niveau
+);
+const isHourBased = durationType === 'heures';
+useEffect(() => {
+  if (isHourBased && heureDebut && heureFin && !dureeTouched) {
+    const [sh, sm] = heureDebut.split(':').map(Number);
+    const [eh, em] = heureFin.split(':').map(Number);
+    const diff = Math.max(0, (eh + em / 60) - (sh + sm / 60));
+    setDureeEffectuee(diff ? diff.toFixed(2) : '');
+  }
+}, [heureDebut, heureFin, isHourBased, dureeTouched]);
 
   const token = () => localStorage.getItem('token');
   const getHeaders = () => ({
@@ -212,14 +229,20 @@ const GroupAttendance = ({ groupId }) => {
       const res = await fetch(`${apiBase}/sessions`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ date: newDate, type_seance: newType }),
+        body: JSON.stringify({
+  date: newDate, type_seance: newType,
+  heure_debut: heureDebut,
+  heure_fin: isHourBased ? heureFin : null,
+  duree_effectuee: isHourBased ? Number(dureeEffectuee) : null,
+}),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setSessions((s) => [...s, data].sort((a, b) => new Date(a.date) - new Date(b.date)));
-      setNewDate('');
-      setNewType('normale');
-      setAddingSession(false);
+setSessions((s) => [...s, data].sort((a, b) => new Date(a.date) - new Date(b.date)));
+setNewDate('');
+setNewType('normale');
+setHeureDebut(''); setHeureFin(''); setDureeEffectuee(''); setDureeTouched(false);
+setAddingSession(false);
     } catch (err) {
       console.error(err);
       setSaveError("Erreur lors de la création de la séance.");
@@ -254,6 +277,7 @@ const teacherName = groupData?.teacher?.user
 
   const jourSemaineSelectionne = newDate ? getJourSemaine(newDate) : null;
   const jourValide = jourSemaineSelectionne ? joursEmploi.includes(jourSemaineSelectionne) : true;
+const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeEffectuee));
 
   if (loading) {
     return (
@@ -300,7 +324,11 @@ const teacherName = groupData?.teacher?.user
         <div className="flex items-center justify-between print:hidden">
           <p className="text-sm text-slate-400">{sessions.length} séance(s)</p>
           <button
-            onClick={() => setAddingSession(true)}
+            onClick={() => {
+  setNewDate(computeNextSessionDate(groupData?.jours_formation, sessions.length ? sessions[sessions.length - 1].date : null));
+  setHeureDebut(''); setHeureFin(''); setDureeEffectuee(''); setDureeTouched(false);
+  setAddingSession(true);
+}}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0F2A4A] text-white text-xs font-medium rounded-lg hover:bg-[#065e8f] transition"
           >
             <Plus size={14} /> Ajouter séance
@@ -308,54 +336,77 @@ const teacherName = groupData?.teacher?.user
         </div>
 
         {/* ── Add session modal ── */}
-        {addingSession && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setAddingSession(false)}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9]">
-                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center">
-                    <CalendarDays size={14} />
-                  </span>
-                  Ajouter une séance
-                </h2>
-                <button onClick={() => setAddingSession(false)}><X size={16} className="text-slate-300 hover:text-slate-600" /></button>
-              </div>
-              <div className="p-5 space-y-3">
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Date de la séance</p>
-                  <input
-                    type="date" value={newDate} autoFocus
-                    onChange={(e) => setNewDate(e.target.value)}
-                    className="w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors"
-                  />
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Type de séance</p>
-                  <select
-                    value={newType}
-                    onChange={(e) => setNewType(e.target.value)}
-                    className="w-full bg-[#F8FAFC] border border-transparent rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:bg-white focus:border-[#DCEBFA] transition-colors"
-                  >
-                    <option value="normale" disabled={!jourValide}>Normale</option>
-                    <option value="remplacement">Remplacement</option>
-                  </select>
-                  {newDate && !jourValide && (
-                    <p className="text-[10px] text-amber-600 mt-1">
-                      Ce jour ne fait pas partie de l'emploi du temps du groupe — seul "Remplacement" est disponible.
-                    </p>
-                  )}
-                </div>
-                <div className="flex justify-end gap-2 pt-1">
-                  <button onClick={() => setAddingSession(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
-                  <button onClick={addSession} disabled={!newDate || pendingSession}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium">
-                    {pendingSession ? 'Ajout…' : 'Confirmer'}
-                  </button>
-                </div>
-              </div>
+{addingSession && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setAddingSession(false)}>
+    <div className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9]">
+        <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+          <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+            <CalendarDays size={14} className="text-white" />
+          </span>
+          Ajouter une séance
+        </h2>
+        <button onClick={() => setAddingSession(false)}><X size={16} className="text-slate-300 hover:text-slate-600" /></button>
+      </div>
+      <div className="p-5 space-y-3">
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Date de la séance <span className="text-red-500">*</span></p>
+          <input
+            type="date" value={newDate} autoFocus
+            onChange={(e) => setNewDate(e.target.value)}
+            className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
+          />
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Type de séance</p>
+          <select
+            value={newType}
+            onChange={(e) => setNewType(e.target.value)}
+            className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
+          >
+            <option value="normale" disabled={!jourValide}>Normale</option>
+            <option value="remplacement">Remplacement</option>
+          </select>
+          {newDate && !jourValide && (
+            <p className="text-[10px] text-amber-600 mt-1">
+              Ce jour ne fait pas partie de l'emploi du temps du groupe — seul "Remplacement" est disponible.
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure début <span className="text-red-500">*</span></p>
+            <input type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
+          </div>
+          {isHourBased && (
+            <div className="flex-1">
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin <span className="text-red-500">*</span></p>
+              <input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
             </div>
+          )}
+        </div>
+        {isHourBased && (
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Durée de la séance (heures) <span className="text-red-500">*</span></p>
+            <input type="number" step="0.25" min="0" value={dureeEffectuee}
+              onChange={(e) => { setDureeEffectuee(e.target.value); setDureeTouched(true); }}
+              placeholder="ex: 2"
+              className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
           </div>
         )}
+        <div className="flex justify-end gap-2 pt-1">
+          <button onClick={() => setAddingSession(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
+          <button onClick={addSession} disabled={!canConfirm || pendingSession}
+            className="text-xs px-3 py-1.5 rounded-lg bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium">
+            {pendingSession ? 'Ajout…' : 'Confirmer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
         <div id="pointage-print-area">
           {/* ── Fiche info header — lecture seule : formation, prof et dates
@@ -382,12 +433,12 @@ const teacherName = groupData?.teacher?.user
                 <tbody>
 
                   {/* ── Séance № ── */}
-                  <tr className="bg-[#DCEBFA]">
-                    <td className="border border-[#F1F5F9] px-3 py-2 font-bold text-[#0369A1] sticky left-0 bg-[#DCEBFA] z-10 min-w-[160px]">
-                      Séance №
-                    </td>
-                    {sessions.map((s, i) => (
-                      <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center font-bold text-[#0369A1] min-w-[80px]">
+<tr className="bg-slate-50">
+  <td className="border border-slate-200 px-3 py-2 font-semibold text-slate-600 sticky left-0 bg-slate-50 z-10 min-w-[160px]">
+    Séance №
+  </td>
+  {sessions.map((s, i) => (
+    <td key={s.id} className="border border-slate-200 px-2 py-2 text-center font-semibold text-slate-600 min-w-[80px]">
                         {i + 1}
                       </td>
                     ))}
@@ -409,8 +460,8 @@ const teacherName = groupData?.teacher?.user
                   </tr>
 
                   {/* ── Type ── */}
-                  <tr className="bg-[#F8FCFF]">
-                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-[#F8FCFF] z-10">
+                  <tr>
+                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-white z-10">
                       Type
                     </td>
                     {sessions.map((s) => (
@@ -423,8 +474,8 @@ const teacherName = groupData?.teacher?.user
                   </tr>
 
                   {/* ── Durée (editable, stored in sessions.duree) ── */}
-                  <tr className="bg-[#F8FCFF]">
-                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-[#F8FCFF] z-10">
+                  <tr>
+                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-white z-10">
                       Durée de la Séance
                     </td>
                     {sessions.map((s) => {
@@ -463,8 +514,8 @@ const teacherName = groupData?.teacher?.user
                   </tr>
 
                   {/* ── Emargement enseignant (blank signature space — nothing stored) ── */}
-                  <tr className="bg-[#F8FCFF]">
-                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-[#F8FCFF] z-10">
+                  <tr>
+                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-white z-10">
                       Emargement de l'enseignant
                     </td>
                     {sessions.map((s) => (
@@ -484,14 +535,14 @@ const teacherName = groupData?.teacher?.user
 
                   {/* ── Separator ── */}
                   <tr>
-                    <td colSpan={sessions.length + 1} className="bg-[#DCEBFA] border border-[#F1F5F9] px-3 py-1.5 font-semibold text-[#0369A1]">
-                      Présences
-                    </td>
+                  <td colSpan={sessions.length + 1} className="bg-slate-100 border border-slate-200 px-3 py-1.5 font-semibold text-slate-600">
+  Présences
+</td>
                   </tr>
 
                   {/* ── Étudiants — ALL confirmed students of the group, no padding ── */}
                   {etudiants.map((e, idx) => (
-                    <tr key={e.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#F8FCFF]'}>
+                    <tr key={e.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
                       <td className="border border-[#F1F5F9] px-3 py-2 text-slate-800 sticky left-0 bg-inherit z-10 whitespace-nowrap">
                         <span className="text-slate-300 mr-1">{idx + 1})</span>
                         {e.nom} {e.prenom}

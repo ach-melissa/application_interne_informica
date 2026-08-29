@@ -158,7 +158,12 @@ const getProfGroup = async (req, res) => {
 
     const { data: group, error } = await supabase
       .from('groups')
-      .select('id, nom, date_debut, date_fin, formations(nom)')
+      .select(`
+    id, nom, date_debut, date_fin,
+    use_default_duree, type_duree, duree_valeur,
+    formations(nom, heures, duree_uniforme, type_duree_uniforme, type_duree),
+    niveau:formation_niveaux(duree_valeur, type_duree)
+  `)
       .eq('id', req.params.groupId)
       .eq('teacher_id', teacher.id)
       .single();
@@ -369,7 +374,7 @@ const getProfGroupAttendance = async (req, res) => {
 
     const { data: sessions, error: sErr } = await supabase
       .from('sessions')
-      .select('id, date, statut, duree, type_seance, prof_id')
+      .select('id, date, statut, duree, type_seance, prof_id, heure_debut, heure_fin, duree_effectuee')
       .eq('group_id', req.params.groupId)
       .order('date', { ascending: true });
 
@@ -417,20 +422,23 @@ const createProfGroupSession = async (req, res) => {
 
     if (!group) return res.status(403).json({ message: 'Accès refusé' });
 
-    const { date, type_seance } = req.body;
-    if (!date) return res.status(400).json({ message: 'Date requise' });
+const { date, type_seance, heure_debut, heure_fin, duree_effectuee } = req.body;
+if (!date) return res.status(400).json({ message: 'Date requise' });
 
-    const { data, error } = await supabase
-      .from('sessions')
-      .insert({
-        group_id: req.params.groupId,
-        date,
-        type_seance: type_seance === 'remplacement' ? 'remplacement' : 'normale',
-        statut: 'effectuee',
-        prof_id: req.user.id,
-      })
-      .select()
-      .single();
+const { data, error } = await supabase
+  .from('sessions')
+  .insert({
+    group_id: req.params.groupId,
+    date,
+    type_seance: type_seance === 'remplacement' ? 'remplacement' : 'normale',
+    statut: 'effectuee',
+    prof_id: req.user.id,
+    heure_debut: heure_debut || null,
+    heure_fin: heure_fin || null,
+    duree_effectuee: duree_effectuee != null ? Number(duree_effectuee) : null,
+  })
+  .select()
+  .single();
 
     if (error) {
       console.error('createProfGroupSession:', error);
