@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Users, GraduationCap } from 'lucide-react';
+import { BookOpen, Users, GraduationCap, Search } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -9,6 +9,7 @@ const ProfFormations = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -30,13 +31,32 @@ const ProfFormations = () => {
     return acc;
   }, {});
   const formations = Object.entries(byFormation);
+  const filteredFormations = formations.filter(([, { formation }]) =>
+    (formation?.nom ?? '').toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+          <BookOpen size={22} className="text-white" />
+        </div>
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Mes formations</h1>
-          <p className="text-slate-400 text-xs mt-0.5">{formations.length} formation(s)</p>
+          <h1 className="text-2xl font-bold text-slate-800">Mes formations</h1>
+          <p className="text-slate-400 text-xs mt-0.5">{filteredFormations.length} / {formations.length} formation(s)</p>
+        </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="mb-6 flex flex-wrap gap-2 items-center">
+        <div className="relative min-w-[160px] flex-1 max-w-[220px]">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+          <input
+            placeholder="Rechercher une formation..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+          />
         </div>
       </div>
 
@@ -53,11 +73,11 @@ const ProfFormations = () => {
       )}
 
       {!loading && !error && (
-        formations.length === 0 ? (
-          <p className="text-slate-400 text-sm">Aucune formation assignée.</p>
+        filteredFormations.length === 0 ? (
+          <p className="text-slate-400 text-sm">Aucune formation trouvée.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {formations.map(([formationId, { formation, groupes }]) => {
+            {filteredFormations.map(([formationId, { formation, groupes }]) => {
               const nbEtudiants = groupes.reduce((sum, g) => sum + (g.nb_etudiants ?? 0), 0);
               return (
                 <div

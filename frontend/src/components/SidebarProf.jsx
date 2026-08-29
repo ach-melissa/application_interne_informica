@@ -1,23 +1,35 @@
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, Users, CalendarDays, DoorOpen, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+
 const navGroups = [
   {
     label: 'Gestion',
     items: [
-  { label: 'Dashboard',       icon: LayoutDashboard, path: '/prof', exact: true },
-  { label: 'Mes Groupes',     icon: Users,           path: '/prof/formations' },
-  { label: 'Emploi du Temps', icon: CalendarDays,    path: '/prof/emploi-du-temps' },
-  { label: 'Mes demandes',    icon: DoorOpen,        path: '/prof/mes-demandes-salles' },
-],
+      { label: 'Tableau de bord',       icon: LayoutDashboard, path: '/prof', exact: true },
+      { label: 'Mes Groupes',     icon: Users,           path: '/prof/formations' },
+      { label: 'Emploi du Temps', icon: CalendarDays,    path: '/prof/emploi-du-temps' },
+      { label: 'Mes demandes',    icon: DoorOpen,        path: '/prof/mes-demandes-salles' },
+    ],
   },
 ];
 
-const Tooltip = ({ label }) => (
-  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-[#0369A1] text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-    {label}
-  </div>
-);
+// Fixed-position tooltip, positioned via JS so it can never be clipped by
+// an ancestor's overflow-hidden (same fix as SidebarAdmin).
+const Tooltip = ({ label, anchorRect }) => {
+  if (!anchorRect) return null;
+  const top = anchorRect.top + anchorRect.height / 2;
+  const left = anchorRect.right + 12;
+  return (
+    <div
+      style={{ position: 'fixed', top, left, transform: 'translateY(-50%)' }}
+      className="px-2.5 py-1.5 bg-[#0369A1] text-white text-xs rounded-lg whitespace-nowrap pointer-events-none z-[9999] shadow-md"
+    >
+      {label}
+    </div>
+  );
+};
 
 const FadeLabel = ({ collapsed, children, className = '' }) => (
   <span
@@ -29,6 +41,31 @@ const FadeLabel = ({ collapsed, children, className = '' }) => (
   </span>
 );
 
+// Icon size, text size, and padding below are unchanged from the original SidebarProf.
+const NavItem = ({ label, Icon, isActive, collapsed, onClick }) => {
+  const [rect, setRect] = useState(null);
+
+  const handleEnter = (e) => {
+    if (collapsed) setRect(e.currentTarget.getBoundingClientRect());
+  };
+  const handleLeave = () => setRect(null);
+
+  return (
+    <div className="relative" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+      <button
+        onClick={onClick}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150
+          ${collapsed ? 'justify-center' : ''}
+          ${isActive ? 'text-[#0369A1] font-medium' : 'text-slate-500 hover:text-[#0369A1] hover:bg-[#F8FAFC]'}`}
+      >
+        <Icon size={18} className="shrink-0" />
+        <FadeLabel collapsed={collapsed} className="text-sm">{label}</FadeLabel>
+      </button>
+      {collapsed && rect && <Tooltip label={label} anchorRect={rect} />}
+    </div>
+  );
+};
+
 const SidebarProf = ({ collapsed, setCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,7 +75,11 @@ const SidebarProf = ({ collapsed, setCollapsed }) => {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <aside className={`relative flex flex-col h-full bg-white border-r border-[#E2E8F0] transition-[width] duration-300 ease-in-out shrink-0 ${collapsed ? 'w-[70px]' : 'w-[210px]'}`}>
+    <aside
+      className={`absolute left-0 top-0 flex flex-col h-full bg-white border-r border-[#E2E8F0] transition-[width] duration-300 ease-in-out z-30 ${
+        collapsed ? 'w-[70px]' : 'w-[210px] shadow-xl'
+      }`}
+    >
       <div className="h-2" />
 
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-x-hidden overflow-y-auto sidebar-scroll">
@@ -52,18 +93,14 @@ const SidebarProf = ({ collapsed, setCollapsed }) => {
             {group.items.map(({ label, icon: Icon, path, exact }) => {
               const isActive = exact ? location.pathname === path : location.pathname.startsWith(path);
               return (
-                <div key={path} className="relative group">
-                  <button
-                    onClick={() => navigate(path)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150
-                      ${collapsed ? 'justify-center' : ''}
-                      ${isActive ? 'text-[#0369A1] font-medium' : 'text-slate-500 hover:text-[#0369A1] hover:bg-[#F8FAFC]'}`}
-                  >
-                    <Icon size={18} className="shrink-0" />
-                    <FadeLabel collapsed={collapsed} className="text-sm">{label}</FadeLabel>
-                  </button>
-                  {collapsed && <Tooltip label={label} />}
-                </div>
+                <NavItem
+                  key={path}
+                  label={label}
+                  Icon={Icon}
+                  isActive={isActive}
+                  collapsed={collapsed}
+                  onClick={() => navigate(path)}
+                />
               );
             })}
           </div>
@@ -95,7 +132,6 @@ const SidebarProf = ({ collapsed, setCollapsed }) => {
               <p className="text-slate-400 text-xs mt-0.5">Professeur</p>
             </FadeLabel>
           </button>
-          {collapsed && <Tooltip label="Mon Profil" />}
         </div>
 
         <div className="relative group">
@@ -106,7 +142,6 @@ const SidebarProf = ({ collapsed, setCollapsed }) => {
             <LogOut size={18} className="shrink-0" />
             <FadeLabel collapsed={collapsed} className="text-sm font-medium">Déconnexion</FadeLabel>
           </button>
-          {collapsed && <Tooltip label="Déconnexion" />}
         </div>
       </div>
     </aside>

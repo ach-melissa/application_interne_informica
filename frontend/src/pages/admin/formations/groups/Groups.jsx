@@ -184,7 +184,7 @@ const getAnneeScolairePourDate = (dateStr) => {
                                    <div className="flex items-start justify-between mb-4">
                     <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center"><Users size={20} className="text-emerald-600" /></div>
                     <div className="flex items-center gap-1.5">
-                      {g.date_fin && (
+                      {g.date_fin && g.date_fin <= today && (
                         <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-800 text-white">
                           <Flag size={11} /> Terminé
                         </span>
