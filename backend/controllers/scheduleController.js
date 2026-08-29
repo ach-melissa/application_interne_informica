@@ -42,7 +42,7 @@ const { data, error } = await supabase
   .select('id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin, type_special, expire_le, applicable_depuis, groups(nom, date_fin, archived, statut, niveau:formation_niveaux(id, nom))')
   .eq('group_id', groupId);
 if (error) return res.status(500).json({ error: error.message });
-res.json(filtrerCreneauxActifs(data));
+res.json(data);
 };
 
 const createSchedule = async (req, res) => {

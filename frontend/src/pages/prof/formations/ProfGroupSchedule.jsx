@@ -85,8 +85,8 @@ const filtered = data.filter((row) => String(row.groups?.id) === String(groupId)
       {salles.length === 0 ? (
         <p className="text-slate-400 text-xs italic px-1">Aucun créneau programmé pour ce groupe.</p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
-          <table className="w-full text-xs border-collapse">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
+          <table className="w-full text-xs border-collapse bg-white">
             <thead>
               <tr>
 <th className="border border-slate-700 px-3 py-2.5 bg-slate-900 font-medium w-24 min-w-[6rem]" rowSpan={2} /> {jours.map((jour) => (

@@ -142,7 +142,7 @@ const ScheduleTab = ({ groupId, readOnly = true, groupName, formationNom, niveau
     if (!cell?.contenu && !cell?.heure_debut && !cell?.heure_fin) return null;
     const groupeLabel = [groupName, niveauNom, formationNom].filter(Boolean).join(' · ');
     return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-left">
+      <div className="rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-left">
         {(cell.heure_debut || cell.heure_fin) && (
           <div className="text-[10px] font-medium text-slate-700 opacity-80 mb-1">
             {cell.heure_debut?.slice(0, 5)}{cell.heure_fin ? ` → ${cell.heure_fin.slice(0, 5)}` : ''}
@@ -173,8 +173,8 @@ console.log('salles:', salles, 'jours:', jours, 'cells:', cells, 'groupId:', gro
         <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
-        <table className="w-full text-xs border-collapse">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
+        <table className="w-full text-xs border-collapse bg-white">
           <thead>
             <tr>
               <th className="border border-slate-700 px-3 py-2.5 bg-slate-900 font-medium w-24 min-w-[6rem]" rowSpan={2} />
@@ -213,7 +213,7 @@ console.log('salles:', salles, 'jours:', jours, 'cells:', cells, 'groupId:', gro
                     return (
                       <td key={k} className="border border-slate-200 p-0 align-top min-w-[7rem] w-[7rem]">
                         {isEditing ? (
-                          <div className="p-1.5 space-y-1 bg-[#fffef9]">
+                          <div className="p-1.5 space-y-1 bg-white">
                             <input
                               ref={inputRef}
                               type="text"
