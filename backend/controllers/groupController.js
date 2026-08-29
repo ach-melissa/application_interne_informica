@@ -448,7 +448,7 @@ const getMyGroups = async (req, res) => {
     .from('groups')
     .select(`
       id, nom, formation_id, date_debut, date_fin,
-      formations:formation_id(id, nom),
+      formations:formation_id(id, nom, a_niveaux),
       teacher:teacher_id(id, user:user_id(nom, prenom)),
       niveau:niveau_id(id, nom)
     `)

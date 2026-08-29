@@ -13,7 +13,7 @@ const ProfFormations = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    fetch(`${API}/api/profs/me/groups`, { headers: { Authorization: `Bearer ${token}` } })
+   fetch(`${API}/api/groups/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => {
         if (!r.ok) throw new Error('Erreur serveur');
         return r.json();
@@ -42,8 +42,8 @@ const ProfFormations = () => {
           <BookOpen size={22} className="text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Mes formations</h1>
-          <p className="text-slate-400 text-xs mt-0.5">{filteredFormations.length} / {formations.length} formation(s)</p>
+          <h1 className="text-2xl font-bold text-slate-800">Mes groupes</h1>
+          <p className="text-slate-400 text-xs mt-0.5">Recherchez vos groupes à partir de vos formations</p>
         </div>
       </div>
 
@@ -82,7 +82,11 @@ const ProfFormations = () => {
               return (
                 <div
                   key={formationId}
-                  onClick={() => navigate(`/prof/formations/${formationId}/groups`)}
+                  onClick={() =>
+                    formation?.a_niveaux
+                      ? navigate(`/prof/formations/${formationId}/niveaux`)
+                      : navigate(`/prof/formations/${formationId}/groups`)
+                  }
                   className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] cursor-pointer transition"
                 >
                   <div className="w-10 h-10 bg-[#DCEBFA] rounded-full flex items-center justify-center mb-4">

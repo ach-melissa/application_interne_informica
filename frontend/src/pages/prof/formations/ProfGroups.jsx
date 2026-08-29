@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Users, GraduationCap, Search, Flag, ChevronRight } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
@@ -7,6 +7,9 @@ const API = import.meta.env.VITE_API_URL;
 const ProfGroups = () => {
   const { formationId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const niveauId = searchParams.get('niveau_id');
+
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,27 +17,33 @@ const ProfGroups = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    fetch(`${API}/api/profs/me/groups`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API}/api/groups/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => {
         if (!r.ok) throw new Error('Erreur serveur');
         return r.json();
       })
-      .then((data) => setGroups(data.filter((g) => String(g.formation_id ?? g.formations?.id) === String(formationId))))
+      .then((data) => {
+        let filtered = data.filter((g) => String(g.formation_id ?? g.formations?.id) === String(formationId));
+        if (niveauId) filtered = filtered.filter((g) => String(g.niveau?.id) === String(niveauId));
+        setGroups(filtered);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [formationId]);
+  }, [formationId, niveauId]);
 
   const formationName = groups[0]?.formations?.nom ?? 'Formation';
+  const niveauName = groups[0]?.niveau?.nom;
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
 
   const filteredGroups = groups.filter((g) => g.nom.toLowerCase().includes(search.toLowerCase()));
+  const backTo = niveauId ? `/prof/formations/${formationId}/niveaux` : '/prof/formations';
 
   return (
     <>
-      {/* Breadcrumb — matches admin's Groups.jsx exactly */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-3 mb-2">
         <button
-          onClick={() => navigate('/prof/formations')}
+          onClick={() => navigate(backTo)}
           className="w-9 h-9 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAFC] transition flex-shrink-0"
         >
           <ArrowLeft size={16} className="text-[#0369A1]" />
@@ -43,8 +52,16 @@ const ProfGroups = () => {
           <button onClick={() => navigate('/prof/formations')} className="text-slate-400 hover:text-[#0369A1] transition">
             Formations
           </button>
+          {niveauId && (
+            <>
+              <span className="text-slate-300">›</span>
+              <button onClick={() => navigate(`/prof/formations/${formationId}/niveaux`)} className="text-slate-400 hover:text-[#0369A1] transition">
+                Niveaux • {formationName}
+              </button>
+            </>
+          )}
           <span className="text-slate-300">›</span>
-          <span className="text-[#0369A1] font-medium">Groupes • {formationName}</span>
+          <span className="text-[#0369A1] font-medium">Groupes • {niveauId ? niveauName : formationName}</span>
         </div>
       </div>
       <p className="mb-4 text-xs text-slate-400 ml-12">{filteredGroups.length} / {groups.length} groupe(s)</p>
