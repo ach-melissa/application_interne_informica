@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import GroupStudents from './GroupStudents';
 import GroupAttendance from './GroupAttendance';
 import ProfGroupSchedule from './ProfGroupSchedule';
 
@@ -10,7 +9,7 @@ const API = import.meta.env.VITE_API_URL;
 const ProfGroupDetail = () => {
   const { formationId, groupId } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('etudiants');
+  const [activeTab, setActiveTab] = useState('pointage');
 
   const [group, setGroup] = useState(null);
   const [students, setStudents] = useState([]);
@@ -44,7 +43,6 @@ const ProfGroupDetail = () => {
   };
 
   const TABS = [
-    { key: 'etudiants',  label: 'Étudiants' },
     { key: 'pointage',   label: 'Pointage' },
     { key: 'emploi',     label: 'Emploi du temps' },
   ];
@@ -104,7 +102,6 @@ const ProfGroupDetail = () => {
 
       {!loading && !error && (
         <>
-          {activeTab === 'etudiants' && <GroupStudents students={students} />}
           {activeTab === 'pointage' && (
             <GroupAttendance
               groupId={groupId}

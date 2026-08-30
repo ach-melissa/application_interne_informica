@@ -44,13 +44,14 @@ const getProfs = async (req, res) => {
     .select(`
       id,
       user:user_id(id, nom, prenom, email, telephone, archived, photo_path),
-groups(
-  id, nom, archived, statut, date_fin,
-  formation:formation_id(id, nom)
-),
-teacher_formations(
-  formation:formation_id(id, nom)
-)
+      groups(
+        id, nom, archived, statut, date_fin,
+        formation:formation_id(id, nom),
+        niveau:niveau_id(id, nom)
+      ),
+      teacher_formations(
+        formation:formation_id(id, nom)
+      )
     `)
     .order('created_at', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
@@ -78,7 +79,7 @@ teacher_formations(
         telephone: t.user?.telephone ?? '',
         archived: t.user?.archived ?? false,
         photo_url,
-           formations: [...new Map(
+        formations: [...new Map(
           (t.teacher_formations ?? [])
             .filter((tf) => tf.formation?.id)
             .map((tf) => [tf.formation.id, { id: tf.formation.id, nom: tf.formation.nom }])
@@ -90,7 +91,6 @@ teacher_formations(
 
   res.json(result);
 };
-
 // ============================================================
 // PROF — ses propres groupes + formations + schedules
 // ============================================================
@@ -425,12 +425,32 @@ const createProfGroupSession = async (req, res) => {
 const { date, type_seance, heure_debut, heure_fin, duree_effectuee } = req.body;
 if (!date) return res.status(400).json({ message: 'Date requise' });
 
+const typeSeanceFinal = type_seance === 'remplacement' ? 'remplacement' : 'normale';
+
+if (typeSeanceFinal === 'normale') {
+  const { data: schedules, error: schedErr } = await supabase
+    .from('schedules')
+    .select('jour_semaine')
+    .eq('group_id', req.params.groupId);
+
+  if (schedErr) return res.status(500).json({ message: schedErr.message });
+
+  const joursEmploi = (schedules || []).map((s) => s.jour_semaine.toLowerCase());
+  const jourDemande = getJourSemaine(date).toLowerCase();
+
+  if (!joursEmploi.includes(jourDemande)) {
+    return res.status(400).json({
+      message: "Ce jour ne fait pas partie de l'emploi du temps du groupe — utilisez une séance de type Remplacement.",
+    });
+  }
+}
+
 const { data, error } = await supabase
   .from('sessions')
   .insert({
     group_id: req.params.groupId,
     date,
-    type_seance: type_seance === 'remplacement' ? 'remplacement' : 'normale',
+    type_seance: typeSeanceFinal,
     statut: 'effectuee',
     prof_id: req.user.id,
     heure_debut: heure_debut || null,

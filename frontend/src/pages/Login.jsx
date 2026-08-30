@@ -19,8 +19,10 @@ const passwordRef = useRef(null);
   e.preventDefault();
   setError('');
 
+  const cleanIdentifier = identifier.trim();
+
   const errors = {};
-  if (!identifier.trim()) errors.identifier = 'Ce champ est requis';
+  if (!cleanIdentifier) errors.identifier = 'Ce champ est requis';
   if (!password) errors.password = 'Ce champ est requis';
   setFieldErrors(errors);
   if (Object.keys(errors).length > 0) return;
@@ -30,7 +32,7 @@ const passwordRef = useRef(null);
       const res = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({ identifier: cleanIdentifier, password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);

@@ -178,11 +178,18 @@ const ProfDetail = () => {
                           <Users size={14} className="text-emerald-500" />
                           <span className="font-medium text-sm text-slate-800">{g.nom}</span>
                         </div>
-                        {activeTab === 'all' && g.formation?.nom && (
-                          <span className="text-[10px] bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full">
-                            {g.formation.nom}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {activeTab === 'all' && g.formation?.nom && (
+                            <span className="text-[10px] bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full">
+                              {g.formation.nom}
+                            </span>
+                          )}
+                          {g.niveau?.nom && (
+                            <span className="text-[10px] bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full">
+                              {g.niveau.nom}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between">
                        <p className="text-xs text-slate-400">{g.nb_etudiants ?? 0} étudiant(s)</p>

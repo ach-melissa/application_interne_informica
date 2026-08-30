@@ -120,7 +120,7 @@ const mesDemandes = async (req, res) => {
   const { data, error } = await supabase
     .from('notifications')
     .select('*')
-    .or(`expediteur_id.eq.${req.user.id},destinataire_id.eq.${req.user.id}`)
+        .eq('expediteur_id', req.user.id)
     .order('created_at', { ascending: false });
 
   if (error) return res.status(500).json({ error: error.message });

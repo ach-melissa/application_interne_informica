@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, X, UserRound, GraduationCap,
-  UsersRound, CalendarDays, Clock3, ClipboardList, Repeat, RefreshCw, ChevronDown, Pencil, AlertTriangle, Ban } from 'lucide-react';
+import {
+  ArrowLeft, Check, X, UserRound, GraduationCap, UsersRound, CalendarDays, Clock3,
+  ClipboardList, Repeat, RefreshCw, ChevronDown, Pencil, AlertTriangle, Ban,
+  MessageSquare, ArrowRight, DoorOpen,
+} from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 
 const STATUT_STYLE = {
@@ -37,18 +40,18 @@ const DetailDemandeSalle = () => {
   const [editingSalle, setEditingSalle] = useState(false);
   const [newSalleId, setNewSalleId] = useState('');
   const [proposerMode, setProposerMode] = useState(false);
-const [propositionsForms, setPropositionsForms] = useState([
-  { jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', salle_id: '' },
-]);
-const setPropField = (idx, key) => (e) => {
-  setPropositionsForms((prev) => prev.map((p, i) => (i === idx ? { ...p, [key]: e.target.value } : p)));
-};
-const ajouterFormulaireAlternative = () => {
-  setPropositionsForms((prev) => [...prev, { jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', salle_id: '' }]);
-};
-const retirerFormulaireAlternative = (idx) => {
-  setPropositionsForms((prev) => prev.filter((_, i) => i !== idx));
-};
+  const [propositionsForms, setPropositionsForms] = useState([
+    { jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', salle_id: '' },
+  ]);
+  const setPropField = (idx, key) => (e) => {
+    setPropositionsForms((prev) => prev.map((p, i) => (i === idx ? { ...p, [key]: e.target.value } : p)));
+  };
+  const ajouterFormulaireAlternative = () => {
+    setPropositionsForms((prev) => [...prev, { jour_semaine: '', periode: '', heure_debut: '', heure_fin: '', salle_id: '' }]);
+  };
+  const retirerFormulaireAlternative = (idx) => {
+    setPropositionsForms((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
@@ -73,8 +76,8 @@ const retirerFormulaireAlternative = (idx) => {
         setDemande(found);
         setSalleId(found?.data?.salle_souhaitee_id || '');
       }
-          if (s.ok) setSalles(await s.json());
-if (j.ok) setJours(await j.json());
+      if (s.ok) setSalles(await s.json());
+      if (j.ok) setJours(await j.json());
       if (a.ok) setEmploiData(await a.json());
     };
     load();
@@ -82,15 +85,14 @@ if (j.ok) setJours(await j.json());
 
   const d = demande?.data || {};
 
-  // Toute occupation (n'importe quelle salle) qui chevauche le jour/horaire demandé
-const conflictsForSalle = (salleNom) => {
-  if (!d.jour_semaine || !d.heure_debut || !d.heure_fin) return [];
-  return emploiData.filter((s) =>
-    s.salle === salleNom &&
-    s.jour_semaine === d.jour_semaine &&
-    overlaps(s.heure_debut, s.heure_fin, d.heure_debut, d.heure_fin)
-  );
-};
+  const conflictsForSalle = (salleNom) => {
+    if (!d.jour_semaine || !d.heure_debut || !d.heure_fin) return [];
+    return emploiData.filter((s) =>
+      s.salle === salleNom &&
+      s.jour_semaine === d.jour_semaine &&
+      overlaps(s.heure_debut, s.heure_fin, d.heure_debut, d.heure_fin)
+    );
+  };
 
   const isSalleOccupied = (salleNom) => conflictsForSalle(salleNom).length > 0;
 
@@ -149,21 +151,21 @@ const conflictsForSalle = (salleNom) => {
     setSubmitting(false);
   };
 
-const envoyerProposition = async () => {
-  const incomplete = propositionsForms.some(
-    (p) => !p.jour_semaine || !p.periode || !p.heure_debut || !p.heure_fin || !p.salle_id
-  );
-  if (incomplete) {
-    setErreur('Merci de remplir tous les champs de chaque option.');
-    return;
-  }
-  const horsBornes = propositionsForms.some(
-    (p) => p.heure_debut < '08:00' || p.heure_fin > '16:00'
-  );
-  if (horsBornes) {
-    setErreur('Les horaires proposés doivent être entre 08:00 et 16:00.');
-    return;
-  }
+  const envoyerProposition = async () => {
+    const incomplete = propositionsForms.some(
+      (p) => !p.jour_semaine || !p.periode || !p.heure_debut || !p.heure_fin || !p.salle_id
+    );
+    if (incomplete) {
+      setErreur('Merci de remplir tous les champs de chaque option.');
+      return;
+    }
+    const horsBornes = propositionsForms.some(
+      (p) => p.heure_debut < '08:00' || p.heure_fin > '16:00'
+    );
+    if (horsBornes) {
+      setErreur('Les horaires proposés doivent être entre 08:00 et 16:00.');
+      return;
+    }
     setSubmitting(true);
     setErreur(null);
     const res = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/${id}/proposer`, {
@@ -192,7 +194,7 @@ const envoyerProposition = async () => {
 
   return (
     <AdminLayout>
-            <div className="max-w-4xl ">
+      <div className="max-w-4xl">
 
         <div className="flex items-center gap-3 mb-5">
           <button
@@ -212,53 +214,57 @@ const envoyerProposition = async () => {
 
         <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
 
-                  <div className="p-6 border-b border-[#F1F5F9] flex justify-between items-start">
-  <div className="flex items-center gap-3">
-    <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
-      <ClipboardList
-   size={20} className="text-white" />
-    </div>
-    <div>
-      <h1 className="text-lg font-bold text-slate-800">Demande de réservation</h1>
-      <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
-        {isChangement ? <RefreshCw size={12} /> : <Repeat size={12} />}
-        {isChangement ? "Changement d'horaire (permanent)" : 'Remplacement (un jour)'}
-      </p>
-    </div>
-  </div>
-  <div className="text-right">
-    <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUT_STYLE[demande.statut] || STATUT_STYLE.en_attente}`}>
-      {STATUT_LABEL[demande.statut] || 'En attente'}
-    </span>
-    {demande.created_at && (
-      <p className="text-[11px] text-slate-400 mt-1.5">
-        Créée le {new Date(demande.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
-      </p>
-    )}
-  </div>
-</div>
+          <div className="p-6 border-b border-[#F1F5F9] flex justify-between items-start">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+                <ClipboardList size={20} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-slate-800">Demande de réservation</h1>
+                <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
+                  {isChangement ? <RefreshCw size={12} /> : <Repeat size={12} />}
+                  {isChangement ? "Changement d'horaire (permanent)" : 'Remplacement (un jour)'}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUT_STYLE[demande.statut] || STATUT_STYLE.en_attente}`}>
+                {STATUT_LABEL[demande.statut] || 'En attente'}
+              </span>
+              {demande.created_at && (
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Créée le {new Date(demande.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Bandeau de statut, comme côté professeur */}
+          <div className={`px-6 py-3 text-sm font-medium border-b border-[#F1F5F9] ${STATUT_STYLE[demande.statut] || STATUT_STYLE.en_attente}`}>
+            Cette demande est <span className="font-semibold">{(STATUT_LABEL[demande.statut] || 'En attente').toLowerCase()}</span>
+          </div>
 
           <div className="p-6 space-y-6">
 
-<section>
-  <div className="flex items-center gap-2 mb-3">
-    <UserRound size={16} className="text-[#0369A1]" />
-    <h2 className="text-sm font-semibold text-slate-700">Demandeur</h2>
-  </div>
-  <div className="flex items-center gap-3">
-    {demande.expediteur?.photo_url ? (
-      <img src={demande.expediteur.photo_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm" />
-    ) : (
-      <div className="w-10 h-10 rounded-full bg-[#DCEBFA] flex items-center justify-center text-xs font-bold text-[#0369A1] flex-shrink-0">
-        {(d.demandeur_nom || '?').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
-      </div>
-    )}
-    <div>
-      <p className="text-sm font-medium text-slate-700">{d.demandeur_nom || '—'}</p>
-      <p className="text-xs text-slate-400">Professeur</p>
-    </div>
-  </div>
-</section>
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <UserRound size={16} className="text-[#0369A1]" />
+                <h2 className="text-sm font-semibold text-slate-700">Demandeur</h2>
+              </div>
+              <div className="flex items-center gap-3">
+                {demande.expediteur?.photo_url ? (
+                  <img src={demande.expediteur.photo_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-[#DCEBFA] flex items-center justify-center text-xs font-bold text-[#0369A1] flex-shrink-0">
+                    {(d.demandeur_nom || '?').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium text-slate-700">{d.demandeur_nom || '—'}</p>
+                  <p className="text-xs text-slate-400">Professeur</p>
+                </div>
+              </div>
+            </section>
 
             <div className="grid grid-cols-3 gap-x-6 gap-y-5 border-t border-[#F1F5F9] pt-5">
               <Info icon={<GraduationCap />} label="Formation" value={d.formation_nom} />
@@ -277,39 +283,49 @@ const envoyerProposition = async () => {
               />
             </div>
 
-                      <section className="border-t border-[#F1F5F9] pt-5">
+            <section className="border-t border-[#F1F5F9] pt-5">
               <div className="flex items-center gap-2 mb-2">
-                <ClipboardList
-             size={16} className="text-[#0369A1]" />
+                <DoorOpen size={16} className="text-[#0369A1]" />
                 <h2 className="text-sm font-semibold text-slate-700">Salle souhaitée</h2>
               </div>
               <p className="text-sm font-medium text-slate-700">{d.salle_souhaitee_nom || 'Aucune préférence'}</p>
             </section>
-{d.ancien_jour_semaine && (
-  <section className="border-t border-[#F1F5F9] pt-5">
-    <h2 className="text-sm font-semibold text-slate-700 mb-2">Créneau concerné</h2>
-    <div className="flex items-center gap-3 text-sm">
-      <div className="flex-1 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-        <p className="text-[10px] text-red-400 uppercase font-semibold mb-1">Ancien (sera vidé)</p>
-        <p className="capitalize text-slate-700">{d.ancien_jour_semaine} · {d.ancien_periode} · {d.ancien_heure_debut?.slice(0,5)}–{d.ancien_heure_fin?.slice(0,5)} · {d.ancien_salle_nom}</p>
-      </div>
-      <span className="text-slate-300">→</span>
-      <div className="flex-1 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-        <p className="text-[10px] text-emerald-500 uppercase font-semibold mb-1">Nouveau (demandé)</p>
-        <p className="capitalize text-slate-700">{d.jour_semaine} · {d.periode} · {d.heure_debut?.slice(0,5)}–{d.heure_fin?.slice(0,5)} · {d.salle_souhaitee_nom || 'à définir'}</p>
-      </div>
-    </div>
-  </section>
-)}
+
+            {/* Créneau concerné — même style sobre que côté professeur */}
+            {d.ancien_jour_semaine && (
+              <section className="border-t border-[#F1F5F9] pt-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Repeat size={16} className="text-[#0369A1]" />
+                  <h2 className="text-sm font-semibold text-slate-700">Créneau concerné</h2>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CreneauBlock
+                    label="Actuel" labelCls="bg-slate-100 text-slate-500"
+                    jour={d.ancien_jour_semaine} periode={d.ancien_periode}
+                    debut={d.ancien_heure_debut} fin={d.ancien_heure_fin} salle={d.ancien_salle_nom}
+                  />
+                  <ArrowRight size={16} className="text-slate-300 flex-shrink-0" />
+                  <CreneauBlock
+                    label="Demandé" labelCls="bg-[#DCEBFA] text-[#0369A1]"
+                    jour={d.jour_semaine} periode={d.periode}
+                    debut={d.heure_debut} fin={d.heure_fin} salle={d.salle_souhaitee_nom || 'à définir'}
+                  />
+                </div>
+              </section>
+            )}
+
             {demande.message && (
               <section className="border-t border-[#F1F5F9] pt-5">
-                <h2 className="text-sm font-semibold text-slate-700 mb-1">Message du professeur</h2>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <MessageSquare size={16} className="text-[#0369A1]" />
+                  <h2 className="text-sm font-semibold text-slate-700">Message du professeur</h2>
+                </div>
                 <p className="text-sm text-slate-600">{demande.message}</p>
               </section>
             )}
 
-            {/* ── Emploi de l'école, pour visualiser les conflits ── */}
-                    <section className="border-t border-[#F1F5F9] pt-5">
+            {/* Emploi de l'école */}
+            <section className="border-t border-[#F1F5F9] pt-5">
               <button
                 type="button"
                 onClick={() => setShowEmploi((v) => !v)}
@@ -355,8 +371,8 @@ const envoyerProposition = async () => {
                                 {s.nom}
                               </td>
                               {jours.map((j) => {
-const matinList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine === j && overlaps(e.heure_debut, e.heure_fin, ...PERIODE_BORNES.matin));
-const midiList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine === j && overlaps(e.heure_debut, e.heure_fin, ...PERIODE_BORNES.midi));
+                                const matinList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine === j && overlaps(e.heure_debut, e.heure_fin, ...PERIODE_BORNES.matin));
+                                const midiList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine === j && overlaps(e.heure_debut, e.heure_fin, ...PERIODE_BORNES.midi));
                                 const highlight = j === d.jour_semaine;
                                 return (
                                   <>
@@ -391,7 +407,7 @@ const midiList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine ==
               )}
             </section>
 
-                       {enAttente ? (
+            {enAttente ? (
               <section className="border-t border-[#F1F5F9] pt-5 space-y-4">
                 <h2 className="text-sm font-semibold text-slate-700">Attribution</h2>
 
@@ -458,90 +474,90 @@ const midiList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine ==
                   <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{erreur}</p>
                 )}
 
-              {!proposerMode ? (
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    disabled={submitting}
-                    onClick={() => traiter('refusee')}
-                    className="flex items-center gap-1.5 text-xs text-red-500 bg-red-50 px-3.5 py-2 rounded-md hover:bg-red-100 disabled:opacity-50 font-medium transition"
-                  >
-                    <X size={14} /> Refuser
-                  </button>
-                  <button
-                    disabled={submitting}
-                    onClick={() => setProposerMode(true)}
-                    className="flex items-center gap-1.5 text-xs text-[#0369A1] bg-[#DCEBFA] px-3.5 py-2 rounded-md hover:bg-[#c7e3f7] disabled:opacity-50 font-medium transition"
-                  >
-                    <RefreshCw size={14} /> Proposer une alternative
-                  </button>
-                  <button
-                    disabled={submitting || salleChoisieOccupee}
-                    onClick={() => traiter('approuvee')}
-                    className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-md text-xs font-medium
-                      shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px]
-                      disabled:opacity-40 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all"
-                  >
-                    <Check size={14} /> Approuver
-                  </button>
-                </div>
-              ) : (
-                <div className="border border-[#DCEBFA] bg-[#F0F8FF] rounded-lg p-4 space-y-3">
-                  <p className="text-xs font-medium text-[#0369A1]">Proposer une ou plusieurs alternatives</p>
-
-                  {propositionsForms.map((pf, idx) => (
-                    <div key={idx} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wide">Option {idx + 1}</p>
-                        {propositionsForms.length > 1 && (
-                          <button type="button" onClick={() => retirerFormulaireAlternative(idx)} className="text-red-400 hover:text-red-600">
-                            <X size={13} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <select value={pf.jour_semaine} onChange={setPropField(idx, 'jour_semaine')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                          <option value="">Jour</option>
-                          {jours.map((j) => <option key={j} value={j}>{j}</option>)}
-                        </select>
-                        <select value={pf.periode} onChange={setPropField(idx, 'periode')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                          <option value="">Période</option>
-                          <option value="matin">Matin</option>
-                          <option value="midi">À midi</option>
-                        </select>
-                        <input type="time" value={pf.heure_debut}  min="08:00" max="16:00" onChange={setPropField(idx, 'heure_debut')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                        <input type="time" value={pf.heure_fin} min="08:00" max="16:00" onChange={setPropField(idx, 'heure_fin')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                        <select value={pf.salle_id} onChange={setPropField(idx, 'salle_id')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm col-span-2">
-                          <option value="">Salle</option>
-                          {salles.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={ajouterFormulaireAlternative}
-                    className="w-full text-xs font-medium text-[#0369A1] bg-white border border-dashed border-[#0369A1]/40 hover:bg-[#DCEBFA]/40 rounded-lg px-3 py-2 transition"
-                  >
-                    + Ajouter une autre option
-                  </button>
-
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => setProposerMode(false)} className="text-xs px-3 py-2 rounded-md text-slate-500 hover:bg-white">
-                      Annuler
+                {!proposerMode ? (
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      disabled={submitting}
+                      onClick={() => traiter('refusee')}
+                      className="flex items-center gap-1.5 text-xs text-red-500 bg-red-50 px-3.5 py-2 rounded-md hover:bg-red-100 disabled:opacity-50 font-medium transition"
+                    >
+                      <X size={14} /> Refuser
                     </button>
                     <button
                       disabled={submitting}
-                      onClick={envoyerProposition}
-                      className="flex items-center gap-1.5 bg-[#0369A1] text-white px-3.5 py-2 rounded-md text-xs font-medium hover:bg-[#0369A1]/90 disabled:opacity-50"
+                      onClick={() => setProposerMode(true)}
+                      className="flex items-center gap-1.5 text-xs text-[#0369A1] bg-[#DCEBFA] px-3.5 py-2 rounded-md hover:bg-[#c7e3f7] disabled:opacity-50 font-medium transition"
                     >
-                      Envoyer {propositionsForms.length > 1 ? `les ${propositionsForms.length} propositions` : 'la proposition'}
+                      <RefreshCw size={14} /> Proposer une alternative
+                    </button>
+                    <button
+                      disabled={submitting || salleChoisieOccupee}
+                      onClick={() => traiter('approuvee')}
+                      className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-md text-xs font-medium
+                        shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px]
+                        disabled:opacity-40 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all"
+                    >
+                      <Check size={14} /> Approuver
                     </button>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="border border-[#DCEBFA] bg-[#F0F8FF] rounded-lg p-4 space-y-3">
+                    <p className="text-xs font-medium text-[#0369A1]">Proposer une ou plusieurs alternatives</p>
+
+                    {propositionsForms.map((pf, idx) => (
+                      <div key={idx} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wide">Option {idx + 1}</p>
+                          {propositionsForms.length > 1 && (
+                            <button type="button" onClick={() => retirerFormulaireAlternative(idx)} className="text-red-400 hover:text-red-600">
+                              <X size={13} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <select value={pf.jour_semaine} onChange={setPropField(idx, 'jour_semaine')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                            <option value="">Jour</option>
+                            {jours.map((j) => <option key={j} value={j}>{j}</option>)}
+                          </select>
+                          <select value={pf.periode} onChange={setPropField(idx, 'periode')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                            <option value="">Période</option>
+                            <option value="matin">Matin</option>
+                            <option value="midi">À midi</option>
+                          </select>
+                          <input type="time" value={pf.heure_debut} min="08:00" max="16:00" onChange={setPropField(idx, 'heure_debut')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                          <input type="time" value={pf.heure_fin} min="08:00" max="16:00" onChange={setPropField(idx, 'heure_fin')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                          <select value={pf.salle_id} onChange={setPropField(idx, 'salle_id')} className="border border-slate-200 rounded-lg px-3 py-2 text-sm col-span-2">
+                            <option value="">Salle</option>
+                            {salles.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={ajouterFormulaireAlternative}
+                      className="w-full text-xs font-medium text-[#0369A1] bg-white border border-dashed border-[#0369A1]/40 hover:bg-[#DCEBFA]/40 rounded-lg px-3 py-2 transition"
+                    >
+                      + Ajouter une autre option
+                    </button>
+
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setProposerMode(false)} className="text-xs px-3 py-2 rounded-md text-slate-500 hover:bg-white">
+                        Annuler
+                      </button>
+                      <button
+                        disabled={submitting}
+                        onClick={envoyerProposition}
+                        className="flex items-center gap-1.5 bg-[#0369A1] text-white px-3.5 py-2 rounded-md text-xs font-medium hover:bg-[#0369A1]/90 disabled:opacity-50"
+                      >
+                        Envoyer {propositionsForms.length > 1 ? `les ${propositionsForms.length} propositions` : 'la proposition'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </section>
-             ) : (
+            ) : (
               <section className="border-t border-[#F1F5F9] pt-5">
                 <h2 className="text-sm font-semibold text-slate-700 mb-2">Décision</h2>
 
@@ -550,7 +566,7 @@ const midiList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine ==
                     <p className="text-sm text-slate-600">
                       Salle attribuée : <span className="font-medium text-slate-800">{d.salle_assignee_nom || '—'}</span>
                     </p>
-                                       {!editingSalle && (
+                    {!editingSalle && (
                       <button
                         onClick={() => { setNewSalleId(d.salle_assignee || ''); setEditingSalle(true); }}
                         className="flex items-center gap-1 text-xs text-[#0369A1] bg-[#DCEBFA] px-2.5 py-1.5 rounded-md hover:bg-[#c7e3f7] font-medium transition"
@@ -561,20 +577,20 @@ const midiList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine ==
                   </div>
                 )}
 
-{demande.statut === 'refusee' && (
-  <p className="text-sm text-slate-600">Cette demande a été refusée.</p>
-)}
+                {demande.statut === 'refusee' && (
+                  <p className="text-sm text-slate-600">Cette demande a été refusée.</p>
+                )}
 
-{demande.statut === 'proposee' && d.propositions?.length > 0 && (
-  <div className="text-sm text-slate-600 space-y-2">
-    <p>{d.propositions.length} alternative{d.propositions.length > 1 ? 's' : ''} proposée{d.propositions.length > 1 ? 's' : ''}, en attente de la réponse du professeur :</p>
-    {d.propositions.map((p, i) => (
-      <p key={i} className="font-medium text-slate-800 capitalize bg-slate-50 rounded-lg px-3 py-2">
-        {p.jour_semaine} · {p.periode} · {p.heure_debut?.slice(0,5)}–{p.heure_fin?.slice(0,5)} · {p.salle_nom}
-      </p>
-    ))}
-  </div>
-)}
+                {demande.statut === 'proposee' && d.propositions?.length > 0 && (
+                  <div className="text-sm text-slate-600 space-y-2">
+                    <p>{d.propositions.length} alternative{d.propositions.length > 1 ? 's' : ''} proposée{d.propositions.length > 1 ? 's' : ''}, en attente de la réponse du professeur :</p>
+                    {d.propositions.map((p, i) => (
+                      <p key={i} className="font-medium text-slate-800 capitalize bg-slate-50 rounded-lg px-3 py-2">
+                        {p.jour_semaine} · {p.periode} · {p.heure_debut?.slice(0,5)}–{p.heure_fin?.slice(0,5)} · {p.salle_nom}
+                      </p>
+                    ))}
+                  </div>
+                )}
 
                 {editingSalle && (
                   <div className="mt-3 flex items-center gap-2">
@@ -630,6 +646,19 @@ const Info = ({ icon, label, value }) => (
       {label}
     </p>
     <p className="text-xs text-slate-700 font-medium capitalize">{value || '—'}</p>
+  </div>
+);
+
+const CreneauBlock = ({ label, labelCls, jour, periode, debut, fin, salle }) => (
+  <div className="flex-1 bg-[#F8FAFC] border border-[#F1F5F9] rounded-xl p-3.5">
+    <span className={`inline-block text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full mb-2 ${labelCls}`}>
+      {label}
+    </span>
+    <div className="space-y-1 text-xs text-slate-600">
+      <p className="flex items-center gap-1.5 capitalize"><CalendarDays size={12} className="text-slate-400" /> {jour} · {periode}</p>
+      <p className="flex items-center gap-1.5"><Clock3 size={12} className="text-slate-400" /> {debut?.slice(0,5)}–{fin?.slice(0,5)}</p>
+      <p className="flex items-center gap-1.5"><DoorOpen size={12} className="text-slate-400" /> {salle}</p>
+    </div>
   </div>
 );
 
