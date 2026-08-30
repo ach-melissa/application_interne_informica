@@ -150,7 +150,9 @@ const updateGroup = async (req, res) => {
 
  if (updates.date_debut === '') updates.date_debut = null;
   if (updates.date_fin === '') updates.date_fin = null;
+
   // Synchronise le statut avec date_fin, quelle que soit l'origine du PATCH
+  // (bouton "Terminer" dans Groups, toggle dans GroupFormModal, ou confirmFinishGroup dans PointageTab)
   if ('date_fin' in updates) {
     updates.statut = updates.date_fin ? 'terminer' : 'active';
   }
@@ -447,12 +449,12 @@ const getMyGroups = async (req, res) => {
     .from('teachers').select('id').eq('user_id', req.user.id).single();
   if (tErr || !teacher) return res.status(404).json({ error: 'Professeur introuvable' });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
   const { data, error } = await supabase
     .from('groups')
     .select(`
       id, nom, formation_id, date_debut, date_fin, statut,
-      formations:formation_id(id, nom),
+      formations:formation_id(id, nom, a_niveaux),
       teacher:teacher_id(id, user:user_id(nom, prenom)),
       niveau:niveau_id(id, nom)
     `)
@@ -463,6 +465,7 @@ const getMyGroups = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
 
   const groupIds = data.map((g) => g.id);
+
   let scheduleSummaries = {};
   try {
     scheduleSummaries = await getScheduleSummaries(groupIds);
@@ -470,11 +473,35 @@ const getMyGroups = async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 
-  const result = data.map((g) => ({
-    ...g,
-    jours_formation: scheduleSummaries[g.id]?.jours_formation ?? '',
-    heure_formation: scheduleSummaries[g.id]?.heure_formation ?? '',
-  }));
+  // Raw per-session rows so the frontend can filter "today" itself
+  let schedulesByGroup = {};
+  if (groupIds.length > 0) {
+    const { data: rawSchedules, error: schedErr } = await supabase
+      .from('schedules')
+      .select('group_id, jour_semaine, heure_debut, heure_fin')
+      .in('group_id', groupIds);
+    if (schedErr) return res.status(500).json({ error: schedErr.message });
+    (rawSchedules || []).forEach((s) => {
+      (schedulesByGroup[s.group_id] ??= []).push(s);
+    });
+  }
+
+  const result = await Promise.all(
+    data.map(async (g) => {
+      const { count } = await supabase
+        .from('inscriptions')
+        .select('*', { count: 'exact', head: true })
+        .eq('group_id', g.id);
+      return {
+        ...g,
+        nb_etudiants: count ?? 0,
+        schedules: schedulesByGroup[g.id] ?? [],
+        jours_formation: scheduleSummaries[g.id]?.jours_formation ?? '',
+        heure_formation: scheduleSummaries[g.id]?.heure_formation ?? '',
+      };
+    })
+  );
 
   res.json(result);
-};module.exports = { getGroupsByFormation, createGroup, updateGroup, deleteGroup, getGroupEtudiants, getUnassignedStudents, archiveGroup, restoreGroup, getGroupPeriods, setGroupPeriods, getMyGroups };
+};
+module.exports = { getGroupsByFormation, createGroup, updateGroup, deleteGroup, getGroupEtudiants, getUnassignedStudents, archiveGroup, restoreGroup, getGroupPeriods, setGroupPeriods, getMyGroups };

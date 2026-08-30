@@ -1,13 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, BookOpen, CheckCircle, Clock, Layers, Hand, CalendarDays } from 'lucide-react';
+import { Users, BookOpen, Clock, Layers, Hand, CalendarDays, LayoutDashboard } from 'lucide-react';
 import ProfLayout from '../../../layouts/ProfLayout';
 import { useAuth } from '../../../context/AuthContext';
-
-const statutMeta = {
-  active:   { label: 'Actif',   cls: 'bg-emerald-50 text-emerald-700' },
-  inactive: { label: 'Inactif', cls: 'bg-slate-100 text-slate-500' },
-};
 
 const todayJour = () =>
   new Date().toLocaleDateString('fr-FR', { weekday: 'long', timeZone: 'Africa/Algiers' });
@@ -45,10 +40,9 @@ const DashboardProf = () => {
     .sort((a, b) => (a.heure_debut ?? '').localeCompare(b.heure_debut ?? ''));
 
   const stats = [
-    { label: 'Mes groupes',         value: groups.length,                                     icon: BookOpen,     color: 'text-[#0F2A4A] bg-[#0F2A4A]/5' },
-    { label: 'Total étudiants',     value: totalStudents,                                      icon: Users,        color: 'text-[#0284C7] bg-[#0284C7]/10' },
-    { label: 'Groupes actifs',      value: groups.filter((g) => g.statut === 'active').length, icon: CheckCircle,  color: 'text-emerald-600 bg-emerald-50' },
-    { label: "Groupes aujourd'hui", value: todaySessions.length,                                icon: CalendarDays, color: 'text-purple-600 bg-purple-50' },
+    { label: 'Mes groupes',         value: groups.length,        icon: BookOpen,     color: 'text-[#0F2A4A] bg-[#0F2A4A]/5' },
+    { label: 'Total étudiants',     value: totalStudents,        icon: Users,        color: 'text-[#0284C7] bg-[#0284C7]/10' },
+    { label: "Groupes aujourd'hui", value: todaySessions.length, icon: CalendarDays, color: 'text-purple-600 bg-purple-50' },
   ];
 
   if (loading) return (
@@ -61,9 +55,12 @@ const DashboardProf = () => {
 
   return (
     <ProfLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+          <LayoutDashboard size={22} className="text-white" />
+        </div>
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Tableau de bord</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Tableau de bord</h1>
           <p className="text-slate-400 text-xs mt-0.5 flex items-center gap-1">
             Bonjour, {user?.prenom} <Hand size={13} className="text-orange-400" />
           </p>
@@ -79,7 +76,7 @@ const DashboardProf = () => {
       {!error && (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             {stats.map((s) => {
               const Icon = s.icon;
               return (
@@ -94,7 +91,7 @@ const DashboardProf = () => {
             })}
           </div>
 
-          {/* Today's schedule */}
+          {/* Today's schedule — mini schedule, sorted by time, matches admin's "Groupes d'aujourd'hui" block */}
           <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-sm mb-6">
             <h2 className="text-sm font-semibold text-[#1E293B] mb-4 flex items-center gap-2">
               <CalendarDays size={16} className="text-[#0284C7]" />
@@ -106,11 +103,10 @@ const DashboardProf = () => {
               <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                 {todaySessions.map((s, idx) => (
                   <div key={idx} className="flex items-stretch gap-3 rounded-xl border border-[#F1F5F9] overflow-hidden">
-                    <div className="w-20 shrink-0 bg-[#DCEBFA] text-[#0369A1] flex flex-col items-center justify-center py-2 text-xs font-semibold gap-0.5">
-                      <Clock size={13} />
-                      <span>{s.heure_debut?.slice(0, 5)}</span>
-                      <span className="text-[#0369A1]/40">—</span>
-                      <span>{s.heure_fin?.slice(0, 5)}</span>
+                    <div className="w-24 shrink-0 bg-[#DCEBFA] text-[#0369A1] flex flex-col items-center justify-center py-2 gap-1">
+                      <span className="text-[11px] font-semibold flex items-center gap-1">
+                        <Clock size={11} />{s.heure_debut?.slice(0, 5)}–{s.heure_fin?.slice(0, 5)}
+                      </span>
                     </div>
                     <div className="flex-1 flex items-center py-2 pr-3">
                       <div>
@@ -130,7 +126,7 @@ const DashboardProf = () => {
             )}
           </div>
 
-          {/* Groups table */}
+          {/* Groups table — row/hover/icon colors matched to admin's recentStudents table, Statut column removed */}
           <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-sm">
             <h2 className="text-sm font-semibold text-[#1E293B] mb-4 flex items-center gap-2">
               <Layers size={16} className="text-[#0284C7]" />
@@ -139,54 +135,51 @@ const DashboardProf = () => {
             {groups.length === 0 ? (
               <p className="text-sm text-[#94A3B8]">Aucun groupe assigné.</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-[#E2E8F0]">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="text-left text-xs text-[#0369A1] bg-[#DCEBFA]">
-                      <th className="py-2.5 px-3 font-medium border-b border-l border-[#E2E8F0]">
-                        <span className="flex items-center gap-1.5"><Layers size={13} /> Groupe</span>
-                      </th>
-                      <th className="py-2.5 px-3 font-medium border-b border-[#E2E8F0]">
-                        <span className="flex items-center gap-1.5"><BookOpen size={13} /> Formation</span>
-                      </th>
-                      <th className="py-2.5 px-3 font-medium border-b border-[#E2E8F0]">
-                        <span className="flex items-center gap-1.5"><Users size={13} /> Étudiants</span>
-                      </th>
-                      <th className="py-2.5 px-3 font-medium border-b border-[#E2E8F0]">
-                        <span className="flex items-center gap-1.5"><CheckCircle size={13} /> Statut</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groups.map((g, idx) => {
-                      const sm = statutMeta[g.statut];
-                      const formationId = g.formation_id ?? g.formations?.id;
-                      return (
-                        <tr
-                          key={g.id}
-                          onClick={() => navigate(`/prof/formations/${formationId}/groups/${g.id}`)}
-                          className={`cursor-pointer hover:bg-[#DCEBFA]/40 transition ${idx % 2 === 1 ? 'bg-[#EEF5FB]' : ''}`}
-                        >
-                          <td className="py-3 px-3 border-b border-l border-[#E2E8F0]">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[#0369A1] text-xs font-bold shrink-0">
-                                <Layers size={13} />
+              <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead className="bg-[#0F2A4A]">
+                      <tr>
+                        <th className="text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-l border-[#0F2A4A]">
+                          <span className="flex items-center gap-1.5"><Layers size={11} className="text-white/70" /> Groupe</span>
+                        </th>
+                        <th className="text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A]">
+                          <span className="flex items-center gap-1.5"><BookOpen size={11} className="text-white/70" /> Formation</span>
+                        </th>
+                        <th className="text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A]">
+                          <span className="flex items-center gap-1.5"><Users size={11} className="text-white/70" /> Étudiants</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groups.map((g, idx) => {
+                        const formationId = g.formation_id ?? g.formations?.id;
+                        return (
+                          <tr
+                            key={g.id}
+                            onClick={() => navigate(`/prof/formations/${formationId}/groups/${g.id}`)}
+                            className={`cursor-pointer hover:bg-slate-50 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}
+                          >
+                            <td className="px-3 py-2 overflow-hidden border-b border-l border-slate-100">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[#0369A1] flex-shrink-0">
+                                  <Layers size={12} />
+                                </div>
+                                <span className="font-medium text-slate-700 truncate">{g.nom}</span>
                               </div>
-                              <span className="font-medium text-[#1E293B]">{g.nom}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 text-[#64748B] border-b border-[#E2E8F0]">{g.formations?.nom ?? '—'}</td>
-                          <td className="py-3 px-3 text-[#64748B] border-b border-[#E2E8F0]">{g.nb_etudiants ?? 0}</td>
-                          <td className="py-3 px-3 border-b border-[#E2E8F0]">
-                            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}>
-                              {sm?.label ?? g.statut ?? '—'}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+                            <td className="px-3 py-2 overflow-hidden border-b border-slate-100">
+                              {g.formations?.nom
+                                ? <span className="inline-block bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium truncate max-w-full">{g.formations.nom}</span>
+                                : <span className="text-slate-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2 text-slate-500 truncate border-b border-slate-100">{g.nb_etudiants ?? 0}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>

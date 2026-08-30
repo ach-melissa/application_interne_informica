@@ -1,4 +1,4 @@
-import { User, Phone, Mail, GraduationCap, Users } from 'lucide-react';
+import { Phone, Mail, GraduationCap, Users } from 'lucide-react';
 
 /**
  * GroupStudents — read-only list of confirmed students.
@@ -30,12 +30,12 @@ const GroupStudents = ({ students = [] }) => {
     <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="bg-[#DCEBFA]">
+          <thead className="bg-[#0F2A4A]">
             <tr>
               {COLS.map(({ label, Icon }, i) => (
-                <th key={label} className={`text-left px-4 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap ${i === 0 ? 'border-l border-[#E2E8F0]' : ''}`}>
+                <th key={label} className={`text-left px-4 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] whitespace-nowrap ${i === 0 ? 'border-l border-[#0F2A4A]' : ''}`}>
                   <div className="flex items-center gap-1">
-                    {Icon && <Icon size={11} className="text-[#0369A1] flex-shrink-0" />}
+                    {Icon && <Icon size={11} className="text-white/70 flex-shrink-0" />}
                     <span>{label}</span>
                   </div>
                 </th>
@@ -44,20 +44,20 @@ const GroupStudents = ({ students = [] }) => {
           </thead>
           <tbody>
             {students.map((s, idx) => (
-              <tr key={s.id} className={`hover:bg-[#DCEBFA]/30 transition ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
-                <td className="px-4 py-2.5 border-b border-l border-[#E2E8F0]">
+              <tr key={s.id} className={`hover:bg-slate-50 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
+                <td className="px-4 py-2.5 border-b border-l border-slate-100">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[10px] font-bold text-[#0369A1] flex-shrink-0">
                       {(s.etudiants?.nom?.[0] ?? '?').toUpperCase()}
                     </div>
-                    <span className="font-medium text-[#1E293B] whitespace-nowrap">
+                    <span className="font-medium text-slate-700 whitespace-nowrap">
                       {s.etudiants?.nom} {s.etudiants?.prenom}
                     </span>
                   </div>
                 </td>
-                <td className="px-4 py-2.5 text-[#64748B] whitespace-nowrap border-b border-[#E2E8F0]">{s.etudiants?.telephone || '—'}</td>
-                <td className="px-4 py-2.5 text-[#64748B] whitespace-nowrap border-b border-[#E2E8F0]">{s.etudiants?.email || '—'}</td>
-                <td className="px-4 py-2.5 text-[#64748B] whitespace-nowrap border-b border-[#E2E8F0]">{s.etudiants?.niveau_scolaire || '—'}</td>
+                <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap border-b border-slate-100">{s.etudiants?.telephone || '—'}</td>
+                <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap border-b border-slate-100">{s.etudiants?.email || '—'}</td>
+                <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap border-b border-slate-100">{s.etudiants?.niveau_scolaire || '—'}</td>
               </tr>
             ))}
           </tbody>

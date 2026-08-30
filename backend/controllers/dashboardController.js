@@ -4,7 +4,9 @@ const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 's
 
 const getDashboardStats = async (req, res) => {
   try {
-    const today = JOURS[new Date().getDay()];
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
+    const today = JOURS[new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Algiers' })).getDay()];
 
    const [
   { count: formationsActivesCount },
@@ -71,7 +73,6 @@ const getDashboardStats = async (req, res) => {
       .sort((a, b) => (b.count / b.capacite) - (a.count / a.capacite));
       // Un groupe peut avoir plusieurs créneaux le même jour (matin + midi) —
     // on regroupe par groupe, mais on garde TOUS ses créneaux du jour.
-    const todayStr = new Date().toISOString().slice(0, 10);
     const isGroupCurrent = (g) => {
       if (!g) return false;
       if (g.archived) return false;

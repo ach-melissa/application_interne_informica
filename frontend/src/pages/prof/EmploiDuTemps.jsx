@@ -60,14 +60,14 @@ const EmploiDuTemps = () => {
     schedules.find((s) => s.salle === salle && s.jour_semaine === jour && s.periode === periode);
 
   return (
-    <div className="p-6">
+    <>
       <div className="flex items-center gap-3 mb-6">
-        <span className="w-9 h-9 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center flex-shrink-0">
-          <CalendarDays size={16} />
-        </span>
+        <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+          <CalendarDays size={22} className="text-white" />
+        </div>
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Mon emploi du temps</h1>
-          <p className="text-[#64748B] text-xs mt-0.5">Vue hebdomadaire de vos séances</p>
+          <h1 className="text-2xl font-bold text-slate-800">Mon emploi du temps</h1>
+          <p className="text-slate-400 text-xs mt-0.5">Vue hebdomadaire de vos séances</p>
         </div>
       </div>
 
@@ -155,7 +155,7 @@ const EmploiDuTemps = () => {
           </div>
         )
       )}
-    </div>
+    </>
   );
 };
 

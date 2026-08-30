@@ -36,6 +36,7 @@ import ProfLayout from './layouts/ProfLayout';
 
 import ProfFormations from './pages/prof/formations/ProfFormations';
 import ProfGroups from './pages/prof/formations/ProfGroups';
+import ProfFormationNiveaux from './pages/prof/formations/ProfFormationNiveaux';
 import ProfGroupDetail from './pages/prof/formations/ProfGroupDetail';
 // ── Pages comptable (nouvelles) ─────────────────────────────
 import DashboardComptable from './pages/comptable/dashboard/DashboardComptable';
@@ -158,6 +159,13 @@ function App() {
   <PrivateRoute allowedRoles={['prof']}>
     <ProfLayout>
       <ProfGroups />
+    </ProfLayout>
+  </PrivateRoute>
+} />
+<Route path="/prof/formations/:formationId/niveaux" element={
+  <PrivateRoute allowedRoles={['prof']}>
+    <ProfLayout>
+      <ProfFormationNiveaux />
     </ProfLayout>
   </PrivateRoute>
 } />

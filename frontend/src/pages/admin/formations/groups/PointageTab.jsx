@@ -440,6 +440,20 @@ const getCellStatut = (session, etudiant_id) => {
                     ))}
                   </tr>
                   <tr>
+                    <td className="border border-[#F1F5F9] px-3 py-2 sticky left-0 bg-white z-10">Type</td>
+                    {sessions.map(s => (
+                      <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center">
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                          s.type_seance === 'remplacement'
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-[#DCEBFA] text-[#0369A1]'
+                        }`}>
+                          {s.type_seance === 'remplacement' ? 'Remplacement' : 'Normale'}
+                        </span>
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
                     <td className="border border-[#F1F5F9] px-3 py-2  sticky left-0 bg-white z-10">Date de la Séance</td>
                     {sessions.map(s => (
                       <td key={s.id} className="border border-[#F1F5F9] px-1 py-1 text-center text-slate-800">
