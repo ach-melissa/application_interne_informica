@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, Users, GraduationCap } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Users, GraduationCap, Flag } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -73,8 +73,15 @@ const ProfGroups = () => {
                 onClick={() => navigate(`/prof/formations/${formationId}/groups/${g.id}`)}
                 className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] cursor-pointer transition"
               >
-                <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
-                  <Users size={20} className="text-emerald-600" />
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center">
+                    <Users size={20} className="text-emerald-600" />
+                  </div>
+                  {g.statut === 'terminer' && (
+                    <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-800 text-white">
+                      <Flag size={11} /> Terminé
+                    </span>
+                  )}
                 </div>
                 <h2 className="text-slate-800 font-semibold text-base mb-3">{g.nom}</h2>
                 <div className="flex items-center justify-between">
