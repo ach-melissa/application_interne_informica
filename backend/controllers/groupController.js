@@ -151,6 +151,12 @@ const updateGroup = async (req, res) => {
  if (updates.date_debut === '') updates.date_debut = null;
   if (updates.date_fin === '') updates.date_fin = null;
 
+  // Synchronise le statut avec date_fin, quelle que soit l'origine du PATCH
+  // (bouton "Terminer" dans Groups, toggle dans GroupFormModal, ou confirmFinishGroup dans PointageTab)
+  if ('date_fin' in updates) {
+    updates.statut = updates.date_fin ? 'terminer' : 'active';
+  }
+
   if (updates.use_default_duree === false && (!updates.duree_valeur || isNaN(updates.duree_valeur) || Number(updates.duree_valeur) <= 0)) {
     return res.status(400).json({ error: 'La durée personnalisée du groupe doit être un nombre valide.' });
   }
@@ -447,7 +453,7 @@ const getMyGroups = async (req, res) => {
   const { data, error } = await supabase
     .from('groups')
     .select(`
-      id, nom, formation_id, date_debut, date_fin,
+      id, nom, formation_id, date_debut, date_fin, statut,
       formations:formation_id(id, nom, a_niveaux),
       teacher:teacher_id(id, user:user_id(nom, prenom)),
       niveau:niveau_id(id, nom)
