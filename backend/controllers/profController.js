@@ -487,7 +487,7 @@ const updateProfGroupSession = async (req, res) => {
 
     const { data: session } = await supabase
       .from('sessions')
-      .select('id, group_id, date, groups(teacher_id)')
+      .select('id, group_id, date, type_seance, groups(teacher_id)')
       .eq('id', req.params.sessionId)
       .single();
 
@@ -499,7 +499,26 @@ const updateProfGroupSession = async (req, res) => {
       return res.status(403).json({ message: 'Cette séance ne peut plus être modifiée (jour passé)' });
     }
 
-    const { date, duree, emarg_enseignant, emarg_stagiaires, statut, type_seance } = req.body;
+    // Même règle que createProfGroupSession : une séance "Normale" doit
+    // tomber sur un jour de l'emploi du temps du groupe.
+    const nextDate = req.body.date !== undefined ? req.body.date : session.date;
+    const nextType = req.body.type_seance !== undefined ? req.body.type_seance : session.type_seance;
+    if (nextType === 'normale') {
+      const { data: schedules, error: schedErr } = await supabase
+        .from('schedules')
+        .select('jour_semaine')
+        .eq('group_id', session.group_id);
+      if (schedErr) return res.status(500).json({ message: schedErr.message });
+      const joursEmploi = (schedules || []).map((s) => s.jour_semaine.toLowerCase());
+      const jourDemande = getJourSemaine(nextDate).toLowerCase();
+      if (!joursEmploi.includes(jourDemande)) {
+        return res.status(400).json({
+          message: "Ce jour ne fait pas partie de l'emploi du temps du groupe — utilisez une séance de type Remplacement.",
+        });
+      }
+    }
+
+    const { date, duree, emarg_enseignant, emarg_stagiaires, statut, type_seance, heure_debut, heure_fin, duree_effectuee } = req.body;
     const patch = {};
     if (date              !== undefined) patch.date              = date;
     if (duree             !== undefined) patch.duree             = duree;
@@ -507,6 +526,9 @@ const updateProfGroupSession = async (req, res) => {
     if (emarg_stagiaires  !== undefined) patch.emarg_stagiaires  = emarg_stagiaires;
     if (statut            !== undefined) patch.statut            = statut;
     if (type_seance       !== undefined) patch.type_seance       = type_seance;
+    if (heure_debut       !== undefined) patch.heure_debut       = heure_debut;
+    if (heure_fin         !== undefined) patch.heure_fin         = heure_fin;
+    if (duree_effectuee   !== undefined) patch.duree_effectuee   = duree_effectuee != null ? Number(duree_effectuee) : null;
 
     const { data, error } = await supabase
       .from('sessions')
@@ -525,7 +547,6 @@ const updateProfGroupSession = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
-
 // ============================================================
 // PROF — supprimer une séance
 // Verrouillé dès que la date de la séance n'est plus aujourd'hui

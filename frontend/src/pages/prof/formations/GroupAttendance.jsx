@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, X, CalendarDays, Lock, UserCheck, UserX, Clock } from 'lucide-react';
+import { Plus, Trash2, X, CalendarDays, Lock, UserCheck, UserX, Clock, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
-import { resolveGroupDuration, computeNextSessionDate } from '../../../utils/pointageHelpers';
-
+import { resolveGroupDuration } from '../../../utils/pointageHelpers';
 const API = import.meta.env.VITE_API_URL;
 
 const STATUT_LABEL = { present: 'P', absent: 'A', retard: 'R' };
@@ -60,6 +59,17 @@ const GroupAttendance = ({ groupId }) => {
   const [loadError, setLoadError] = useState(null);
 
   const [addingSession, setAddingSession] = useState(false);
+  const [confirmDeleteSession, setConfirmDeleteSession] = useState(null);
+const [deletingSession, setDeletingSession] = useState(false);
+  const [editingSession, setEditingSession] = useState(null);
+  const [editDate, setEditDate] = useState('');
+  const [editType, setEditType] = useState('normale');
+  const [editHeureDebut, setEditHeureDebut] = useState('');
+  const [editHeureFin, setEditHeureFin] = useState('');
+  const [editDuree, setEditDuree] = useState('');
+  const [editDureeTouched, setEditDureeTouched] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState(null);
   const [newDate, setNewDate] = useState('');
   const [newType, setNewType] = useState('normale');
   const [pendingSession, setPendingSession] = useState(false);
@@ -83,7 +93,14 @@ const GroupAttendance = ({ groupId }) => {
       setDureeEffectuee(diff ? diff.toFixed(2) : '');
     }
   }, [heureDebut, heureFin, isHourBased, dureeTouched]);
-
+  useEffect(() => {
+    if (isHourBased && editHeureDebut && editHeureFin && !editDureeTouched) {
+      const [sh, sm] = editHeureDebut.split(':').map(Number);
+      const [eh, em] = editHeureFin.split(':').map(Number);
+      const diff = Math.max(0, (eh + em / 60) - (sh + sm / 60));
+      setEditDuree(diff ? diff.toFixed(2) : '');
+    }
+  }, [editHeureDebut, editHeureFin, isHourBased, editDureeTouched]);
   const token = () => localStorage.getItem('token');
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -254,16 +271,59 @@ body: JSON.stringify({
     }
   };
 
-  // ── Delete session ────────────────────────────────────────────────
-  const deleteSession = async (sessionId) => {
-    if (!confirm('Supprimer cette séance ?')) return;
+  const openEditSession = (s) => {
+    setEditingSession(s);
+    setEditDate(s.date.slice(0, 10));
+    setEditType(s.type_seance === 'remplacement' ? 'remplacement' : 'normale');
+    setEditHeureDebut(s.heure_debut ? s.heure_debut.slice(0, 5) : '');
+    setEditHeureFin(s.heure_fin ? s.heure_fin.slice(0, 5) : '');
+    setEditDuree(s.duree_effectuee ?? '');
+    setEditDureeTouched(true);
+    setEditError(null);
+  };
+
+  const saveEditSession = async () => {
+    if (!editingSession) return;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`${apiBase}/sessions/${editingSession.id}`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          date: editDate,
+          type_seance: editType,
+          heure_debut: editHeureDebut,
+          heure_fin: isHourBased ? editHeureFin : null,
+          duree_effectuee: isHourBased ? Number(editDuree) : null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Erreur lors de la modification de la séance.');
+      }
+      const updated = await res.json();
+      setSessions((prev) => prev.map((x) => (x.id === updated.id ? updated : x)).sort((a, b) => new Date(a.date) - new Date(b.date)));
+      setEditingSession(null);
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+const deleteSession = async (sessionId) => {
+    setDeletingSession(true);
     try {
       const res = await fetch(`${apiBase}/sessions/${sessionId}`, { method: 'DELETE', headers: getHeaders() });
       if (!res.ok) throw new Error();
       setSessions((s) => s.filter((x) => x.id !== sessionId));
+      setConfirmDeleteSession(null);
     } catch (err) {
       console.error(err);
       setSaveError('Erreur lors de la suppression de la séance.');
+    } finally {
+      setDeletingSession(false);
     }
   };
 
@@ -281,10 +341,12 @@ body: JSON.stringify({
   const jourSemaineSelectionne = newDate ? getJourSemaine(newDate) : null;
   const jourValide = jourSemaineSelectionne ? joursEmploi.includes(jourSemaineSelectionne) : true;
 const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeEffectuee)) && (newType !== 'normale' || jourValide);
-  const suggestedNextDate = addingSession
-    ? computeNextSessionDate(groupData?.jours_formation, sessions.length ? sessions[sessions.length - 1].date : null)
-    : null;
 
+  const editJourSemaine = editDate ? getJourSemaine(editDate) : null;
+  const editJourValide = editJourSemaine ? joursEmploi.includes(editJourSemaine) : true;
+  const canConfirmEdit = editDate && editHeureDebut
+    && (!isHourBased || (editHeureFin && editDuree))
+    && (editType !== 'normale' || editJourValide);
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -376,15 +438,7 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                       Ce n'est pas un jour de cours de ce groupe — une séance "Normale" n'est pas possible ce jour-là. Utilisez "Remplacement".
                     </p>
                   )}
-                  {suggestedNextDate && suggestedNextDate !== newDate && (
-                    <button
-                      type="button"
-                      onClick={() => setNewDate(suggestedNextDate)}
-                      className="text-[10px] text-[#0369A1] hover:underline mt-1"
-                    >
-                      Prochaine séance prévue : {formatDate(suggestedNextDate)}
-                    </button>
-                  )}
+
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Type de séance</p>
@@ -425,6 +479,84 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                   <button onClick={addSession} disabled={!canConfirm || pendingSession}
                     className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
                     {pendingSession ? 'Ajout…' : 'Confirmer'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {editingSession && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => !savingEdit && setEditingSession(null)}>
+            <div className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9]">
+                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+                    <CalendarDays size={14} className="text-white" />
+                  </span>
+                  Modifier la séance
+                </h2>
+                <button onClick={() => setEditingSession(null)}><X size={16} className="text-slate-300 hover:text-slate-600" /></button>
+              </div>
+              <div className="p-5 space-y-3">
+                {editError && (
+                  <p className="text-[11px] text-red-600 bg-red-50 border border-red-100 rounded-md px-2.5 py-1.5">{editError}</p>
+                )}
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Date de la séance <span className="text-red-500">*</span></p>
+                  <input
+                    type="date" value={editDate} autoFocus
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className={`w-full bg-white border rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 transition-colors ${
+                      editDate && !editJourValide
+                        ? 'border-amber-300 focus:ring-amber-400/40 focus:border-amber-400'
+                        : 'border-slate-200 focus:ring-[#0369A1]/40 focus:border-[#0369A1]'
+                    }`}
+                  />
+                  {editDate && !editJourValide && (
+                    <p className="text-[10px] text-amber-600 mt-1">
+                      Ce n'est pas un jour de cours de ce groupe — une séance "Normale" n'est pas possible ce jour-là. Utilisez "Remplacement".
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Type de séance</p>
+                  <select
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
+                  >
+                    <option value="normale" disabled={!editJourValide}>Normale</option>
+                    <option value="remplacement">Remplacement</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure début <span className="text-red-500">*</span></p>
+                    <input type="time" value={editHeureDebut} onChange={(e) => setEditHeureDebut(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
+                  </div>
+                  {isHourBased && (
+                    <div className="flex-1">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin <span className="text-red-500">*</span></p>
+                      <input type="time" value={editHeureFin} onChange={(e) => setEditHeureFin(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
+                    </div>
+                  )}
+                </div>
+                {isHourBased && (
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Durée de la séance (heures) <span className="text-red-500">*</span></p>
+                    <input type="number" step="0.25" min="0" value={editDuree}
+                      onChange={(e) => { setEditDuree(e.target.value); setEditDureeTouched(true); }}
+                      className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
+                  </div>
+                )}
+                <div className="flex justify-end gap-2 pt-1">
+                  <button onClick={() => setEditingSession(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
+                  <button onClick={saveEditSession} disabled={!canConfirmEdit || savingEdit}
+                    className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
+                    {savingEdit ? 'Enregistrement…' : 'Enregistrer'}
                   </button>
                 </div>
               </div>
@@ -493,14 +625,23 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                     <td className="border border-[#F1F5F9] px-3 py-2 sticky left-0 bg-white z-10">
                       Date de la Séance
                     </td>
-                    {sessions.map((s) => (
-                      <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center text-slate-800">
-                        {formatDate(s.date)}
-                        {!isEditableToday(s.date) && (
-                          <Lock size={10} className="inline-block ml-1 text-slate-300" />
-                        )}
-                      </td>
-                    ))}
+                    {sessions.map((s) => {
+                      const editable = isEditableToday(s.date);
+                      return (
+                        <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center text-slate-800">
+                          {editable ? (
+                            <button onClick={() => openEditSession(s)} className="hover:underline hover:text-[#0369A1] transition">
+                              {formatDate(s.date)}
+                            </button>
+                          ) : (
+                            <>
+                              {formatDate(s.date)}
+                              <Lock size={10} className="inline-block ml-1 text-slate-300" />
+                            </>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
 
                   {/* ── Horaire ── */}
@@ -508,13 +649,21 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                     <td className="border border-[#F1F5F9] px-3 py-2 sticky left-0 bg-white z-10">
                       Horaire
                     </td>
-                    {sessions.map((s) => (
-                      <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center text-slate-800">
-                        {s.heure_debut
-                          ? (s.heure_fin ? `${s.heure_debut.slice(0, 5)} - ${s.heure_fin.slice(0, 5)}` : s.heure_debut.slice(0, 5))
-                          : '—'}
-                      </td>
-                    ))}
+                    {sessions.map((s) => {
+                      const editable = isEditableToday(s.date);
+                      const label = s.heure_debut
+                        ? (s.heure_fin ? `${s.heure_debut.slice(0, 5)} - ${s.heure_fin.slice(0, 5)}` : s.heure_debut.slice(0, 5))
+                        : '—';
+                      return (
+                        <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center text-slate-800">
+                          {editable ? (
+                            <button onClick={() => openEditSession(s)} className="hover:underline hover:text-[#0369A1] transition">
+                              {label}
+                            </button>
+                          ) : label}
+                        </td>
+                      );
+                    })}
                   </tr>
 
                   {/* ── Durée (editable, stored in sessions.duree) ── */}
@@ -605,8 +754,8 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                       const editable = isEditableToday(s.date);
                       return (
                         <td key={s.id} className="border border-[#F1F5F9] px-2 py-1.5 text-center">
-                          {editable ? (
-                            <button onClick={() => deleteSession(s.id)} className="text-red-300 hover:text-red-500 transition">
+{editable ? (
+                            <button onClick={() => setConfirmDeleteSession(s)} className="text-red-300 hover:text-red-500 transition">
                               <Trash2 size={12} />
                             </button>
                           ) : (
@@ -666,6 +815,40 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
             </div>
           );
         })()}
+        {confirmDeleteSession && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => !deletingSession && setConfirmDeleteSession(null)}>
+    <div onClick={(ev) => ev.stopPropagation()} className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#F1F5F9]">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-red-500 flex items-center justify-center shrink-0">
+            <Trash2 size={15} className="text-white" />
+          </div>
+          <h2 className="text-sm font-semibold text-slate-800">Supprimer la séance</h2>
+        </div>
+        <button onClick={() => setConfirmDeleteSession(null)} className="text-slate-300 hover:text-slate-600 flex-shrink-0">
+          <X size={16} />
+        </button>
+      </div>
+      <div className="px-5 py-4">
+        <div className="bg-red-50 rounded-md p-3">
+          <p className="text-xs text-red-600 flex items-center gap-1.5">
+            <AlertTriangle size={13} className="flex-shrink-0" />
+            Supprimer la séance du {formatDate(confirmDeleteSession.date)} ? Action irréversible.
+          </p>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
+        <button onClick={() => setConfirmDeleteSession(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">
+          Annuler
+        </button>
+        <button onClick={() => deleteSession(confirmDeleteSession.id)} disabled={deletingSession}
+          className="text-xs px-3 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
+          {deletingSession ? '...' : 'Oui, supprimer'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       </div>
     </>
   );
