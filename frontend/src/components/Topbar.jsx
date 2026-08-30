@@ -89,6 +89,7 @@ const Topbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [finishingGroupId, setFinishingGroupId] = useState(null);
 
   const menuRef = useRef(null);
   const notifRef = useRef(null);
@@ -174,7 +175,29 @@ const Topbar = () => {
       // ignore — next poll will resync if this failed
     }
   };
+  const handleTerminerGroupe = async (e, notification) => {
+    e.stopPropagation(); // ne pas déclencher la navigation du bouton parent
+    const groupeId = notification.data?.groupe_id;
+    if (!groupeId) return;
 
+    setFinishingGroupId(groupeId);
+    try {
+      const token = localStorage.getItem('token');
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/groups/${groupeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ date_fin: today }),
+      });
+      if (!res.ok) throw new Error();
+      // updateGroup marque déjà la notif comme lue côté backend quand date_fin est renseigné
+      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+    } catch {
+      // silencieux — le prochain poll (30s) resynchronisera si ça a échoué
+    } finally {
+      setFinishingGroupId(null);
+    }
+  };
   const handleNotificationClick = (notification) => {
     setNotifOpen(false);
     markAsRead(notification.id);
@@ -300,10 +323,20 @@ const Topbar = () => {
                                 )}
                               </ul>
                             )}
-
                             <p className="text-[11px] text-slate-400 mt-1">
                               {formatRelativeTime(n.created_at)}
                             </p>
+
+                            {isAdmin && n.type === 'groupe_complete' && (
+                              <button
+                                onClick={(e) => handleTerminerGroupe(e, n)}
+                                disabled={finishingGroupId === n.data?.groupe_id}
+                                className="mt-2 flex items-center gap-1 text-[11px] font-medium text-white bg-slate-800 px-2.5 py-1 rounded-full hover:bg-slate-900 disabled:opacity-40 transition"
+                              >
+                                <Flag size={11} />
+                                {finishingGroupId === n.data?.groupe_id ? 'Terminaison...' : 'Terminer'}
+                              </button>
+                            )}
                           </div>
                         </button>
                       );

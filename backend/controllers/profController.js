@@ -110,7 +110,8 @@ const getProfGroups = async (req, res) => {
       .from('groups')
       .select('*, formations(nom), schedules(jour_semaine, heure_debut, heure_fin)')
       .eq('teacher_id', teacher.id)
-      .eq('archived', false);
+      .eq('archived', false)
+      .neq('statut', 'terminer');
 
     if (error) return res.status(500).json({ message: 'Erreur serveur' });
 

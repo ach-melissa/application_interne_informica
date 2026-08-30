@@ -460,7 +460,7 @@ const getMyGroups = async (req, res) => {
     `)
     .eq('teacher_id', teacher.id)
     .eq('archived', false)
-    .or(`date_fin.is.null,date_fin.gte.${today}`);
+    .neq('statut', 'terminer');
 
   if (error) return res.status(500).json({ error: error.message });
 

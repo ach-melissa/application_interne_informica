@@ -50,16 +50,16 @@ const createSchedule = async (req, res) => {
 if (heure_debut < '08:00' || heure_fin > '16:00' || heure_debut >= heure_fin) {
   return res.status(400).json({ error: 'Les horaires doivent être compris entre 08:00 et 16:00.' });
 }
-  // ← NOUVEAU : ces 12 lignes n'existaient pas avant
-  const { data: conflicts, error: conflictErr } = await supabase
+  const { data: rawConflicts, error: conflictErr } = await supabase
     .from('schedules')
-    .select('id, heure_debut, heure_fin')
+    .select('id, heure_debut, heure_fin, groups(statut)')
     .eq('salle', salle)
     .eq('jour_semaine', jour_semaine)
     .lt('heure_debut', heure_fin)
     .gt('heure_fin', heure_debut);
 
   if (conflictErr) return res.status(500).json({ error: conflictErr.message });
+  const conflicts = (rawConflicts || []).filter((c) => c.groups?.statut !== 'terminer');
   if (conflicts.length > 0) {
     return res.status(409).json({
       error: `${salle} est déjà occupée ce jour-là de ${conflicts[0].heure_debut} à ${conflicts[0].heure_fin}.`,
@@ -90,9 +90,9 @@ const updateSchedule = async (req, res) => {
       .single();
     if (curErr) return res.status(500).json({ error: curErr.message });
 
-    const { data: conflicts, error: conflictErr } = await supabase
+    const { data: rawConflicts, error: conflictErr } = await supabase
       .from('schedules')
-      .select('id, heure_debut, heure_fin')
+      .select('id, heure_debut, heure_fin, groups(statut)')
       .eq('salle', current.salle)
       .eq('jour_semaine', current.jour_semaine)
       .neq('id', id)
@@ -100,6 +100,7 @@ const updateSchedule = async (req, res) => {
       .gt('heure_fin', heure_debut);
 
     if (conflictErr) return res.status(500).json({ error: conflictErr.message });
+    const conflicts = (rawConflicts || []).filter((c) => c.groups?.statut !== 'terminer');
     if (conflicts.length > 0) {
       return res.status(409).json({
         error: `${current.salle} est déjà occupée ce jour-là de ${conflicts[0].heure_debut} à ${conflicts[0].heure_fin}.`,

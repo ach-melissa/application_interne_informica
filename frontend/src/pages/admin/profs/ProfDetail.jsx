@@ -52,18 +52,19 @@ const ProfDetail = () => {
     fetchProf();
   }, [id]);
 
+  const activeGroups = (prof?.groups ?? []).filter((g) => g.statut !== 'terminer');
   const groupsByFormation = (prof?.formations ?? []).reduce((acc, f) => {
     acc[f.id] = { formation: f, groups: [] };
     return acc;
   }, {});
-  (prof?.groups ?? []).forEach((g) => {
+  activeGroups.forEach((g) => {
     const key = g.formation?.id;
     if (!key) return;
     if (!groupsByFormation[key]) groupsByFormation[key] = { formation: g.formation, groups: [] };
     groupsByFormation[key].groups.push(g);
   });
   const formationCount = prof?.formations?.length ?? 0;
-  const groupCount = prof?.groups?.length ?? 0;
+  const groupCount = activeGroups.length;
   const initials = `${prof?.prenom?.[0] ?? ''}${prof?.nom?.[0] ?? ''}`;
 
   const tabs = [
