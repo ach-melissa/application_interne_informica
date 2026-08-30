@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const supabase = require('../supabaseClient');
-
+const { logHistorique, buildDiffDescription } = require('../utils/historique');
 const SAFE_FIELDS = 'id, nom, prenom, email, nom_utilisateur, telephone, date_naissance, role, created_at, archived, photo_path';
 const syncTeacherFormations = async (userId, formationIds) => {
   let { data: teacher } = await supabase
@@ -336,6 +336,15 @@ const createUser = async (req, res) => {
       return res.status(500).json({ message: 'Erreur serveur' });
     }
 
+    await logHistorique({
+      req,
+      perimetre: 'admin',
+      action: 'creation',
+      entite: 'utilisateur',
+      entite_id: newUser.id,
+      description: `a créé l'utilisateur ${newUser.prenom} ${newUser.nom} (rôle : ${newUser.role})`,
+    });
+
     if (role === 'prof' && req.body.formation_ids) {
       try {
         await syncTeacherFormations(newUser.id, JSON.parse(req.body.formation_ids));
@@ -386,8 +395,13 @@ const createUser = async (req, res) => {
 // ============================================================
 const updateUser = async (req, res) => {
   try {
-    const { nom, prenom, email, nom_utilisateur, telephone, date_naissance, role, mot_de_passe, remove_photo } = req.body;
+    const { data: before } = await supabase
+      .from('users')
+      .select(SAFE_FIELDS)
+      .eq('id', req.params.id)
+      .single();
 
+    const { nom, prenom, email, nom_utilisateur, telephone, date_naissance, role, mot_de_passe, remove_photo } = req.body;
     const patch = {};
     if (nom             !== undefined) patch.nom             = nom;
     if (prenom          !== undefined) patch.prenom          = prenom;
@@ -468,6 +482,19 @@ const updateUser = async (req, res) => {
       }
     }
 
+    const changes = buildDiffDescription(before, patch);
+    if (changes.length > 0) {
+      await logHistorique({
+        req,
+        perimetre: 'admin',
+        action: 'modification',
+        entite: 'utilisateur',
+        entite_id: req.params.id,
+        description: `a modifié l'utilisateur ${data.prenom} ${data.nom} — ${changes.join(', ')}`,
+        details: { changes },
+      });
+    }
+
     res.json(await withPhotoUrl(data));
   } catch (err) {
     console.error(err);
@@ -480,6 +507,12 @@ const updateUser = async (req, res) => {
 // ============================================================
 const deleteUser = async (req, res) => {
   try {
+    const { data: toDelete } = await supabase
+      .from('users')
+      .select(SAFE_FIELDS)
+      .eq('id', req.params.id)
+      .single();
+
     const { data: existing } = await supabase.storage.from(AVATAR_BUCKET).list(req.params.id);
     if (existing?.length) {
       await supabase.storage
@@ -497,6 +530,15 @@ if (error) {
   console.error('deleteUser:', error);
   return res.status(500).json({ message: 'Erreur serveur' });
 }
+
+    await logHistorique({
+      req,
+      perimetre: 'admin',
+      action: 'suppression',
+      entite: 'utilisateur',
+      entite_id: req.params.id,
+      description: `a supprimé l'utilisateur ${toDelete?.prenom} ${toDelete?.nom} (rôle : ${toDelete?.role})`,
+    });
 
     res.json({ message: 'Utilisateur supprimé' });
   } catch (err) {

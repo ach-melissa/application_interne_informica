@@ -33,7 +33,7 @@ const Field = ({ icon, label, field, form, editing, set, opts, required }) => (
   <div>
     <Label icon={icon} text={label} required={required} />
     {editing ? (
-      opts ? (
+      Array.isArray(opts) && opts.length > 0 ? (
         <select value={form[field]} onChange={set(field)} className={inp}>
           {opts.map(o => <option key={o} value={o}>{roleMeta[o] ?? o}</option>)}
         </select>
@@ -70,7 +70,10 @@ const UserDetailsModal = ({ user, onClose, onSuccess }) => {
 const [newPassword, setNewPassword] = useState('');
 const [showPassword, setShowPassword] = useState(false);
   useEffect(() => {
-    fetch(`${API}/api/users/roles`, { headers: authHeader() }).then(r => r.json()).then(setRoles).catch(() => {});
+fetch(`${API}/api/users/roles`, { headers: authHeader() })
+  .then(r => r.ok ? r.json() : Promise.reject())
+  .then(d => setRoles(Array.isArray(d) ? d : (Array.isArray(d?.roles) ? d.roles : [])))
+  .catch(() => {});
     fetch(`${API}/api/formations`, { headers: authHeader() })
       .then(r => r.json()).then(d => setFormations(d.filter(f => f.statut === 'active'))).catch(() => {});
     if (user.role === 'prof') {

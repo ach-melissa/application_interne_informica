@@ -46,8 +46,8 @@ model etudiants {
 model formations {
   id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nom                       String                      @db.VarChar(255)
-  prix                      Decimal                     @db.Decimal(10, 2)
-  heures                    Int
+  prix                      Decimal?                    @db.Decimal(10, 2)
+  heures                    Int?
   teacher_id                String?                     @db.Uuid
   statut                    formation_status?           @default(active)
   created_at                DateTime?                   @default(now()) @db.Timestamp(6)
@@ -61,6 +61,8 @@ model formations {
   prix_uniforme             Boolean                     @default(true)
   duree_uniforme            Boolean                     @default(true)
   type_duree_uniforme       Boolean                     @default(true)
+  echeancier_uniforme       Boolean                     @default(true)
+  capacite_uniforme         Boolean                     @default(true)
   attestations              attestations[]
   formation_niveaux         formation_niveaux[]
   formation_payment_periods formation_payment_periods[]
@@ -89,6 +91,9 @@ model groups {
   prix_promotion        Decimal?                @db.Decimal
   use_default_periods   Boolean                 @default(true)
   niveau_id             String?                 @db.Uuid
+  use_default_duree     Boolean                 @default(true)
+  duree_valeur          Decimal?                @db.Decimal
+  type_duree            String?
   attestations          attestations[]
   group_payment_alerts  group_payment_alerts?
   group_payment_periods group_payment_periods[]
@@ -124,6 +129,7 @@ model inscriptions {
   en_promotion         Boolean?              @default(false)
   prix_promotion       Decimal?              @db.Decimal
   niveau_id            String?               @db.Uuid
+  abandonne_at         DateTime?             @db.Timestamptz(6)
   attestations         attestations[]
   etudiants            etudiants             @relation(fields: [etudiant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   formations           formations            @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -215,22 +221,24 @@ model schedules {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sessions {
-  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  group_id    String          @db.Uuid
-  date        DateTime        @db.Date
-  statut      session_status? @default(planifiee)
-  created_at  DateTime?       @default(now()) @db.Timestamp(6)
-  prof_id     String?         @db.Uuid
-  duree       String?
-  type_seance String          @default("normale")
-  salle_id    String?         @db.Uuid
-  salle       String?         @db.VarChar
-  heure_debut DateTime?       @db.Time(6)
-  heure_fin   DateTime?       @db.Time(6)
-  attendance  attendance[]
-  groups      groups          @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users       users?          @relation(fields: [prof_id], references: [id], onUpdate: NoAction)
-  salles      salles?         @relation(fields: [salle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  group_id        String          @db.Uuid
+  date            DateTime        @db.Date
+  statut          session_status? @default(planifiee)
+  created_at      DateTime?       @default(now()) @db.Timestamp(6)
+  prof_id         String?         @db.Uuid
+  duree           String?
+  type_seance     String          @default("normale")
+  salle_id        String?         @db.Uuid
+  salle           String?         @db.VarChar
+  heure_debut     DateTime?       @db.Time(6)
+  heure_fin       DateTime?       @db.Time(6)
+  finalized_at    DateTime?       @db.Timestamptz(6)
+  duree_effectuee Decimal?        @db.Decimal
+  attendance      attendance[]
+  groups          groups          @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users?          @relation(fields: [prof_id], references: [id], onUpdate: NoAction)
+  salles          salles?         @relation(fields: [salle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([salle_id, date], map: "idx_sessions_salle_date")
   @@index([group_id, statut], map: "idx_sessions_group_statut")
@@ -306,13 +314,15 @@ model teacher_formations {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model formation_payment_periods {
-  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  formation_id String     @db.Uuid
-  numero       Int
-  jours_offset Int
-  montant      Decimal    @db.Decimal
-  created_at   DateTime?  @default(now()) @db.Timestamp(6)
-  formations   formations @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formation_id      String             @db.Uuid
+  numero            Int
+  jours_offset      Int
+  montant           Decimal            @db.Decimal
+  created_at        DateTime?          @default(now()) @db.Timestamp(6)
+  niveau_id         String?            @db.Uuid
+  formations        formations         @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  formation_niveaux formation_niveaux? @relation(fields: [niveau_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([formation_id], map: "idx_formation_payment_periods_formation")
 }
@@ -367,17 +377,19 @@ model parametre_valeurs {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model formation_niveaux {
-  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  formation_id String         @db.Uuid
-  nom          String         @db.VarChar(100)
-  ordre        Int            @default(0)
-  prix         Decimal?       @db.Decimal(10, 2)
-  duree_valeur Int?
-  type_duree   String?        @db.VarChar(20)
-  created_at   DateTime?      @default(now()) @db.Timestamp(6)
-  formations   formations     @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  groups       groups[]
-  inscriptions inscriptions[]
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formation_id              String                      @db.Uuid
+  nom                       String                      @db.VarChar(100)
+  ordre                     Int                         @default(0)
+  prix                      Decimal?                    @db.Decimal(10, 2)
+  duree_valeur              Int?
+  type_duree                String?                     @db.VarChar(20)
+  created_at                DateTime?                   @default(now()) @db.Timestamp(6)
+  capacite_groupe           Int?
+  formations                formations                  @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  formation_payment_periods formation_payment_periods[]
+  groups                    groups[]
+  inscriptions              inscriptions[]
 
   @@index([formation_id], map: "idx_formation_niveaux_formation")
 }
@@ -389,13 +401,12 @@ enum attendance_status {
 }
 
 enum day_enum {
+  samedi
+  dimanche
   lundi
   mardi
   mercredi
   jeudi
-  vendredi
-  samedi
-  dimanche
 }
 
 enum formation_status {

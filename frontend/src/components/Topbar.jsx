@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, User, LogOut, ClipboardList, CreditCard, History, Flag, Archive, Clock } from 'lucide-react';
+import HistoriqueDropdown from './HistoriqueDropdown';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/images/logo_informica.png';
 
@@ -107,20 +108,8 @@ const Topbar = () => {
   // - admin        → voit les actions admin + super_admin
   // - comptable    → voit les actions comptable + super_admin
   // - super_admin  → voit tout (admin + comptable), car il partage les deux périmètres
-  const canSeeHistorique = isAdmin || isSuperAdmin || isComptable;
-  const historiqueScopeLabel = isSuperAdmin
-    ? 'Actions admin & comptable'
-    : isComptable
-    ? 'Actions comptable & super admin'
-    : 'Actions admin & super admin';
-
-  const [historiqueOpen, setHistoriqueOpen] = useState(false);
-  const historiqueRef = useRef(null);
-
- 
-  // selon le rôle courant, avec la même logique de périmètre que historiqueScopeLabel.
-  const historiqueEntries = [];
-
+  const canSeeHistorique = isAdmin || isSuperAdmin;
+  const historiqueScopeLabel = 'Actions admin & super admin';
   const fetchNotifications = useCallback(async () => {
     if (!isAdmin && !isProf) return;
 
@@ -159,12 +148,10 @@ const Topbar = () => {
     const close = (e) => {
       if (!menuRef.current?.contains(e.target)) setMenuOpen(false);
       if (!notifRef.current?.contains(e.target)) setNotifOpen(false);
-      if (!historiqueRef.current?.contains(e.target)) setHistoriqueOpen(false);
     };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, []);
-
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -220,42 +207,7 @@ const Topbar = () => {
       <img src={logo} alt="Informica" className="h-10 w-auto object-contain" />
 
             <div className="flex items-center gap-3">
-        {/* Historique — statique pour l'instant */}
-        {canSeeHistorique && (
-          <div className="relative" ref={historiqueRef}>
-            <button
-              onClick={() => setHistoriqueOpen(!historiqueOpen)}
-              className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-50 transition-colors"
-              title="Historique"
-            >
-              <History size={18} className="text-[#64748B]" />
-            </button>
-
-            {historiqueOpen && (
-              <div className="absolute right-0 mt-2 w-96 bg-white border border-[#E2E8F0] rounded-xl shadow-xl overflow-hidden z-50">
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <p className="text-sm font-semibold text-slate-700">Historique</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{historiqueScopeLabel}</p>
-                </div>
-
-                <div className="max-h-96 overflow-y-auto">
-                  {historiqueEntries.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-8">
-                      Aucune activité pour le moment
-                    </p>
-                  ) : (
-                    historiqueEntries.map((h, i) => (
-                      <div key={i} className="px-4 py-3 border-b border-slate-100">
-                        <p className="text-sm text-slate-700">{h.description}</p>
-                        <p className="text-[11px] text-slate-400 mt-1">{h.date}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {canSeeHistorique && <HistoriqueDropdown scopeLabel={historiqueScopeLabel} />}
 
         {/* Notifications */}
         {(isAdmin || isProf) && (
