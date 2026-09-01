@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import EtudiantDetailModal, { printRows, FICHE_CSS, buildFicheInner, imgToBase64 } from './EtudiantDetailModal';
+import AddEtudiantModal from './AddEtudiantModal';
 import logo from '../../../assets/images/logo_informica.png';
 
 const API = import.meta.env.VITE_API_URL;

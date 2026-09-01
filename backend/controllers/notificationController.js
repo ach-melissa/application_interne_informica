@@ -1,4 +1,5 @@
 const supabase = require('../supabaseClient');
+const { logHistorique } = require('../utils/historique');
 const { runArchiveReminder } = require('../jobs/archiveReminder');
 const { runPointageReminder } = require('../jobs/pointageReminder');
 const demanderSalle = async (req, res) => {
@@ -217,6 +218,14 @@ const { data: conflicts, error: conflictErr } = await supabase
     if (schedErr) return res.status(500).json({ error: schedErr.message });
   }
 
+  const demandeurNom = existing.data?.demandeur_nom || '—';
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'demande_salle', entite_id: id,
+    description: statut === 'approuvee'
+      ? `a approuvé la demande de salle de ${demandeurNom} — salle : ${updatedData.salle_assignee_nom}`
+      : `a refusé la demande de salle de ${demandeurNom}`,
+  });
+
   res.json(data);
 };
 
@@ -267,6 +276,11 @@ const { data: conflicts, error: conflictErr } = await supabase
     .update({ salle: salle.nom, salle_id: salle.id })
     .eq('notification_id', id);
   if (schedErr) return res.status(500).json({ error: schedErr.message });
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'demande_salle', entite_id: id,
+    description: `a changé la salle de ${existing.data?.demandeur_nom || '—'} — ancienne : "${existing.data?.salle_assignee_nom || '—'}", nouvelle : "${salle.nom}"`,
+  });
 
   res.json(data);
 };
@@ -354,6 +368,15 @@ const updatedData = { ...existing.data, propositions: built, salle_demandee_occu
     .eq('id', id).select().single();
   if (error) return res.status(500).json({ error: error.message });
 
+  const optionsText = built
+    .map((p) => `${p.jour_semaine} ${p.periode} ${p.heure_debut?.slice(0,5)}-${p.heure_fin?.slice(0,5)} (${p.salle_nom})`)
+    .join(' ; ');
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'demande_salle', entite_id: id,
+    description: `a proposé ${built.length} alternative(s) à ${existing.data?.demandeur_nom || '—'} pour "${existing.data?.groupe_nom || '—'}" — ${optionsText}`,
+    details: { propositions: built },
+  });
   res.json(data);
 };
 

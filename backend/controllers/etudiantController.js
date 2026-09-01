@@ -1,7 +1,7 @@
 // etudiantController.js 
 const supabase = require('../supabaseClient');
 const multer = require('multer');
-const { logHistorique } = require('../utils/historique');
+const { logHistorique, FIELD_LABELS, buildDiffDescription } = require('../utils/historique');
 const upload = multer({ storage: multer.memoryStorage() });
 
 
@@ -42,6 +42,8 @@ const updateInscription = async (req, res) => {
   const { id } = req.params;
   const updates = {};
 
+  const { data: before } = await supabase.from('inscriptions').select('*').eq('id', id).single();
+
   if (LOCKED_FIELDS.some(f => f in req.body)) {
     const { data: insc } = await supabase
       .from('inscriptions').select('groups(date_fin)').eq('id', id).single();
@@ -79,13 +81,23 @@ if ('statut' in req.body && req.body.statut !== 'confirmed') {
     .from('inscriptions')
     .update(updates)
     .eq('id', id)
-    .select()
+    .select('*, etudiant:etudiant_id(nom, prenom)')
     .single();
 
   console.log('supabase error:', error);
   console.log('supabase data:', data);
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const changes = buildDiffDescription(before, updates);
+  if (changes.length > 0) {
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'etudiant', entite_id: id,
+      description: `a modifié l'inscription de ${data.etudiant?.nom} ${data.etudiant?.prenom} — ${changes.join(', ')}`,
+      details: { changes },
+    });
+  }
+
   res.json(data);
 };
 const archiveInscription = async (req, res) => {
@@ -108,10 +120,16 @@ const archiveInscription = async (req, res) => {
     .from('inscriptions')
     .update(updates)
     .eq('id', id)
-    .select()
+    .select('*, etudiant:etudiant_id(nom, prenom)')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'etudiant', entite_id: id,
+    description: `a archivé l'inscription de ${data.etudiant?.nom} ${data.etudiant?.prenom} (année ${data.annee_scolaire || '—'})`,
+  });
+
   res.json(data);
 };
 
@@ -143,9 +161,19 @@ const archiveMultipleInscriptions = async (req, res) => {
     .from('inscriptions')
     .update(updates)
     .in('id', ids)
-    .select();
+    .select('*, etudiant:etudiant_id(nom, prenom)');
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const noms = data.map((i) => `${i.etudiant?.nom} ${i.etudiant?.prenom}`);
+  const preview = noms.slice(0, 5).join(', ') + (noms.length > 5 ? `, +${noms.length - 5} autre(s)` : '');
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'etudiant',
+    description: `a archivé ${data.length} inscription(s) (année ${annee_scolaire || '—'}) — ${preview}`,
+    details: { noms },
+  });
+
   res.json({ success: true, count: data.length, data });
 };
 const restoreInscription = async (req, res) => {
@@ -237,10 +265,22 @@ if (req.user?.id) {
       date_inscription: new Date().toISOString().split('T')[0],
       statut: 'pending',
     })
-    .select()
+    .select('*, formation:formation_id(nom), niveau:niveau_id(nom)')
     .single();
 
   if (insErr) return res.status(500).json({ error: insErr.message });
+
+  if (req.user?.id) {
+    const contexte = inscription.niveau?.nom
+      ? `${inscription.formation?.nom} — ${inscription.niveau.nom}`
+      : inscription.formation?.nom;
+
+    await logHistorique({
+      req, perimetre: 'admin', action: 'creation', entite: 'etudiant', entite_id: etudiant.id,
+      description: `a ajouté l'étudiant ${etudiant.nom} ${etudiant.prenom} (${contexte || 'aucune formation'})`,
+    });
+  }
+
   res.json({ etudiant, inscription });
 };
 
@@ -248,6 +288,10 @@ const updateEtudiant = async (req, res) => {
   const { id } = req.params;
   const { nom, prenom, telephone, email, adresse, niveau_scolaire, date_naissance, lieu_naissance, wilaya } = req.body;
   const updates = { nom, prenom, telephone, email, adresse, niveau_scolaire, date_naissance, lieu_naissance, wilaya };
+
+  if (updates.date_naissance === '') updates.date_naissance = null;
+
+  const { data: before } = await supabase.from('etudiants').select('*').eq('id', id).single();
   console.log('updateEtudiant id:', id);
   console.log('updateEtudiant body:', req.body);
   console.log('updateEtudiant files:', req.files);
@@ -284,11 +328,26 @@ const updateEtudiant = async (req, res) => {
    console.log('updateEtudiant supabase error:', error);
   console.log('updateEtudiant supabase data:', data);
   if (error) return res.status(500).json({ error: error.message });
+
+  const changes = buildDiffDescription(before, updates);
+  if (changes.length > 0) {
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'etudiant', entite_id: id,
+      description: `a modifié l'étudiant ${data.nom} ${data.prenom} — ${changes.join(', ')}`,
+      details: { changes },
+    });
+  }
+
   res.json(data);
- 
 };
 const deleteEtudiant = async (req, res) => {
   const { id } = req.params;
+
+  const { data: toDelete } = await supabase
+    .from('inscriptions')
+    .select('*, etudiant:etudiant_id(nom, prenom)')
+    .eq('id', id)
+    .single();
 
   // deleting the inscription (id = inscription id)
   const { error } = await supabase
@@ -297,6 +356,12 @@ const deleteEtudiant = async (req, res) => {
     .eq('id', id);
 
   if (error) return res.status(500).json({ error: error.message });
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'suppression', entite: 'etudiant', entite_id: id,
+    description: `a supprimé l'inscription de ${toDelete?.etudiant?.nom} ${toDelete?.etudiant?.prenom}`,
+  });
+
   res.json({ success: true });
 };
 
@@ -368,6 +433,13 @@ const assignGroup = async (req, res) => {
     }
   }
 
+  const { data: before } = await supabase
+    .from('inscriptions')
+    .select('etudiant:etudiant_id(nom, prenom), groups:group_id(nom)')
+    .eq('id', id)
+    .single();
+  const ancienGroupe = before?.groups?.nom || null;
+
   const updates = { group_id: group_id || null };
   if (niveau_id !== undefined) updates.niveau_id = niveau_id || null;
 
@@ -375,10 +447,26 @@ const assignGroup = async (req, res) => {
     .from('inscriptions')
     .update(updates)
     .eq('id', id)
-    .select()
+    .select('*, etudiant:etudiant_id(nom, prenom), groups:group_id(nom)')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const nom = `${data.etudiant?.nom} ${data.etudiant?.prenom}`;
+  let description;
+  if (group_id && ancienGroupe) {
+    description = `a changé ${nom} du groupe "${ancienGroupe}" vers "${data.groups?.nom}"`;
+  } else if (group_id) {
+    description = `a affecté ${nom} au groupe "${data.groups?.nom}"`;
+  } else {
+    description = `a retiré ${nom} du groupe "${ancienGroupe || '—'}"`;
+  }
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'etudiant', entite_id: id,
+    description,
+  });
+
   res.json(data);
 };
 const getInscriptionStatutOptions = async (req, res) => {

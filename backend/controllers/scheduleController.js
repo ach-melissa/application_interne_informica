@@ -1,6 +1,6 @@
 const supabase = require('../supabaseClient');
+const { logHistorique } = require('../utils/historique');
 const todayStr = () => new Date().toISOString().slice(0, 10);
-
 // Cache une séance si son groupe est terminé ou si le créneau est expiré,
 // et ajoute un badge "à venir" pour les remplacements/changements pas encore effectifs.
 const filtrerCreneauxActifs = (schedules) => {
@@ -150,6 +150,11 @@ const deleteSalle = async (req, res) => {
   const { error } = await supabase.from('salles').delete().eq('id', id);
   if (error) return res.status(500).json({ error: error.message });
 
+  await logHistorique({
+    req, perimetre: 'admin', action: 'suppression', entite: 'salle', entite_id: id,
+    description: `a supprimé la salle "${salle.nom}"`,
+  });
+
   res.json({ success: true });
 };
 const renameSalle = async (req, res) => {
@@ -172,7 +177,6 @@ const renameSalle = async (req, res) => {
   }
 
   // Cascade : aligne le nom stocké dans schedules avec le nouveau nom
-  // Cascade : aligne le nom stocké dans schedules avec le nouveau nom
   const { error: cascadeErr } = await supabase
     .from('schedules')
     .update({ salle: newName.trim() })
@@ -180,6 +184,11 @@ const renameSalle = async (req, res) => {
   if (cascadeErr) {
     return res.status(500).json({ error: `Salle renommée mais synchronisation des créneaux échouée : ${cascadeErr.message}` });
   }
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'salle', entite_id: id,
+    description: `a renommé la salle "${current.nom}" en "${newName.trim()}"`,
+  });
 
   res.json(data);
 };
@@ -316,6 +325,12 @@ const createSalle = async (req, res) => {
     if (error.code === '23505') return res.status(409).json({ error: `La salle "${nom.trim()}" existe déjà.` });
     return res.status(500).json({ error: error.message });
   }
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'creation', entite: 'salle', entite_id: data.id,
+    description: `a créé la salle "${data.nom}"`,
+  });
+
   res.json(data);
 };
 

@@ -1,5 +1,5 @@
 const supabase = require('../supabaseClient');
-
+const { logHistorique, buildDiffDescription } = require('../utils/historique');
 const getFormations = async (req, res) => {
   const { data, error } = await supabase
     .from('formations')
@@ -107,7 +107,7 @@ const needsGlobalCapacite = !a_niveaux || capacite_uniforme !== false;
 if (needsGlobalCapacite && (capacite_groupe === undefined || capacite_groupe === null || isNaN(capacite_groupe) || Number(capacite_groupe) <= 0)) {
   return res.status(400).json({ error: "La capacité est obligatoire et doit être un nombre valide." });
 }
-  const { data, error } = await supabase
+    const { data, error } = await supabase
     .from('formations')
             .insert([{
   nom: nom.trim(),
@@ -128,13 +128,21 @@ statut: statut === 'non_active' ? 'non_active' : 'active',
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'creation', entite: 'formation', entite_id: data.id,
+    description: `a créé la formation "${data.nom}"`,
+  });
+
   res.status(201).json(data);
 };
 
 const updateFormation = async (req, res) => {
   const { id } = req.params;
 const { nom, prix, heures, description, capacite_groupe, a_niveaux, type_duree, prix_uniforme, duree_uniforme, type_duree_uniforme, echeancier_uniforme, capacite_uniforme, statut, confirm_deactivation } = req.body;
-  if (type_duree && !['heures', 'seances'].includes(type_duree)) {
+
+  const { data: before } = await supabase.from('formations').select('*').eq('id', id).single(); 
+if (type_duree && !['heures', 'seances'].includes(type_duree)) {
     return res.status(400).json({ error: "type_duree doit être 'heures' ou 'seances'." });
   }
 
@@ -174,7 +182,6 @@ const { nom, prix, heures, description, capacite_groupe, a_niveaux, type_duree, 
   if (needsGlobalCapacite && (capacite_groupe === undefined || capacite_groupe === null || isNaN(capacite_groupe) || Number(capacite_groupe) <= 0)) {
     return res.status(400).json({ error: "La capacité est obligatoire et doit être un nombre valide." });
   }
-
  const { data, error } = await supabase
     .from('formations')
   .update({
@@ -197,6 +204,16 @@ const { nom, prix, heures, description, capacite_groupe, a_niveaux, type_duree, 
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const changes = buildDiffDescription(before, data);
+  if (changes.length > 0) {
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'formation', entite_id: id,
+      description: `a modifié la formation "${data.nom}" — ${changes.join(', ')}`,
+      details: { changes },
+    });
+  }
+
   res.json(data);
 };
 
@@ -215,6 +232,12 @@ const archiveFormation = async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'formation', entite_id: id,
+    description: `a archivé la formation "${data.nom}" (année ${data.annee_scolaire || '—'})`,
+  });
+
   res.json(data);
 };
 
@@ -229,17 +252,32 @@ const restoreFormation = async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'formation', entite_id: id,
+    description: `a restauré la formation "${data.nom}"`,
+  });
+
   res.json(data);
 };
 
 const deleteFormation = async (req, res) => {
   const { id } = req.params;
+
+  const { data: toDelete } = await supabase.from('formations').select('nom').eq('id', id).single();
+
   const { error } = await supabase
     .from('formations')
     .delete()
     .eq('id', id);
 
   if (error) return res.status(500).json({ error: error.message });
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'suppression', entite: 'formation', entite_id: id,
+    description: `a supprimé la formation "${toDelete?.nom}"`,
+  });
+
   res.json({ success: true });
 };
 

@@ -1,6 +1,6 @@
 const supabase = require('../supabaseClient');
 const { resolveGroupPeriods } = require('../utils/periods');
-const { logHistorique } = require('../utils/historique');
+const { logHistorique, buildDiffDescription } = require('../utils/historique');
 const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 // Calcule dynamiquement, pour chaque group_id fourni, un résumé lisible de
@@ -198,11 +198,12 @@ const updateGroup = async (req, res) => {
       .eq('type', 'groupe_complete')
       .eq('data->>groupe_id', String(id));
   }
- const changedKeys = Object.keys(updates).filter((k) => before && String(before[k] ?? '') !== String(updates[k] ?? ''));
-  if (changedKeys.length > 0) {
+  const changes = buildDiffDescription(before, updates);
+  if (changes.length > 0) {
     await logHistorique({
       req, perimetre: 'admin', action: 'modification', entite: 'groupe', entite_id: id,
-      description: `a modifié le groupe "${data.nom}" — champs : ${changedKeys.join(', ')}`,
+      description: `a modifié le groupe "${data.nom}" — ${changes.join(', ')}`,
+      details: { changes },
     });
   }
   res.json(data);

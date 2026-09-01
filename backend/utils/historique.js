@@ -1,6 +1,7 @@
 const supabase = require('../supabaseClient');
 
 const FIELD_LABELS = {
+  // utilisateurs
   nom: 'nom',
   prenom: 'prénom',
   email: 'email',
@@ -9,6 +10,26 @@ const FIELD_LABELS = {
   date_naissance: 'date de naissance',
   role: 'rôle',
   photo_path: 'photo',
+  // étudiants / inscriptions
+  adresse: 'adresse',
+  niveau_scolaire: 'niveau scolaire',
+  lieu_naissance: 'lieu de naissance',
+  wilaya: 'wilaya',
+  source: 'source',
+  registered_by: 'rapporteur',
+  statut: 'statut',
+  first_try: '1er appel',
+  second_try: '2ème appel',
+  third_try: '3ème appel',
+  formation_id: 'formation',
+  niveau_id: 'niveau',
+  group_id: 'groupe',
+  statut_scolarite: 'statut scolarité',
+  en_promotion: 'promotion',
+  prix_promotion: 'prix promo',
+  // groupes
+  date_fin: 'date de fin',
+  teacher_id: 'professeur',
 };
 
 const buildDiffDescription = (before, patch) => {
@@ -51,4 +72,4 @@ const logHistorique = async ({ req, perimetre, action, entite, entite_id, descri
   }
 };
 
-module.exports = { logHistorique, buildDiffDescription };
+module.exports = { logHistorique, buildDiffDescription, FIELD_LABELS };

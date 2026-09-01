@@ -571,6 +571,10 @@ const doArchive = async () => {
                       className="flex items-center gap-1 text-xs bg-red-500 text-white px-2.5 py-1.5 rounded-md hover:bg-red-600">
                       <Trash2 size={11} /> Supprimer
                     </button>
+                    <button onClick={() => { setArchiveYear(getCurrentAnneeScolaire()); setConfirm('archive'); }}
+  className="flex items-center gap-1 text-xs bg-amber-500 text-white px-2.5 py-1.5 rounded-md hover:bg-amber-600">
+  <Archive size={11} /> Archiver
+</button>
                     <button onClick={openFichePreview}
                       className="flex items-center gap-1 text-xs bg-[#DCEBFA] text-[#0369A1] px-2.5 py-1.5 rounded-md hover:bg-[#c7e3f7]">
                       <Printer size={11} /> Aperçu / PDF
