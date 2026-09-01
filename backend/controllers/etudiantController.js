@@ -1,6 +1,7 @@
 // etudiantController.js 
 const supabase = require('../supabaseClient');
 const multer = require('multer');
+const { logHistorique } = require('../utils/historique');
 const upload = multer({ storage: multer.memoryStorage() });
 
 
@@ -154,10 +155,24 @@ const restoreInscription = async (req, res) => {
     .from('inscriptions')
     .update({ archived: false })
     .eq('id', id)
-    .select()
+    .select('*, etudiant:etudiant_id(nom, prenom), formation:formation_id(nom), niveau:niveau_id(nom)')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const contexte = data.niveau?.nom
+    ? `${data.formation?.nom} — ${data.niveau.nom}`
+    : data.formation?.nom;
+
+  await logHistorique({
+    req,
+    perimetre: 'admin',
+    action: 'modification',
+    entite: 'inscription',
+    entite_id: id,
+    description: `a restauré l'inscription de ${data.etudiant?.nom} ${data.etudiant?.prenom} (${contexte})`,
+  });
+
   res.json(data);
 };
 const createEtudiant = async (req, res) => {

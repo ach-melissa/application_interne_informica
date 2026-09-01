@@ -1,6 +1,6 @@
 const supabase = require('../supabaseClient');
 const { resolveGroupPeriods } = require('../utils/periods');
-
+const { logHistorique } = require('../utils/historique');
 const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 // Calcule dynamiquement, pour chaque group_id fourni, un résumé lisible de
@@ -137,17 +137,28 @@ const { nom, formation_id, niveau_id, teacher_id, en_promotion, prix_promotion, 
       duree_valeur: use_default_duree === false ? Number(duree_valeur) : null,
       type_duree: use_default_duree === false ? (type_duree || 'heures') : null,
     })
-    .select()
+    .select('*, formations:formation_id(nom), niveau:niveau_id(nom)')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const contexte = data.niveau?.nom ? `${data.formations?.nom} — ${data.niveau.nom}` : data.formations?.nom;
+  await logHistorique({
+    req, perimetre: 'admin', action: 'creation', entite: 'groupe', entite_id: data.id,
+    description: `a créé le groupe "${data.nom}" (${contexte})`,
+  });
+
   res.json(data);
 };
 
 const updateGroup = async (req, res) => {
   const { id } = req.params;
   const updates = { ...req.body };
-
+ const { data: before } = await supabase
+    .from('groups')
+    .select('nom, statut, date_fin, teacher_id, en_promotion')
+    .eq('id', id)
+    .single();
  if (updates.date_debut === '') updates.date_debut = null;
   if (updates.date_fin === '') updates.date_fin = null;
 
@@ -187,7 +198,13 @@ const updateGroup = async (req, res) => {
       .eq('type', 'groupe_complete')
       .eq('data->>groupe_id', String(id));
   }
-
+ const changedKeys = Object.keys(updates).filter((k) => before && String(before[k] ?? '') !== String(updates[k] ?? ''));
+  if (changedKeys.length > 0) {
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'groupe', entite_id: id,
+      description: `a modifié le groupe "${data.nom}" — champs : ${changedKeys.join(', ')}`,
+    });
+  }
   res.json(data);
 };
 
@@ -286,10 +303,24 @@ const restoreGroup = async (req, res) => {
     .from('groups')
     .update({ archived: false })
     .eq('id', id)
-    .select()
+    .select('*, formations:formation_id(nom), niveau:niveau_id(nom)')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const contexte = data.niveau?.nom
+    ? `${data.formations?.nom} — ${data.niveau.nom}`
+    : data.formations?.nom;
+
+  await logHistorique({
+    req,
+    perimetre: 'admin',
+    action: 'modification',
+    entite: 'groupe',
+    entite_id: id,
+    description: `a restauré le groupe "${data.nom}" (${contexte})`,
+  });
+
   res.json(data);
 };
 

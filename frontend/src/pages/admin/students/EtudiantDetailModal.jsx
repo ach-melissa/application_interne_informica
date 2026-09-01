@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   X, Pencil, Check, Trash2, AlertTriangle, Ban, Printer, Archive,
   User, Phone, Mail, MapPin, GraduationCap, Calendar,
-  Radio, UserCheck, ClipboardList, PhoneCall, UserPlus, Layers,
+  Radio, UserCheck, ClipboardList, PhoneCall, UserPlus, Layers, Plus,
 } from 'lucide-react';
 import AssignGroupModal from './AssignGroupModal';
 import logo from '../../../assets/images/logo_informica.png';
@@ -566,16 +566,7 @@ const doArchive = async () => {
                       className="flex items-center gap-1 text-xs bg-[#0369A1] text-white px-2.5 py-1.5 rounded-md hover:bg-[#0284C7]">
                       <Pencil size={11} /> Modifier
                     </button>
-<button
-  onClick={() => {
-    setNewDate(computeNextSessionDate(groupData?.jours_formation, sessions.length ? sessions[sessions.length - 1].date : null));
-    setHeureDebut(''); setHeureFin(''); setDureeEffectuee(''); setDureeTouched(false);
-    setAddingSession(true);
-  }}
-  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0F2A4A] text-white text-xs font-medium rounded-lg hover:bg-[#065e8f] transition"
->
-  <Plus size={14} /> Ajouter séance
-</button>
+
                     <button onClick={() => setConfirm('delete')}
                       className="flex items-center gap-1 text-xs bg-red-500 text-white px-2.5 py-1.5 rounded-md hover:bg-red-600">
                       <Trash2 size={11} /> Supprimer
