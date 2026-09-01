@@ -97,8 +97,8 @@ function buildFicheInner(logoHtml, rows) {
             <div class="row">
               <span class="row-fr">${r.fr}${r.fr ? ' :' : ''}</span>
               <div class="row-line ${r.value ? 'filled' : ''}"><span class="row-value" id="adresseLine1"></span></div>
-              <span class="row-ar">${r.ar ? `: ${r.ar}` : ''}</span>
-            </div>`;
+                            <span class="row-ar">${r.ar ? `<span class="ar-colon">:</span><span class="ar-word">${r.ar}</span>` : ''}</span>
+              </div>`;
             const valueLine = `<div class="row-line-full" id="adresseLine2Wrap"${r.value ? ' style="display:none"' : ''}><span class="row-value" id="adresseLine2"></span></div>`;
             return `<div class="row-adresse">${rowHtml}${valueLine}</div>`;
           }
@@ -106,7 +106,7 @@ function buildFicheInner(logoHtml, rows) {
           <div class="row">
             <span class="row-fr">${r.fr}${r.fr ? ' :' : ''}</span>
             <div class="row-line ${r.value ? 'filled' : ''}"><span class="row-value">${r.value}</span></div>
-            <span class="row-ar">${r.ar ? `: ${r.ar}` : ''}</span>
+             <span class="row-ar">${r.ar ? `<span class="ar-colon">:</span><span class="ar-word">${r.ar}</span>` : ''}</span>
           </div>`;
         }).join('')}
       </div>
@@ -133,8 +133,8 @@ const FICHE_CSS = `
   html,body{height:100%}
   body{font-family:'Helvetica Neue',Arial,sans-serif;color:#171717;font-size:13px;background:#f1f5f9}
 
-  .toolbar{position:sticky;top:0;background:#0F2A4A;padding:10px 16px;display:flex;gap:10px;justify-content:flex-end;z-index:10}
-  .toolbar button{font-size:13px;font-weight:600;padding:7px 16px;border-radius:8px;border:none;cursor:pointer}
+.toolbar{position:sticky;top:0;background:#0F2A4A;padding:10px 16px;display:flex;gap:10px;justify-content:flex-end;z-index:10}
+.toolbar button{font-size:13px;font-weight:600;padding:7px 16px;border-radius:8px;border:none;cursor:pointer}
   .btn-print{background:#0369A1;color:#fff}
   .btn-download{background:#16a34a;color:#fff}
   .btn-close{background:transparent;color:#fff;border:1px solid #475569 !important}
@@ -179,8 +179,8 @@ const FICHE_CSS = `
   .brand{font-size:1rem;font-weight:600;letter-spacing:.14em;color:#171717}
 
   /* Fields */
-  .fields{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:1.5rem}
-  .row{display:flex;align-items:flex-end;gap:10px}
+.fields{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:1.1rem}
+.row{display:flex;align-items:flex-end;gap:10px;page-break-inside:avoid;break-inside:avoid}
   .row-fr{font-size:13px;font-weight:500;white-space:nowrap;width:160px;flex-shrink:0;color:#334155}
   .row-line{
     flex:1;min-width:0;height:1.5rem;display:flex;align-items:flex-end;
@@ -190,8 +190,9 @@ const FICHE_CSS = `
     border-bottom:none;
   }
     .row-value{display:block;width:100%;white-space:normal;word-break:break-word;font-size:14px;font-weight:600;line-height:1;padding-bottom:0;color:#171717}
-  .row-ar{font-size:13px;font-weight:500;white-space:nowrap;width:135px;flex-shrink:0;text-align:right;direction:rtl;color:#64748B}
-
+.row-ar{font-size:13px;font-weight:500;white-space:nowrap;width:135px;flex-shrink:0;display:flex;align-items:baseline;justify-content:flex-end;gap:3px;color:#64748B}
+.row-ar .ar-word{direction:rtl;unicode-bidi:isolate}
+  .row-adresse{page-break-inside:avoid;break-inside:avoid}
   .row-line-full{
     width:100%;
     min-height:1.2rem;
@@ -223,6 +224,10 @@ const FICHE_CSS = `
   .date-line .sep{color:#CBD5E1}
 
   @media print {
+    *{
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
     .toolbar{display:none}
     body{background:#fff}
     .page-wrap{padding:0;justify-content:flex-start}
