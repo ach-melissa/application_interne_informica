@@ -293,7 +293,8 @@ const MesDemandesSalles = () => {
           <p className="text-sm text-[#94A3B8]">Aucune demande trouvée.</p>
         </div>
       ) : (
-        <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+        <>
+        <div className="hidden md:block bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
           <div className="overflow-x-auto">
             <table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
               <colgroup>
@@ -337,6 +338,49 @@ const MesDemandesSalles = () => {
             </table>
           </div>
         </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-2">
+          {filtered.map((d) => {
+            const chg = d.data?.type_demande === 'changement';
+            return (
+              <div
+                key={d.id}
+                onClick={() => navigate(`/prof/mes-demandes-salles/${d.id}`)}
+                className="bg-white rounded-xl border border-[#F1F5F9] shadow-[0_2px_10px_rgba(15,42,74,0.06)] p-3.5 space-y-2 active:bg-slate-50 transition"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                    {chg ? <RefreshCw size={12} /> : <Repeat size={12} />}
+                    {chg ? 'Changement' : 'Remplacement'}
+                  </span>
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-medium ${STATUT_STYLE[d.statut] || STATUT_STYLE.en_attente}`}>
+                    {STATUT_LABEL[d.statut] || 'En attente'}
+                  </span>
+                </div>
+
+                <p className="font-medium text-slate-700 text-sm">{d.data?.groupe_nom || '—'}</p>
+
+                <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-500">
+                  <div className="flex items-center gap-1">
+                    <Clock size={11} className="text-[#0369A1]" />
+                    <span className="capitalize">{d.data?.jour_semaine} {d.data?.heure_debut?.slice(0, 5)}-{d.data?.heure_fin?.slice(0, 5)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <CalendarDays size={11} className="text-[#0369A1]" />
+                    <span>{d.data?.date_cible || '—'}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-100">
+                  <span>Créée le {d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR') : '—'}</span>
+                  <span>{d.traite_par_nom || '—'}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        </>
       )}
 
       {/* Modal */}

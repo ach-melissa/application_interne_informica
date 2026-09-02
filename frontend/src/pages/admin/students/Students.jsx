@@ -197,6 +197,11 @@ const printSelectedFiches = async () => {
     ${sheetsHtml}
   </body></html>`);
   win.document.close();
+    fetch(`${API}/api/etudiants/log-impression`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+    body: JSON.stringify({ ids: [...selectedIds] }),
+  }).catch(console.error);
 };
 
 const selectedFormationObj = formations.find(f => f.nom === filters.formation);

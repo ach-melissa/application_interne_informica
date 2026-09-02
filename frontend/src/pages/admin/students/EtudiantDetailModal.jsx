@@ -181,7 +181,7 @@ const FICHE_CSS = `
   /* Fields */
 .fields{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:1.1rem}
 .row{display:flex;align-items:flex-end;gap:10px;page-break-inside:avoid;break-inside:avoid}
-  .row-fr{font-size:13px;font-weight:500;white-space:nowrap;width:160px;flex-shrink:0;color:#334155}
+  .row-fr{font-size:13px;font-weight:700;white-space:nowrap;width:160px;flex-shrink:0;color:#334155}
   .row-line{
     flex:1;min-width:0;height:1.5rem;display:flex;align-items:flex-end;
     border-bottom:1.5px dotted #94A3B8;
@@ -190,9 +190,10 @@ const FICHE_CSS = `
     border-bottom:none;
   }
     .row-value{display:block;width:100%;white-space:normal;word-break:break-word;font-size:14px;font-weight:600;line-height:1;padding-bottom:0;color:#171717}
-.row-ar{font-size:13px;font-weight:500;white-space:nowrap;width:135px;flex-shrink:0;display:flex;align-items:baseline;justify-content:flex-end;gap:3px;color:#64748B}
-.row-ar .ar-word{direction:rtl;unicode-bidi:isolate}
-  .row-adresse{page-break-inside:avoid;break-inside:avoid}
+.row-ar{font-size:13px;font-weight:500;white-space:nowrap;width:135px;flex-shrink:0;display:flex;align-items:baseline;justify-content:flex-end;gap:3px;color:#334155}
+.row-ar .ar-word{direction:rtl;unicode-bidi:isolate;font-family:'Noto Naskh Arabic','Segoe UI',Tahoma,Arial,sans-serif;font-weight:700;font-size:14px;color:#334155}
+.row-ar .ar-colon{font-family:'Noto Naskh Arabic','Segoe UI',Tahoma,Arial,sans-serif;font-weight:700;color:#334155}
+.row-adresse{page-break-inside:avoid;break-inside:avoid}
   .row-line-full{
     width:100%;
     min-height:1.2rem;
@@ -211,16 +212,16 @@ const FICHE_CSS = `
   /* Footer */
   .footer{margin-top:2.4rem;padding-top:1.3rem;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:flex-start}
 
-  .sig-label{font-size:11.5px;margin-bottom:.55rem;font-weight:500;color:#334155;display:flex;align-items:center;gap:6px}
+.sig-label{font-size:11.5px;margin-bottom:.55rem;font-weight:700;color:#334155;display:flex;align-items:center;gap:6px}
   .sig-label .fr{direction:ltr}
-  .sig-label .ar{direction:rtl}
+.sig-label .ar{direction:rtl}
   .sig-label .sep{color:#CBD5E1}
 
   .sig-box{width:175px;height:62px;border:1px dashed #CBD5E1;border-radius:6px}
 
   .date-line{font-size:11.5px;color:#334155;padding-top:.3rem;display:flex;align-items:center;gap:6px;direction:ltr}
-  .date-line .fr{font-weight:500}
-  .date-line .ar{direction:rtl}
+  .date-line .fr{font-weight:700}
+  .date-line .ar{direction:rtl;font-family:'Noto Naskh Arabic','Segoe UI',Tahoma,Arial,sans-serif;font-weight:700}
   .date-line .sep{color:#CBD5E1}
 
   @media print {
@@ -449,7 +450,8 @@ const doArchive = async () => {
     const fileName = `fiche_inscription_${form.nom || 'etudiant'}_${form.prenom || ''}`.trim().replace(/\s+/g, '_');
 
     const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fileName}</title>
+win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fileName}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@500;700&display=swap" rel="stylesheet">
     <style>${FICHE_CSS}</style></head>
     <body>
       <div class="toolbar">
@@ -530,6 +532,11 @@ const doArchive = async () => {
     </body></html>`);
     win.document.close();
     win.focus();
+        fetch(`${API}/api/etudiants/log-impression`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ ids: [inscription.id] }),
+    }).catch(console.error);
   };
 
  

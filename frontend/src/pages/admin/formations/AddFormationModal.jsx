@@ -270,14 +270,16 @@ useEffect(() => {
                            {showGlobalDuree && (
                 <div className="min-w-0">
                   <Label icon={Clock} text={form.a_niveaux ? 'Durée totale' : 'Durée'} required />
-                  <div className="flex gap-1.5 min-w-0">
-                    <input type="number" min="1" value={form.heures} onChange={set('heures')} className={`${inp} flex-1 min-w-0`}
-                      placeholder={form.type_duree === 'seances' ? 'Nb séances' : 'Nb heures'} />
-                    <select value={form.type_duree} onChange={e => setForm(p => ({ ...p, type_duree: e.target.value }))} className={`${inp} w-[90px] flex-shrink-0 text-[11px]`}>
-                      <option value="heures">Heures</option>
-                      <option value="seances">Séances</option>
-                    </select>
-                  </div>
+<div className="flex min-w-0 rounded-md border border-slate-200 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#0369A1]/40 focus-within:border-[#0369A1] transition-colors">
+  <input type="number" min="1" value={form.heures} onChange={set('heures')}
+    className="flex-1 min-w-0 px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none border-r border-slate-200"
+    placeholder={form.type_duree === 'seances' ? 'Nb séances' : 'Nb heures'} />
+  <select value={form.type_duree} onChange={e => setForm(p => ({ ...p, type_duree: e.target.value }))}
+    className="w-[100px] flex-shrink-0 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-600 focus:outline-none cursor-pointer">
+    <option value="heures">Heures</option>
+    <option value="seances">Séances</option>
+  </select>
+</div>
                 </div>
               )}
             </Section>

@@ -78,19 +78,22 @@ const NiveauxEditor = ({ niveaux, setNiveaux, prixUniforme, globalPrix, dureeUni
                       placeholder="Capacité" className={`${inpSm} w-20 flex-shrink-0`} />
                   )}
 
-                  {showPerLevelDuree && (
-                    <input type="number" min="1" value={n.duree_valeur} onChange={e => updateNiveau(idx, 'duree_valeur', e.target.value)}
-                      placeholder="0" className={`${inpSm} w-20 flex-shrink-0`} />
-                  )}
-
-                  {showPerLevelUnite && (
-                    <select value={n.type_duree} onChange={e => updateNiveau(idx, 'type_duree', e.target.value)}
-                      className={`${inpSm} w-24 flex-shrink-0 ${!n.type_duree ? 'text-slate-400' : 'text-slate-700 font-medium'}`}>
-                      <option value="">Choisir</option>
-                      <option value="heures">Heures</option>
-                      <option value="seances">Séances</option>
-                    </select>
-                  )}
+{(showPerLevelDuree || showPerLevelUnite) && (
+  <div className="flex flex-shrink-0 rounded-md border border-slate-200 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#0369A1]/40">
+    {showPerLevelDuree && (
+      <input type="number" min="1" value={n.duree_valeur} onChange={e => updateNiveau(idx, 'duree_valeur', e.target.value)}
+        placeholder="0" className={`w-16 px-2 py-1 text-xs focus:outline-none ${showPerLevelUnite ? 'border-r border-slate-200' : ''}`} />
+    )}
+    {showPerLevelUnite && (
+      <select value={n.type_duree} onChange={e => updateNiveau(idx, 'type_duree', e.target.value)}
+        className={`w-24 bg-slate-50 px-1.5 py-1 text-[11px] focus:outline-none cursor-pointer ${!n.type_duree ? 'text-slate-400' : 'text-slate-700 font-medium'}`}>
+        <option value="">Choisir</option>
+        <option value="heures">Heures</option>
+        <option value="seances">Séances</option>
+      </select>
+    )}
+  </div>
+)}
 
                   <button type="button" onClick={() => removeNiveau(idx)} className="text-slate-300 hover:text-red-400 flex-shrink-0">
                     <X size={13} />

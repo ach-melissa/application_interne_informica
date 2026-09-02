@@ -3,7 +3,7 @@ const router = express.Router();
 const {
   upload, getEtudiants, updateInscription, createEtudiant, updateEtudiant,
   deleteEtudiant, getGroupsByFormation, assignGroup, archiveInscription, archiveMultipleInscriptions, restoreInscription,
-  getInscriptionStatutOptions,
+  getInscriptionStatutOptions, logImpressionFiche,
 } = require('../controllers/etudiantController');
 const { verifyToken, requireRole, verifyTokenOptional } = require('../middleware/authMiddleware');
 
@@ -21,5 +21,6 @@ router.patch('/:id/restore', verifyToken, restoreInscription);
 router.patch('/:id/group', verifyToken, assignGroup);
 router.patch('/:id', verifyToken, updateInscription);
 router.delete('/:id', verifyToken, deleteEtudiant);
+router.post('/log-impression', verifyToken, logImpressionFiche);
 
 module.exports = router;

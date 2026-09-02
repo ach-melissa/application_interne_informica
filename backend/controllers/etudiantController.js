@@ -475,4 +475,34 @@ const getInscriptionStatutOptions = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
-module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant, upload, getGroupsByFormation, assignGroup, archiveInscription, archiveMultipleInscriptions, restoreInscription, getInscriptionStatutOptions };
+
+const logImpressionFiche = async (req, res) => {
+  const { ids } = req.body; // tableau d'UUIDs d'inscriptions
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids requis' });
+  }
+
+  const { data: inscriptions, error } = await supabase
+    .from('inscriptions')
+    .select('id, etudiant:etudiant_id(nom, prenom)')
+    .in('id', ids);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const noms = inscriptions.map(i => `${i.etudiant?.nom} ${i.etudiant?.prenom}`);
+  const description = ids.length === 1
+    ? `a imprimé la fiche d'inscription de ${noms[0] || '—'}`
+    : `a imprimé ${ids.length} fiches d'inscription — ${noms.slice(0, 5).join(', ')}${noms.length > 5 ? `, +${noms.length - 5} autre(s)` : ''}`;
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'etudiant',
+    entite_id: ids.length === 1 ? ids[0] : null,
+    description,
+    details: { ids },
+  });
+
+  res.json({ success: true });
+};
+
+module.exports = { getEtudiants, updateInscription, createEtudiant, updateEtudiant, deleteEtudiant, upload, getGroupsByFormation, assignGroup, archiveInscription, archiveMultipleInscriptions, restoreInscription, getInscriptionStatutOptions, logImpressionFiche };
