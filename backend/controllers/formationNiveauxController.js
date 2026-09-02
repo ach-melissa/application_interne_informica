@@ -1,5 +1,5 @@
 const supabase = require('../supabaseClient');
-
+const { logHistorique } = require('../utils/historique');
 const getFormationNiveaux = async (req, res) => {
   const { id } = req.params;
   const { data, error } = await supabase
@@ -32,6 +32,11 @@ const setFormationNiveaux = async (req, res) => {
   if (!Array.isArray(niveaux)) {
     return res.status(400).json({ error: 'niveaux doit être un tableau.' });
   }
+
+  const { data: beforeNiveaux } = await supabase
+    .from('formation_niveaux')
+    .select('nom, prix, duree_valeur, type_duree, capacite_groupe')
+    .eq('formation_id', id);
 
     const { data: formation, error: fErr } = await supabase
   .from('formations')
@@ -118,6 +123,37 @@ if (!formation.echeancier_uniforme) {
       if (ppErr) return res.status(500).json({ error: ppErr.message });
     }
   }
+}
+
+const { data: formationRow } = await supabase.from('formations').select('nom').eq('id', id).single();
+
+const beforeByNom = new Map((beforeNiveaux || []).map((n) => [n.nom, n]));
+const afterByNom = new Map(data.map((n) => [n.nom, n]));
+
+const ajoutes = data.filter((n) => !beforeByNom.has(n.nom)).map((n) => n.nom);
+const supprimes = (beforeNiveaux || []).filter((n) => !afterByNom.has(n.nom)).map((n) => n.nom);
+const modifies = data
+  .filter((n) => beforeByNom.has(n.nom))
+  .filter((n) => {
+    const b = beforeByNom.get(n.nom);
+    return String(b.prix ?? '') !== String(n.prix ?? '')
+      || String(b.duree_valeur ?? '') !== String(n.duree_valeur ?? '')
+      || String(b.type_duree ?? '') !== String(n.type_duree ?? '')
+      || String(b.capacite_groupe ?? '') !== String(n.capacite_groupe ?? '');
+  })
+  .map((n) => n.nom);
+
+const parts = [];
+if (ajoutes.length) parts.push(`ajouté(s) : ${ajoutes.join(', ')}`);
+if (supprimes.length) parts.push(`supprimé(s) : ${supprimes.join(', ')}`);
+if (modifies.length) parts.push(`modifié(s) : ${modifies.join(', ')}`);
+
+if (parts.length > 0) {
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'formation', entite_id: id,
+    description: `a modifié les niveaux de "${formationRow?.nom}" — ${parts.join(' ; ')}`,
+    details: { before: beforeNiveaux, after: data },
+  });
 }
 
 res.json(data);

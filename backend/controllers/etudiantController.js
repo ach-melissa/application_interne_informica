@@ -89,7 +89,8 @@ if ('statut' in req.body && req.body.statut !== 'confirmed') {
 
   if (error) return res.status(500).json({ error: error.message });
 
-  const changes = buildDiffDescription(before, updates);
+  const { abandonne_at, ...updatesForLog } = updates;
+  const changes = buildDiffDescription(before, updatesForLog);
   if (changes.length > 0) {
     await logHistorique({
       req, perimetre: 'admin', action: 'modification', entite: 'etudiant', entite_id: id,

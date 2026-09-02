@@ -1,7 +1,20 @@
 const supabase = require('../supabaseClient');
 const multer = require('multer');
 const { resolveGroupPeriods, computeStudentTotal } = require('../utils/periods');
+const { logHistorique } = require('../utils/historique');
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Petit utilitaire partagé : reconstruit "formation — niveau, groupe X"
+// pour un étudiant donné dans une formation donnée (paiements n'ont pas de
+// group_id direct, on passe par l'inscription pour retrouver le niveau et le groupe).
+const getPaymentContexte = async (etudiant_id, formation_id) => {
+  const [{ data: formation }, { data: inscription }] = await Promise.all([
+    supabase.from('formations').select('nom').eq('id', formation_id).single(),
+    supabase.from('inscriptions').select('niveau:niveau_id(nom), groups:group_id(nom)').eq('etudiant_id', etudiant_id).eq('formation_id', formation_id).maybeSingle(),
+  ]);
+  const formationNiveau = inscription?.niveau?.nom ? `${formation?.nom} — ${inscription.niveau.nom}` : formation?.nom;
+  return inscription?.groups?.nom ? `${formationNiveau}, groupe "${inscription.groups.nom}"` : formationNiveau;
+};
 
 const getGroupPayments = async (req, res) => {
   const { groupId } = req.params;
@@ -153,12 +166,32 @@ const createPayment = async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const { data: etudiant } = await supabase
+    .from('etudiants')
+    .select('nom, prenom')
+    .eq('id', etudiant_id)
+    .single();
+  const nomEtudiant = etudiant ? `${etudiant.nom} ${etudiant.prenom}` : 'étudiant';
+  const contexte = await getPaymentContexte(etudiant_id, formation_id);
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'creation', entite: 'paiement', entite_id: data.id,
+    description: `a enregistré un paiement de ${Number(montant).toLocaleString('fr-FR')} DA (tranche ${data.tranche}) pour ${nomEtudiant} (${contexte ?? '—'})`,
+  });
+
   res.json(data);
 };
 
 const updatePayment = async (req, res) => {
   const { id } = req.params;
   const { montant } = req.body;
+
+  const { data: before } = await supabase
+    .from('payments')
+    .select('montant, tranche, etudiant_id, formation_id, etudiant:etudiant_id(nom, prenom)')
+    .eq('id', id)
+    .single();
 
   const { data, error } = await supabase
     .from('payments')
@@ -168,11 +201,24 @@ const updatePayment = async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const nomEtudiant = before?.etudiant ? `${before.etudiant.nom} ${before.etudiant.prenom}` : 'étudiant';
+  const contexte = await getPaymentContexte(before?.etudiant_id, before?.formation_id);
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'paiement', entite_id: id,
+    description: `a modifié le paiement (tranche ${before?.tranche}) de ${nomEtudiant} (${contexte ?? '—'}) : ${Number(before?.montant).toLocaleString('fr-FR')} DA → ${Number(montant).toLocaleString('fr-FR')} DA`,
+  });
+
   res.json(data);
 };
-
 const deletePayment = async (req, res) => {
   const { id } = req.params;
+
+  const { data: before } = await supabase
+    .from('payments')
+    .select('montant, tranche, etudiant_id, formation_id, etudiant:etudiant_id(nom, prenom)')
+    .eq('id', id)
+    .single();
 
   const { error } = await supabase
     .from('payments')
@@ -180,6 +226,14 @@ const deletePayment = async (req, res) => {
     .eq('id', id);
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const nomEtudiant = before?.etudiant ? `${before.etudiant.nom} ${before.etudiant.prenom}` : 'étudiant';
+  const contexte = await getPaymentContexte(before?.etudiant_id, before?.formation_id);
+  await logHistorique({
+    req, perimetre: 'admin', action: 'suppression', entite: 'paiement', entite_id: id,
+    description: `a supprimé le paiement de ${Number(before?.montant).toLocaleString('fr-FR')} DA (tranche ${before?.tranche}) de ${nomEtudiant} (${contexte ?? '—'})`,
+  });
+
   res.json({ success: true });
 };
 
@@ -206,10 +260,18 @@ const uploadBon = async (req, res) => {
     .from('payments')
     .update({ bon_photo: publicUrl })
     .eq('id', id)
-    .select()
+    .select('*, etudiant:etudiant_id(nom, prenom)')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const nomEtudiant = data?.etudiant ? `${data.etudiant.nom} ${data.etudiant.prenom}` : 'étudiant';
+  const contexte = await getPaymentContexte(data.etudiant_id, data.formation_id);
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'paiement', entite_id: id,
+    description: `a ajouté un bon de paiement pour ${nomEtudiant} (tranche ${data.tranche}, ${contexte ?? '—'})`,
+  });
+
   res.json({ bon_photo: publicUrl, payment: data });
 };
 

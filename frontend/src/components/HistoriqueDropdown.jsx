@@ -74,7 +74,7 @@ const HistoriqueDropdown = ({ scopeLabel }) => {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-96 bg-white border border-[#F1F5F9] rounded-2xl shadow-lg overflow-hidden z-50">
+ <div className="fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 w-auto sm:w-96 bg-white border border-[#F1F5F9] rounded-2xl shadow-lg overflow-hidden z-50">
           <div className="px-4 py-3.5 border-b border-[#F1F5F9] flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-[#DCEBFA] flex items-center justify-center flex-shrink-0">
               <Clock size={14} className="text-[#0369A1]" />

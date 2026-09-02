@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, User, LogOut, ClipboardList, CreditCard, History, Flag, Archive, Clock } from 'lucide-react';
+import { Bell, User, LogOut, ClipboardList, CreditCard, History, Flag, Archive, Clock, Menu } from 'lucide-react';
 import HistoriqueDropdown from './HistoriqueDropdown';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/images/logo_informica.png';
@@ -82,7 +82,7 @@ const formatRelativeTime = (dateStr) => {
   return new Date(dateStr).toLocaleDateString('fr-FR');
 };
 
-const Topbar = () => {
+const Topbar = ({ onMenuClick }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -227,8 +227,15 @@ const Topbar = () => {
 
   return (
     <header className="h-16 bg-white border-b border-[#E2E8F0] flex items-center justify-between px-6 shrink-0">
-      <img src={logo} alt="Informica" className="h-10 w-auto object-contain" />
-
+<div className="flex items-center gap-2">
+  <button
+    onClick={onMenuClick}
+    className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-50 text-slate-500 -ml-1"
+  >
+    <Menu size={20} />
+  </button>
+  <img src={logo} alt="Informica" className="h-8 lg:h-10 w-auto object-contain" />
+</div>
             <div className="flex items-center gap-3">
         {canSeeHistorique && <HistoriqueDropdown scopeLabel={historiqueScopeLabel} />}
 
@@ -248,7 +255,7 @@ const Topbar = () => {
             </button>
 
             {notifOpen && (
-              <div className="absolute right-0 mt-2 w-96 bg-white border border-[#E2E8F0] rounded-xl shadow-xl overflow-hidden z-50">
+<div className="fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 w-auto sm:w-96 bg-white border border-[#E2E8F0] rounded-xl shadow-xl overflow-hidden z-50">  
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                   <p className="text-sm font-semibold text-slate-700">Notifications</p>
                   {unreadCount > 0 && (
@@ -275,10 +282,15 @@ const Topbar = () => {
                       const demandeSalleText = isDemandeSalle ? getDemandeSalleText(n, isAdmin) : null;
 
                       return (
-                        <button
+                        <div
                           key={n.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => handleNotificationClick(n)}
-                          className={`w-full flex gap-3 text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors ${
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') handleNotificationClick(n);
+                          }}
+                          className={`w-full flex gap-3 text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${
                             unread ? 'bg-slate-50/60' : ''
                           }`}
                         >
@@ -338,7 +350,7 @@ const Topbar = () => {
                               </button>
                             )}
                           </div>
-                        </button>
+                        </div>
                       );
                     })
                   )}
@@ -373,7 +385,7 @@ const Topbar = () => {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-44 bg-white border border-[#E2E8F0] rounded-xl shadow-lg overflow-hidden z-50">
+           <div className="fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 w-auto sm:w-44 bg-white border border-[#E2E8F0] rounded-xl shadow-lg overflow-hidden z-50">
               <button
                 onClick={() => {
                   setMenuOpen(false);

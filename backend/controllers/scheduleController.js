@@ -68,15 +68,27 @@ if (heure_debut < '08:00' || heure_fin > '16:00' || heure_debut >= heure_fin) {
   const { data, error } = await supabase 
     .from('schedules')
     .insert({ group_id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin })
-    .select()
+    .select('*, groups:group_id(nom)')
     .single();
   if (error) return res.status(500).json({ error: error.message });
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'creation', entite: 'creneau', entite_id: data.id,
+    description: `a ajouté un créneau pour le groupe "${data.groups?.nom}" — ${jour_semaine} ${heure_debut?.slice(0,5)}-${heure_fin?.slice(0,5)} (${salle})`,
+  });
+
   res.json(data);
 };
 
 const updateSchedule = async (req, res) => {
   const { id } = req.params;
   const { contenu, heure_debut, heure_fin } = req.body;
+
+  const { data: before } = await supabase
+    .from('schedules')
+    .select('contenu, heure_debut, heure_fin, jour_semaine, salle, groups:group_id(nom)')
+    .eq('id', id)
+    .single();
 
   // ← NOUVEAU : tout ce bloc n'existait pas avant
   if (heure_debut && heure_fin) {
@@ -112,16 +124,43 @@ const updateSchedule = async (req, res) => {
     .from('schedules')
     .update({ contenu, heure_debut, heure_fin })
     .eq('id', id)
-    .select()
+    .select('*, groups:group_id(nom)')
     .single();
   if (error) return res.status(500).json({ error: error.message });
+
+  const changes = [];
+  if (contenu !== undefined && contenu !== before?.contenu) changes.push(`contenu : "${before?.contenu ?? '—'}" → "${contenu}"`);
+  if (heure_debut !== undefined && heure_debut !== before?.heure_debut) changes.push(`heure début : "${before?.heure_debut?.slice(0,5) ?? '—'}" → "${heure_debut.slice(0,5)}"`);
+  if (heure_fin !== undefined && heure_fin !== before?.heure_fin) changes.push(`heure fin : "${before?.heure_fin?.slice(0,5) ?? '—'}" → "${heure_fin.slice(0,5)}"`);
+
+  if (changes.length > 0) {
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'creneau', entite_id: id,
+      description: `a modifié le créneau du groupe "${data.groups?.nom}" (${before?.jour_semaine}, ${before?.salle}) — ${changes.join(', ')}`,
+      details: { changes },
+    });
+  }
+
   res.json(data);
 };
 
 const deleteSchedule = async (req, res) => {
   const { id } = req.params;
+
+  const { data: toDelete } = await supabase
+    .from('schedules')
+    .select('jour_semaine, heure_debut, heure_fin, salle, groups:group_id(nom)')
+    .eq('id', id)
+    .single();
+
   const { error } = await supabase.from('schedules').delete().eq('id', id);
   if (error) return res.status(500).json({ error: error.message });
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'suppression', entite: 'creneau', entite_id: id,
+    description: `a supprimé un créneau du groupe "${toDelete?.groups?.nom}" — ${toDelete?.jour_semaine} ${toDelete?.heure_debut?.slice(0,5)}-${toDelete?.heure_fin?.slice(0,5)} (${toDelete?.salle})`,
+  });
+
   res.json({ success: true });
 };
 const deleteSalle = async (req, res) => {

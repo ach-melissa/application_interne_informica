@@ -6,6 +6,7 @@ const AdminLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleCollapse = (val) => {
     setCollapsed(val);
@@ -14,10 +15,15 @@ const AdminLayout = ({ children }) => {
 
   return (
     <div className="flex flex-col h-screen bg-[#f5f7fc] overflow-hidden">
-      <Topbar />
+      <Topbar onMenuClick={() => setMobileOpen(true)} />
       <div className="flex flex-1 overflow-hidden relative">
-        <SidebarAdmin collapsed={collapsed} setCollapsed={handleCollapse} />
-        <main className="flex-1 overflow-y-auto p-6 ml-[60px]">
+        <SidebarAdmin
+          collapsed={collapsed}
+          setCollapsed={handleCollapse}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+        />
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 ml-0 lg:ml-[60px]">
           {children}
         </main>
       </div>

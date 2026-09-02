@@ -154,12 +154,13 @@ const { nom, formation_id, niveau_id, teacher_id, en_promotion, prix_promotion, 
 const updateGroup = async (req, res) => {
   const { id } = req.params;
   const updates = { ...req.body };
- const { data: before } = await supabase
+  const { data: before } = await supabase
     .from('groups')
-    .select('nom, statut, date_fin, teacher_id, en_promotion')
+    .select('nom, statut, date_fin, date_debut, teacher_id, en_promotion, use_default_duree, duree_valeur, type_duree, teacher:teacher_id(user:user_id(nom, prenom)), formations:formation_id(nom), niveau:niveau_id(nom)')
     .eq('id', id)
     .single();
- if (updates.date_debut === '') updates.date_debut = null;
+
+  if (updates.date_debut === '') updates.date_debut = null;
   if (updates.date_fin === '') updates.date_fin = null;
 
   // Synchronise le statut avec date_fin, quelle que soit l'origine du PATCH
@@ -198,11 +199,25 @@ const updateGroup = async (req, res) => {
       .eq('type', 'groupe_complete')
       .eq('data->>groupe_id', String(id));
   }
-  const changes = buildDiffDescription(before, updates);
+
+  const beforeForDiff = { ...before, teacher_id: before?.teacher?.user ? `${before.teacher.user.prenom} ${before.teacher.user.nom}` : null };
+  const updatesForDiff = { ...updates };
+  if ('teacher_id' in updates) {
+    if (updates.teacher_id) {
+      const { data: newTeacher } = await supabase
+        .from('teachers').select('user:user_id(nom, prenom)').eq('id', updates.teacher_id).single();
+      updatesForDiff.teacher_id = newTeacher?.user ? `${newTeacher.user.prenom} ${newTeacher.user.nom}` : updates.teacher_id;
+    } else {
+      updatesForDiff.teacher_id = null;
+    }
+  }
+
+  const changes = buildDiffDescription(beforeForDiff, updatesForDiff);
   if (changes.length > 0) {
+    const contexte = before?.niveau?.nom ? `${before.formations?.nom} — ${before.niveau.nom}` : before?.formations?.nom;
     await logHistorique({
       req, perimetre: 'admin', action: 'modification', entite: 'groupe', entite_id: id,
-      description: `a modifié le groupe "${data.nom}" — ${changes.join(', ')}`,
+      description: `a modifié le groupe "${data.nom}" (${contexte ?? '—'}) — ${changes.join(', ')}`,
       details: { changes },
     });
   }
@@ -212,6 +227,11 @@ const updateGroup = async (req, res) => {
 const deleteGroup = async (req, res) => {
   const { id } = req.params;
 
+  const { data: toDelete } = await supabase
+    .from('groups')
+    .select('nom, formations:formation_id(nom), niveau:niveau_id(nom)')
+    .eq('id', id)
+    .single();
   // Remettre group_id à null pour les étudiants de ce groupe
 // Bloquer la suppression si des étudiants sont encore inscrits à ce groupe
   const { count, error: countError } = await supabase
@@ -252,6 +272,13 @@ const deleteGroup = async (req, res) => {
     .eq('id', id);
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const contexteDelete = toDelete?.niveau?.nom ? `${toDelete.formations?.nom} — ${toDelete.niveau.nom}` : toDelete?.formations?.nom;
+  await logHistorique({
+    req, perimetre: 'admin', action: 'suppression', entite: 'groupe', entite_id: id,
+    description: `a supprimé le groupe "${toDelete?.nom}" (${contexteDelete ?? '—'})`,
+  });
+
   res.json({ success: true });
 };
 const archiveGroup = async (req, res) => {
@@ -260,11 +287,10 @@ const archiveGroup = async (req, res) => {
 
   const { data: existing, error: fetchErr } = await supabase
     .from('groups')
-    .select('date_fin')
+    .select('date_fin, formations:formation_id(nom), niveau:niveau_id(nom)')
     .eq('id', id)
     .single();
   if (fetchErr) return res.status(500).json({ error: fetchErr.message });
-
   const today = new Date().toISOString().slice(0, 10);
   if (!existing.date_fin || existing.date_fin > today) {
     return res.status(400).json({
@@ -294,6 +320,12 @@ const archiveGroup = async (req, res) => {
     .eq('group_id', id);
 
   if (insErr) return res.status(500).json({ error: insErr.message });
+
+  const contexteArchive = existing?.niveau?.nom ? `${existing.formations?.nom} — ${existing.niveau.nom}` : existing?.formations?.nom;
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'groupe', entite_id: id,
+    description: `a archivé le groupe "${data.nom}" (${contexteArchive ?? '—'}, année ${data.annee_scolaire || '—'})`,
+  });
 
   res.json(data);
 };
@@ -411,10 +443,24 @@ const setGroupPeriods = async (req, res) => {
 
   if (!Array.isArray(periods)) return res.status(400).json({ error: 'periods doit être un tableau.' });
 
+  const { data: beforePeriods } = await supabase
+    .from('group_payment_periods')
+    .select('jours_offset, montant')
+    .eq('group_id', id)
+    .order('numero', { ascending: true });
+  const { data: groupBefore } = await supabase.from('groups').select('nom, use_default_periods').eq('id', id).single();
+
   if (periods.length === 0) {
     await supabase.from('group_payment_periods').delete().eq('group_id', id);
     const { error } = await supabase.from('groups').update({ use_default_periods: true }).eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
+
+    if (!groupBefore?.use_default_periods) {
+      await logHistorique({
+        req, perimetre: 'admin', action: 'modification', entite: 'groupe', entite_id: id,
+        description: `a réinitialisé l'échéancier du groupe "${groupBefore?.nom}" (retour à l'échéancier par défaut)`,
+      });
+    }
     return res.json([]);
   }
 
@@ -473,6 +519,21 @@ const { data: group, error: gErr } = await supabase
   if (error) return res.status(500).json({ error: error.message });
   const { error: updErr } = await supabase.from('groups').update({ use_default_periods: false }).eq('id', id);
   if (updErr) return res.status(500).json({ error: updErr.message });
+
+  const normalize = (list) => (list || [])
+    .map((p) => `${p.jours_offset}:${p.montant}`)
+    .sort()
+    .join('|');
+  const changed = normalize(beforePeriods) !== normalize(data);
+
+  if (changed) {
+    const periodsText = data.map((p) => `J+${p.jours_offset} : ${p.montant} DA`).join(' ; ');
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'groupe', entite_id: id,
+      description: `a modifié l'échéancier du groupe "${groupBefore?.nom}" — ${periodsText}`,
+      details: { periods: data },
+    });
+  }
 
   res.json(data);
 };

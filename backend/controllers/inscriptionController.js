@@ -1,4 +1,5 @@
 const supabase = require('../supabaseClient');
+const { logHistorique } = require('../utils/historique');
 
 const getInscriptions = async (req, res) => {
   const { statut, formation_id, niveau_id, ids, includeArchived } = req.query;
@@ -49,6 +50,13 @@ const markAttestationsPrinted = async (req, res) => {
     .in('id', ids);
 
   if (error) return res.status(500).json({ error: error.message });
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'attestation',
+    description: `a marqué ${ids.length} attestation(s) comme imprimée(s)`,
+    details: { ids },
+  });
+
   res.json({ success: true });
 };
 
@@ -70,14 +78,37 @@ const assignToGroup = async (req, res) => {
   const updates = { group_id: group_id || null };
   if (niveau_id !== undefined) updates.niveau_id = niveau_id || null;
 
+  const { data: before } = await supabase
+    .from('inscriptions')
+    .select('etudiant:etudiant_id(nom, prenom), groups:group_id(nom)')
+    .eq('id', id)
+    .single();
+  const ancienGroupe = before?.groups?.nom || null;
+
   const { data, error } = await supabase
     .from('inscriptions')
     .update(updates)
     .eq('id', id)
-    .select()
+    .select('*, etudiant:etudiant_id(nom, prenom), groups:group_id(nom)')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  const nom = `${data.etudiant?.nom} ${data.etudiant?.prenom}`;
+  let description;
+  if (group_id && ancienGroupe) {
+    description = `a changé ${nom} du groupe "${ancienGroupe}" vers "${data.groups?.nom}"`;
+  } else if (group_id) {
+    description = `a affecté ${nom} au groupe "${data.groups?.nom}"`;
+  } else {
+    description = `a retiré ${nom} du groupe "${ancienGroupe || '—'}"`;
+  }
+
+  await logHistorique({
+    req, perimetre: 'admin', action: 'modification', entite: 'etudiant', entite_id: id,
+    description,
+  });
+
   res.json(data);
 };
 

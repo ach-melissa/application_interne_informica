@@ -30,6 +30,19 @@ const FIELD_LABELS = {
   // groupes
   date_fin: 'date de fin',
   teacher_id: 'professeur',
+  date_debut: 'date de début',
+  use_default_duree: 'durée personnalisée',
+  duree_valeur: 'durée',
+  type_duree: 'unité de durée',
+  en_promotion: 'promotion',
+  prix_promotion: 'prix promo',
+  use_default_periods: 'échéancier personnalisé',
+  // séances / pointage
+  date: 'date de la séance',
+  heure_debut: 'heure de début',
+  heure_fin: 'heure de fin',
+  duree_effectuee: 'durée effectuée',
+  type_seance: 'type de séance',
 };
 
 const buildDiffDescription = (before, patch) => {

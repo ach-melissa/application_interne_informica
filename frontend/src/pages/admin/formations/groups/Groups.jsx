@@ -103,14 +103,22 @@ const getAnneeScolairePourDate = (dateStr) => {
   return `${startYear}-${startYear + 1}`;
 };
 
-  const confirmArchiveGroup = async () => {
-    await fetch(`${API}/api/groups/${archivingGroup}/archive`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ annee_scolaire: archiveYear || null }),
-    });
-    setArchivingGroup(null);
-    setArchiveYear('');
-    fetchGroups();
+const [archivingSubmit, setArchivingSubmit] = useState(false);
+
+const confirmArchiveGroup = async () => {
+    if (archivingSubmit) return;
+    setArchivingSubmit(true);
+    try {
+      await fetch(`${API}/api/groups/${archivingGroup}/archive`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ annee_scolaire: archiveYear || null }),
+      });
+      setArchivingGroup(null);
+      setArchiveYear('');
+      fetchGroups();
+    } finally {
+      setArchivingSubmit(false);
+    }
   };
 
   return (
@@ -230,7 +238,9 @@ const getAnneeScolairePourDate = (dateStr) => {
   <Dialog title="Archiver le groupe" iconBg="bg-slate-500" icon={Archive} onClose={() => { setArchivingGroup(null); setArchiveYear(''); }}
     actions={<>
       <button onClick={() => { setArchivingGroup(null); setArchiveYear(''); }} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">Annuler</button>
-      <button onClick={confirmArchiveGroup} className="text-xs px-3 py-1.5 rounded-md bg-slate-500 text-white hover:bg-slate-600">Archiver</button>
+      <button onClick={confirmArchiveGroup} disabled={archivingSubmit} className="text-xs px-3 py-1.5 rounded-md bg-slate-500 text-white hover:bg-slate-600 disabled:opacity-40">
+  {archivingSubmit ? '...' : 'Archiver'}
+</button>
     </>}>
     <div className="space-y-2.5">
       <p className="text-xs text-slate-500">Ce groupe sera déplacé vers les archives.</p>

@@ -294,7 +294,6 @@ const getFormationPeriods = async (req, res) => {
   res.json(data);
 };
 
-// PUT /api/formations/:id/periods — remplace la liste entière (le tableau vient de l'éditeur)
 const setFormationPeriods = async (req, res) => {
   const { id } = req.params;
   const { periods } = req.body; // [{ jours_offset, montant }, ...]
@@ -302,6 +301,12 @@ const setFormationPeriods = async (req, res) => {
   if (!Array.isArray(periods)) {
     return res.status(400).json({ error: 'periods doit être un tableau.' });
   }
+
+  const { data: beforePeriods } = await supabase
+    .from('formation_payment_periods')
+    .select('jours_offset, montant')
+    .eq('formation_id', id)
+    .order('numero', { ascending: true });
   for (const p of periods) {
     if (p.jours_offset === undefined || p.jours_offset === null || isNaN(p.jours_offset)) {
       return res.status(400).json({ error: 'Chaque période doit avoir un décalage en jours valide.' });
@@ -340,6 +345,26 @@ if (periods.length > 0) {
 
   const { data, error } = await supabase.from('formation_payment_periods').insert(rows).select();
   if (error) return res.status(500).json({ error: error.message });
+
+  const normalize = (list) => (list || [])
+    .map((p) => `${p.jours_offset}:${p.montant}`)
+    .sort()
+    .join('|');
+  const changed = normalize(beforePeriods) !== normalize(data);
+
+  if (changed) {
+    const { data: formationRow } = await supabase.from('formations').select('nom').eq('id', id).single();
+    const periodsText = data.length > 0
+      ? data.map((p) => `J+${p.jours_offset} : ${p.montant} DA`).join(' ; ')
+      : 'échéancier vidé (aucune période)';
+
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'formation', entite_id: id,
+      description: `a modifié l'échéancier de paiement de "${formationRow?.nom}" — ${periodsText}`,
+      details: { periods: data },
+    });
+  }
+
   res.json(data);
 };
 const getFormationStatutOptions = async (req, res) => {
