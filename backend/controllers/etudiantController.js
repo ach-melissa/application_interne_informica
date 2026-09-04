@@ -65,6 +65,7 @@ const updateInscription = async (req, res) => {
   if ('third_try' in req.body)     updates.third_try     = req.body.third_try || null;
     if ('formation_id' in req.body)  updates.formation_id  = req.body.formation_id || null;
   if ('niveau_id' in req.body)     updates.niveau_id     = req.body.niveau_id || null;
+  if ('commentaire' in req.body)   updates.commentaire   = req.body.commentaire || null;
   if ('statut_scolarite' in req.body) {
     updates.statut_scolarite = req.body.statut_scolarite || 'en_cours';
     updates.abandonne_at = updates.statut_scolarite === 'abandonne' ? new Date().toISOString() : null;
@@ -208,7 +209,7 @@ const createEtudiant = async (req, res) => {
   const {
     nom, prenom, telephone, email, adresse,
     niveau_scolaire, date_naissance, lieu_naissance, wilaya,
-    formation_id, niveau_id, source, registered_by,
+    formation_id, niveau_id, source, registered_by, commentaire,
   } = req.body;
 
     let addedByName = null;
@@ -262,6 +263,7 @@ if (req.user?.id) {
     .insert({
       etudiant_id: etudiant.id,
       formation_id, niveau_id: niveau_id || null, source, registered_by,
+      commentaire: commentaire || null,
       added_by: addedByName,
       date_inscription: new Date().toISOString().split('T')[0],
       statut: 'pending',

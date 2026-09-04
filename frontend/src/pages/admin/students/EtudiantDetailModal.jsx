@@ -340,6 +340,7 @@ const groupNotFinished = !!groupInfo && (!groupInfo.date_fin || groupInfo.date_f
   third_try: inscription?.third_try ?? '',
    formation_id: inscription?.formation_id ?? '',
   niveau_id: inscription?.niveau_id ?? '',
+  commentaire: inscription?.commentaire ?? '',
 });
 const selectedFormation = formations.find(f => f.id === form.formation_id);
 const showNiveauField = selectedFormation?.a_niveaux;
@@ -387,6 +388,7 @@ useEffect(() => {
           second_try: form.second_try || null, third_try: form.third_try || null,
           formation_id: form.formation_id || null,
           niveau_id: form.niveau_id || null,
+          commentaire: form.commentaire || null,
         }),
       });
 
@@ -764,6 +766,15 @@ win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fi
     <p className="text-xs text-slate-700 font-medium">
       {inscription.added_by ?? <span className="text-slate-400 font-normal">— (inscription en ligne)</span>}
     </p>
+  </Row>
+</div>
+<div className="col-span-2">
+  <Row label="Commentaire">
+    {editing ? (
+      <textarea value={form.commentaire} onChange={set('commentaire')} rows={3} className={inp} />
+    ) : (
+      <p className="text-xs text-slate-700 font-medium whitespace-pre-wrap">{form.commentaire || '—'}</p>
+    )}
   </Row>
 </div>
           </div>

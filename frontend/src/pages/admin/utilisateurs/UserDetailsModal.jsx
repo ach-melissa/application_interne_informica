@@ -43,7 +43,7 @@ const Field = ({ icon, label, field, form, editing, set, opts, required }) => (
       )
     ) : (
       <p className="text-xs text-slate-700 font-medium px-0.5">
-        {field === 'nom_utilisateur' && form[field] ? `@${form[field]}` : (form[field] || '—')}
+        {form[field] || '—'}
       </p>
     )}
   </div>
@@ -75,7 +75,7 @@ fetch(`${API}/api/users/roles`, { headers: authHeader() })
   .then(d => setRoles(Array.isArray(d) ? d : (Array.isArray(d?.roles) ? d.roles : [])))
   .catch(() => {});
     fetch(`${API}/api/formations`, { headers: authHeader() })
-      .then(r => r.json()).then(d => setFormations(d.filter(f => f.statut === 'active'))).catch(() => {});
+      .then(r => r.json()).then(setFormations).catch(() => {});
     if (user.role === 'prof') {
       fetch(`${API}/api/teachers/by-user/${user.id}`, { headers: authHeader() })
         .then(r => r.json()).then(d => setSelectedFormations(d.formation_ids ?? [])).catch(() => {});
@@ -163,7 +163,7 @@ fetch(`${API}/api/users/roles`, { headers: authHeader() })
               <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
                 <User size={14} className="text-white" />
               </span>
-              <span className="truncate">{user.prenom} {user.nom} <span className="text-slate-400 font-normal">· @{user.nom_utilisateur}</span></span>
+              <span className="truncate">{user.prenom} {user.nom} <span className="text-slate-400 font-normal">· {user.nom_utilisateur}</span></span>
             </h2>
             <button onClick={onClose} className="text-slate-300 hover:text-slate-600 shrink-0"><X size={16} /></button>
           </div>
@@ -274,7 +274,7 @@ fetch(`${API}/api/users/roles`, { headers: authHeader() })
             <div>
               <Label icon={BookOpen} text="Formations enseignées" />
               {formations.length === 0 ? (
-                <p className="text-xs text-slate-400 bg-[#F8FAFC] rounded-lg px-3 py-2">Aucune formation active.</p>
+<p className="text-xs text-slate-400 bg-[#F8FAFC] rounded-lg px-3 py-2">Aucune formation disponible.</p>  
               ) : editing ? (
                 <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
                   {formations.map(f => {

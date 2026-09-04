@@ -82,11 +82,21 @@ export default function InscriptionForm() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+    const cat = c => fetch(`${API}/parametres?categorie=${c}`, { headers: h }).then(r => r.json());
+
     Promise.all([
-      fetch(`${API}/formations`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }).then(r => r.json()),
-      fetch(`${API}/enums`).then(r => r.json()),
+      fetch(`${API}/formations`, { headers: h }).then(r => r.json()),
+      cat('wilaya'),
+      cat('source'),
+      cat('niveau_scolaire'),
     ])
-     .then(([f, e]) => { setFormations(Array.isArray(f) ? f : []); setNiveaux(e.niveau_scolaire || []); setSources(e.source || []); setWilayas(e.wilaya || []); })
+      .then(([f, wl, src, niv]) => {
+        setFormations(Array.isArray(f) ? f : []);
+        setWilayas((wl || []).filter(v => v.actif).map(v => v.label));
+        setSources((src || []).filter(v => v.actif).map(v => v.label));
+        setNiveaux((niv || []).filter(v => v.actif).map(v => v.label));
+      })
       .catch(() => setApiError('Impossible de charger les données.'))
       .finally(() => setLoading(false));
   }, []);

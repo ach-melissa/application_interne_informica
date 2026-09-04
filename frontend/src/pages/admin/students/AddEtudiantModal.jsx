@@ -28,7 +28,7 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
   const [form, setForm] = useState({
   nom: '', prenom: '', telephone: '', email: '', adresse: '',
   niveau_scolaire: '', date_naissance: '', lieu_naissance: '', wilaya: '',
-  formation_id: '', niveau_id: '', source: '', registered_by: '',
+  formation_id: '', niveau_id: '', source: '', registered_by: '', commentaire: '',
 });
 
   useEffect(() => {
@@ -160,6 +160,10 @@ const setFormation = e => {
                 <option value="">—</option>
                 {registeredByOpts.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
+            </div>
+            <div className="col-span-2">
+              <Label text="Commentaire" />
+              <textarea value={form.commentaire} onChange={set('commentaire')} rows={3} className={inp} />
             </div>
           </Section>
 

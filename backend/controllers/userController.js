@@ -269,6 +269,12 @@ const archiveUser = async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ message: 'Erreur serveur' });
+
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'utilisateur', entite_id: req.params.id,
+      description: `a désactivé l'utilisateur ${data.prenom} ${data.nom}`,
+    });
+
     res.json(await withPhotoUrl(data));
   } catch (err) {
     console.error(err);
@@ -289,6 +295,12 @@ const restoreUser = async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ message: 'Erreur serveur' });
+
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'utilisateur', entite_id: req.params.id,
+      description: `a réactivé l'utilisateur ${data.prenom} ${data.nom}`,
+    });
+
     res.json(await withPhotoUrl(data));
   } catch (err) {
     console.error(err);
@@ -474,15 +486,43 @@ const updateUser = async (req, res) => {
     }
 
   const effectiveRole = role !== undefined ? role : data.role;
+    const changes = buildDiffDescription(before, patch);
+
     if (effectiveRole === 'prof' && req.body.formation_ids) {
       try {
-        await syncTeacherFormations(req.params.id, JSON.parse(req.body.formation_ids));
+        const { data: teacherRow } = await supabase
+          .from('teachers').select('id').eq('user_id', req.params.id).maybeSingle();
+
+        let beforeFormationIds = [];
+        if (teacherRow) {
+          const { data: beforeLinks } = await supabase
+            .from('teacher_formations').select('formation_id').eq('teacher_id', teacherRow.id);
+          beforeFormationIds = (beforeLinks ?? []).map((l) => l.formation_id);
+        }
+
+        const afterFormationIds = JSON.parse(req.body.formation_ids);
+
+        await syncTeacherFormations(req.params.id, afterFormationIds);
+
+        const beforeSet = new Set(beforeFormationIds);
+        const afterSet = new Set(afterFormationIds);
+        const addedIds = afterFormationIds.filter((id) => !beforeSet.has(id));
+        const removedIds = beforeFormationIds.filter((id) => !afterSet.has(id));
+
+        if (addedIds.length || removedIds.length) {
+          const allIds = [...addedIds, ...removedIds];
+          const { data: formationsInfo } = await supabase
+            .from('formations').select('id, nom').in('id', allIds);
+          const nameOf = (id) => formationsInfo?.find((f) => f.id === id)?.nom ?? id;
+
+          if (addedIds.length) changes.push(`formations ajoutées : ${addedIds.map(nameOf).join(', ')}`);
+          if (removedIds.length) changes.push(`formations retirées : ${removedIds.map(nameOf).join(', ')}`);
+        }
       } catch (err) {
         console.error('updateUser (formations prof):', err);
       }
     }
 
-    const changes = buildDiffDescription(before, patch);
     if (changes.length > 0) {
       await logHistorique({
         req,

@@ -427,12 +427,9 @@ const getCellStatut = (session, etudiant_id) => {
             </div>
           </div>
 
-          {sessions.length === 0 ? (
-            <p className="text-sm text-slate-300 py-8 text-center">Aucune séance enregistrée.</p>
-          ) : (
-            <div className="overflow-auto pointage-scroll rounded-md border border-[#F1F5F9] print:overflow-visible print:border-0 mt-4 max-h-[65vh]">
-              <table className="text-xs border-collapse bg-white" style={{ minWidth: `${140 + sessions.length * 80}px` }}>
-                <tbody>
+          <div className="overflow-auto pointage-scroll rounded-md border border-[#F1F5F9] print:overflow-visible print:border-0 mt-4 max-h-[65vh]">
+            <table className="text-xs border-collapse bg-white" style={{ minWidth: `${140 + sessions.length * 80}px` }}>
+              <tbody>
                                   <tr className="bg-slate-50">
                     <td className="border border-slate-200 px-3 py-2 font-semibold text-slate-600 sticky left-0 bg-slate-50 z-10 min-w-[160px]">Séance №</td>
                     {sessions.map((s, i) => (
@@ -570,10 +567,9 @@ const getCellStatut = (session, etudiant_id) => {
                     </tr>
                   )}
 
-                </tbody>
-              </table>
-            </div>
-          )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {editingCell && (() => {

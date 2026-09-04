@@ -29,9 +29,14 @@ const getDashboardStats = async (req, res) => {
     const prixMap = {};
     formationsData?.forEach((f) => { prixMap[f.id] = Number(f.prix_etudiant ?? 0); });
 
+    const validKeys = new Set(
+      inscriptionsForPayments?.map((i) => `${i.etudiant_id}_${i.formation_id}`) ?? []
+    );
+
     const paidMap = {};
     paymentsData?.forEach((p) => {
       const key = `${p.etudiant_id}_${p.formation_id}`;
+      if (!validKeys.has(key)) return; // ignore payments not tied to an active confirmed inscription
       paidMap[key] = (paidMap[key] ?? 0) + Number(p.montant);
     });
 
@@ -58,7 +63,8 @@ const getDashboardStats = async (req, res) => {
         .in('formation_id', niveauFormationIds);
 
       (niveauxData ?? []).forEach((n) => {
-        niveauCapaciteMap[n.formation_id] = (niveauCapaciteMap[n.formation_id] ?? 0) + Number(n.capacite_groupe ?? 0);
+        const cap = Number(n.capacite_groupe ?? 0);
+        niveauCapaciteMap[n.formation_id] = Math.max(niveauCapaciteMap[n.formation_id] ?? 0, cap);
       });
     }
  const formationsEnAttenteGroupe = (formationsData ?? [])

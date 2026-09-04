@@ -60,10 +60,10 @@ const AddUserModal = ({ onClose, onSuccess }) => {
   }, []);
   const set = f => ev => setForm(p => ({ ...p, [f]: ev.target.value }));
 
-  useEffect(() => {
+useEffect(() => {
     fetch(`${API}/api/formations`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       .then(r => r.json())
-      .then(data => setFormations(data.filter(f => f.statut === 'active')))
+      .then(setFormations)
       .catch(() => {});
   }, []);
 

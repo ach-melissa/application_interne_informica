@@ -69,8 +69,8 @@ const TrySelect = ({ value, onChange, disabled, opts }) => (
     onClick={e => e.stopPropagation()}
     disabled={disabled}
     className={`text-[11px] font-medium px-2 py-0.5 rounded-full border-0 focus:outline-none focus:ring-1 focus:ring-[#0369A1]/40 w-full
-      ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
-      ${tryMeta[value] ?? 'bg-slate-100 text-slate-400'}`}
+      ${disabled ? (value ? 'cursor-not-allowed' : 'opacity-30 cursor-not-allowed') : 'cursor-pointer'}
+      ${value ? 'bg-emerald-100 text-emerald-700 font-semibold' : 'bg-slate-100 text-slate-400'}`}
   >
     <option value="">— aucun —</option>
     {opts.map(o => <option key={o} value={o}>{o}</option>)}
@@ -279,16 +279,17 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
   { label: 'Étudiant',    Icon: null,        width: 130 },
   { label: 'Tél.',        Icon: Phone,       width: 90  },
   { label: 'Wilaya',      Icon: MapPin,      width: 100 },
-  { label: 'Formation',   Icon: Users,       width: 130 },
+  { label: 'Formation',   Icon: Users,       width: 150 },
   { label: 'Niveau',      Icon: Layers,      width: 100 }, // 👈 new
-  { label: 'Date',        Icon: CalendarDays,width: 80  },
-  { label: '1er appel',   Icon: PhoneCall,   width: 90  },
-  { label: '2ème appel',  Icon: PhoneCall,   width: 98  },
-  { label: '3ème appel',  Icon: PhoneCall,   width: 98  },
+  { label: 'Date',        Icon: CalendarDays,width: 90  },
+  { label: '1er appel',   Icon: PhoneCall,   width: 100  },
+  { label: '2ème appel',  Icon: PhoneCall,   width: 100  },
+  { label: '3ème appel',  Icon: PhoneCall,   width: 100  },
   { label: 'Source',      Icon: Megaphone,   width: 98  },
   { label: 'Rapporteur',  Icon: UserCheck,   width: 98  },
-  { label: 'Ajouté par',  Icon: UserCheck,   width: 98  },
+  { label: 'Ajouté par',  Icon: UserCheck,   width: 100  },
   { label: 'Statut',      Icon: CheckCircle2,width: 103 },
+  { label: 'Commentaire', Icon: null,        width: 130 },
 ];
 
   return (
@@ -510,6 +511,9 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
 >
                           {statutOpts.map(o => <option key={o} value={o}>{statutMeta[o]?.label ?? o}</option>)}
                         </select>
+                      </td>
+                      <td className="px-3 py-2 text-slate-500 truncate border-b border-slate-100" title={i.commentaire || ''}>
+                        {i.commentaire || '—'}
                       </td>
                     </tr>
                   );

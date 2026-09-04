@@ -583,12 +583,9 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
             </div>
           </div>
 
-          {sessions.length === 0 ? (
-            <p className="text-sm text-slate-300 py-8 text-center">Aucune séance enregistrée.</p>
-          ) : (
-            <div className="overflow-auto pointage-scroll rounded-md border border-[#F1F5F9] print:overflow-visible print:border-0 mt-4 max-h-[65vh]">
-              <table className="text-xs border-collapse bg-white" style={{ minWidth: `${140 + sessions.length * 80}px` }}>
-                <tbody>
+          <div className="overflow-auto pointage-scroll rounded-md border border-[#F1F5F9] print:overflow-visible print:border-0 mt-4 max-h-[65vh]">
+            <table className="text-xs border-collapse bg-white" style={{ minWidth: `${140 + sessions.length * 80}px` }}>
+              <tbody>
 
                   {/* ── Séance № ── */}
                   <tr className="bg-slate-50">
@@ -766,10 +763,9 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                     })}
                   </tr>
 
-                </tbody>
-              </table>
-            </div>
-          )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {editingCell && (() => {

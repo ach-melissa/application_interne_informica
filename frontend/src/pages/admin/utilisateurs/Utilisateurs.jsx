@@ -174,7 +174,7 @@ useEffect(() => {
                           <Avatar user={u} size={7} />
                           <div className="min-w-0">
                             <p className="font-medium text-slate-700 truncate">{u.prenom} {u.nom}</p>
-                            <p className="text-[10px] text-slate-400 truncate">@{u.nom_utilisateur}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{u.nom_utilisateur}</p>
                           </div>
                         </div>
                       </td>
