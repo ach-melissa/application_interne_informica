@@ -277,6 +277,27 @@ const { data: conflicts, error: conflictErr } = await supabase
     .eq('notification_id', id);
   if (schedErr) return res.status(500).json({ error: schedErr.message });
 
+  const { error: notifErr } = await supabase
+    .from('notifications')
+    .insert({
+      type: 'salle_changee',
+      statut: 'approuvee',
+      lu: false,
+      lu_admin: true,
+      expediteur_id: existing.expediteur_id,
+      destinataire_role: 'prof',
+      titre: `Salle changée - ${existing.data?.groupe_nom || ''}`,
+      message: `La salle a été changée : ${existing.data?.salle_assignee_nom || '—'} → ${salle.nom}.`,
+      data: {
+        ...existing.data,
+        salle_assignee: salle.id,
+        salle_assignee_nom: salle.nom,          // ← AJOUTÉ : écrase l'ancienne valeur avec la nouvelle
+        ancienne_salle_nom: existing.data?.salle_assignee_nom || null,
+        nouvelle_salle_nom: salle.nom,
+      },
+    });
+  if (notifErr) return res.status(500).json({ error: notifErr.message });
+
   await logHistorique({
     req, perimetre: 'admin', action: 'modification', entite: 'demande_salle', entite_id: id,
     description: `a changé la salle de ${existing.data?.demandeur_nom || '—'} — ancienne : "${existing.data?.salle_assignee_nom || '—'}", nouvelle : "${salle.nom}"`,

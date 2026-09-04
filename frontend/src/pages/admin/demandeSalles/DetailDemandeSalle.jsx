@@ -364,12 +364,11 @@ const DetailDemandeSalle = () => {
                       </thead>
                       <tbody>
                         {[...salles].sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true })).map((s, i) => {
-                          const rowConflict = isSalleOccupied(s.nom);
                           return (
                             <tr key={s.id}>
-                              <td className={`border border-slate-100 px-2 py-1.5 font-medium whitespace-nowrap sticky left-0 z-10 ${rowConflict ? 'bg-red-900 text-white' : 'bg-slate-900 text-white'}`}>
-                                {s.nom}
-                              </td>
+<td className="border border-slate-100 px-2 py-1.5 font-medium whitespace-nowrap sticky left-0 z-10 bg-slate-900 text-white">
+  {s.nom}
+</td>
                               {jours.map((j) => {
                                 const matinList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine === j && overlaps(e.heure_debut, e.heure_fin, ...PERIODE_BORNES.matin));
                                 const midiList = emploiData.filter((e) => e.salle === s.nom && e.jour_semaine === j && overlaps(e.heure_debut, e.heure_fin, ...PERIODE_BORNES.midi));
