@@ -14,10 +14,12 @@ const ROLE_LABELS = {
 const NOTIF_ICONS = {
   retard_paiement: { Icon: CreditCard, className: 'text-orange-600 bg-orange-50' },
   demande_salle: { Icon: ClipboardList, className: 'text-[#0369A1] bg-[#EAF4FC]' },
+  salle_changee: { Icon: ClipboardList, className: 'text-violet-600 bg-violet-50' }, 
   groupe_complete: { Icon: Flag, className: 'text-emerald-600 bg-emerald-50' },
   groupe_a_archiver: { Icon: Archive, className: 'text-amber-700 bg-amber-50' },
   rappel_pointage: { Icon: Clock, className: 'text-sky-600 bg-sky-50' },
 };
+
 const DEMANDE_SALLE_STATUT_LABEL = {
   en_attente: 'En attente de réponse',
   approuvee: 'Approuvée',
