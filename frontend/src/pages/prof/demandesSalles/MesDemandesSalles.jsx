@@ -397,12 +397,18 @@ const MesDemandesSalles = () => {
                 </h2>
                 <button onClick={() => setShowModal(false)} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
               </div>
-              {submitError && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 mx-5 mb-3 rounded-md">{submitError}</p>}
+              {submitError && (
+  <p className="text-red-500 text-xs bg-red-50 px-3 py-2 mx-5 mb-3 rounded-md flex items-center gap-1.5">
+    <XCircle size={13} className="flex-shrink-0" /> {submitError}
+  </p>
+)}
             </div>
 
             <div className="p-5">
               {submitSuccess ? (
-                <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm rounded-md px-4 py-3">Demande envoyée avec succès.</div>
+                <div className="bg-emerald-50 rounded-md p-3 flex items-center gap-1.5 text-xs text-emerald-700">
+                  <CheckCircle2 size={13} /> Demande envoyée avec succès.
+                </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
@@ -415,10 +421,14 @@ const MesDemandesSalles = () => {
                   <div className="border border-slate-200 rounded-md p-3 space-y-3 bg-[#F8FAFC]">
                     {form.groupe_id && (
                       <div className="mb-1">
-                        <Label text="Créneau actuel à changer/remplacer" />
+                        <Label text="Créneau actuel à changer/remplacer" required={creneauxGroupe.length > 0} />
                         {creneauxGroupe.length === 0 ? (
                           <p className="text-xs text-slate-400 italic">Aucun créneau existant pour ce groupe.</p>
                         ) : (
+                          <>
+                          <p className="text-[11px] text-slate-400 mb-1.5">
+                            Sélectionnez le créneau à modifier ou remplacer dans la liste ci-dessous.
+                          </p>
                           <div className="space-y-1.5">
                             {creneauxGroupe.map((c) => (
                               <label
@@ -439,10 +449,14 @@ const MesDemandesSalles = () => {
                               </label>
                             ))}
                           </div>
+                          </>
                         )}
                       </div>
                     )}
-                    <Label text="Créneaux à changer/remplacer" />
+                     <Label text="Créneaux à changer/remplacer" required />
+                    <p className="text-[11px] text-slate-400 -mt-1.5 mb-1">
+                      Remplissez les champs ci-dessous puis cliquez sur « Ajouter ce créneau ». Vous pouvez ajouter plusieurs créneaux avant d'envoyer la demande.
+                    </p>
 
                     <div className="grid grid-cols-2 gap-3">
                       <Field label="Jour" icon={CalendarDays} value={creneauTemp.jour_semaine} onChange={setCT('jour_semaine')} options={jours} />
@@ -452,8 +466,17 @@ const MesDemandesSalles = () => {
                       <Field label="Type de demande" icon={Repeat} value={creneauTemp.type_demande}
                         onChange={(e) => setCreneauTemp((p) => ({ ...p, type_demande: e.target.value, date_cible: '' }))}
                         options={[{ value: 'remplacement', label: 'Remplacement (un jour)' }, { value: 'changement', label: "Changement d'horaire" }]} />
-                      <Field label={creneauTemp.type_demande === 'changement' ? 'À partir de' : 'Date remplacement'} icon={CalendarDays} type="date"
-                        value={creneauTemp.date_cible} onChange={setCT('date_cible')} disabled={!creneauTemp.type_demande} />
+                      <div className="col-span-2 sm:col-span-1">
+                        <Field label={creneauTemp.type_demande === 'changement' ? 'À partir de' : 'Date remplacement'} icon={CalendarDays} type="date"
+                          value={creneauTemp.date_cible} onChange={setCT('date_cible')} disabled={!creneauTemp.type_demande} />
+                        {creneauTemp.type_demande && (
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {creneauTemp.type_demande === 'changement'
+                              ? 'Le nouvel horaire s\'appliquera à partir de cette date, de façon permanente.'
+                              : 'Ce créneau ne sera modifié que pour cette date précise.'}
+                          </p>
+                        )}
+                      </div>
                       <Field label="Salle souhaitée (optionnel)" icon={DoorOpen} value={creneauTemp.salle_souhaitee_id} onChange={setCT('salle_souhaitee_id')}
                         options={salles.map((s) => ({ value: s.id, label: s.nom }))} />
                     </div>
@@ -569,12 +592,23 @@ const MesDemandesSalles = () => {
                     <textarea value={form.message} onChange={setV('message')} rows={2} className={`${inp} resize-none`} placeholder="Précision utile pour l'admin…" />
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-1">
-                    <button type="button" onClick={() => setShowModal(false)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
-                    <button type="submit" disabled={submitting}
-                      className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
-                      {submitting ? 'Envoi…' : 'Envoyer la demande'}
-                    </button>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    {creneaux.length === 0 ? (
+                      <p className="text-[11px] text-amber-600 flex items-center gap-1">
+                        <Repeat size={11} /> Ajoutez au moins un créneau pour pouvoir envoyer la demande.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-slate-400">
+                        {creneaux.length} créneau{creneaux.length > 1 ? 'x' : ''} prêt{creneaux.length > 1 ? 's' : ''} à être envoyé{creneaux.length > 1 ? 's' : ''}.
+                      </p>
+                    )}
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button type="button" onClick={() => setShowModal(false)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
+                      <button type="submit" disabled={submitting || creneaux.length === 0}
+                        className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
+                        {submitting ? 'Envoi…' : 'Envoyer la demande'}
+                      </button>
+                    </div>
                   </div>
                 </form>
               )}
