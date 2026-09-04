@@ -64,7 +64,10 @@ const getProfs = async (req, res) => {
           const { count } = await supabase
             .from('inscriptions')
             .select('*', { count: 'exact', head: true })
-            .eq('group_id', g.id);
+            .eq('group_id', g.id)
+            .eq('statut', 'confirmed')
+            .eq('archived', false)
+            .or('statut_scolarite.is.null,statut_scolarite.neq.abandonne');
           return { ...g, nb_etudiants: count ?? 0 };
         })
       );
@@ -106,12 +109,14 @@ const getProfGroups = async (req, res) => {
       return res.status(404).json({ message: 'Professeur introuvable' });
     }
 
+    const today = todayAlgeria();
     const { data: groups, error } = await supabase
       .from('groups')
       .select('*, formations(nom), schedules(jour_semaine, heure_debut, heure_fin)')
       .eq('teacher_id', teacher.id)
       .eq('archived', false)
-      .neq('statut', 'terminer');
+      .neq('statut', 'terminer')
+      .or(`date_fin.is.null,date_fin.gte.${today}`);
 
     if (error) return res.status(500).json({ message: 'Erreur serveur' });
 
@@ -129,12 +134,14 @@ const result = await Promise.all(
         const { count } = await supabase
           .from('inscriptions')
           .select('*', { count: 'exact', head: true })
-          .eq('group_id', g.id);
+          .eq('group_id', g.id)
+          .eq('statut', 'confirmed')
+          .eq('archived', false)
+          .or('statut_scolarite.is.null,statut_scolarite.neq.abandonne');
 
         return { ...g, schedule: scheduleMap, nb_etudiants: count ?? 0 };
       })
     );
-
     res.json(result);
   } catch (err) {
     console.error(err);
@@ -235,9 +242,10 @@ const getProfGroupStudents = async (req, res) => {
 
     const { data: students, error } = await supabase
       .from('inscriptions')
-      .select('id, etudiant_id, etudiants(id, nom, prenom, telephone, email, niveau_scolaire)')
+      .select('id, etudiant_id, statut_scolarite, etudiants(id, nom, prenom, telephone, email, niveau_scolaire)')
       .eq('group_id', req.params.groupId)
-      .eq('statut', 'confirmed');
+      .eq('statut', 'confirmed')
+      .eq('archived', false);
 
     if (error) return res.status(500).json({ message: 'Erreur serveur' });
     res.json(students);
@@ -626,6 +634,17 @@ const createAttendanceRecord = async (req, res) => {
       return res.status(403).json({ message: 'Cette séance ne peut plus être pointée (jour passé)' });
     }
 
+    const { data: inscriptionCheck } = await supabase
+      .from('inscriptions')
+      .select('statut_scolarite')
+      .eq('group_id', req.params.groupId)
+      .eq('etudiant_id', etudiant_id)
+      .maybeSingle();
+
+    if (inscriptionCheck?.statut_scolarite === 'abandonne') {
+      return res.status(403).json({ message: 'Ce stagiaire a abandonné — le pointage est bloqué.' });
+    }
+
     const { data, error } = await supabase
       .from('attendance')
       .insert({ session_id, etudiant_id, statut })
@@ -665,7 +684,7 @@ const updateAttendanceRecord = async (req, res) => {
 
     const { data: record } = await supabase
       .from('attendance')
-      .select('id, session_id, sessions(date, group_id)')
+      .select('id, session_id, etudiant_id, sessions(date, group_id)')
       .eq('id', req.params.recordId)
       .single();
 
@@ -675,6 +694,17 @@ const updateAttendanceRecord = async (req, res) => {
 
     if (!isSessionToday(record.sessions?.date)) {
       return res.status(403).json({ message: 'Ce pointage ne peut plus être modifié (jour passé)' });
+    }
+
+    const { data: inscriptionCheck } = await supabase
+      .from('inscriptions')
+      .select('statut_scolarite')
+      .eq('group_id', req.params.groupId)
+      .eq('etudiant_id', record.etudiant_id)
+      .maybeSingle();
+
+    if (inscriptionCheck?.statut_scolarite === 'abandonne') {
+      return res.status(403).json({ message: 'Ce stagiaire a abandonné — le pointage est bloqué.' });
     }
 
     const { statut } = req.body;

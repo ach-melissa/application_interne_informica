@@ -369,8 +369,8 @@ const getGroupEtudiants = async (req, res) => {
       niveau:niveau_id(id, nom)
     `)
     .eq('group_id', id)
-    .eq('statut', 'confirmed');
-
+    .eq('statut', 'confirmed')
+    .eq('archived', false);
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
@@ -553,7 +553,8 @@ const getMyGroups = async (req, res) => {
     `)
     .eq('teacher_id', teacher.id)
     .eq('archived', false)
-    .neq('statut', 'terminer');
+    .neq('statut', 'terminer')
+    .or(`date_fin.is.null,date_fin.gte.${today}`);
 
   if (error) return res.status(500).json({ error: error.message });
 
@@ -584,7 +585,10 @@ const getMyGroups = async (req, res) => {
       const { count } = await supabase
         .from('inscriptions')
         .select('*', { count: 'exact', head: true })
-        .eq('group_id', g.id);
+        .eq('group_id', g.id)
+        .eq('statut', 'confirmed')
+        .eq('archived', false)
+        .or('statut_scolarite.is.null,statut_scolarite.neq.abandonne');
       return {
         ...g,
         nb_etudiants: count ?? 0,

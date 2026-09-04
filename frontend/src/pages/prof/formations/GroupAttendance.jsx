@@ -132,6 +132,7 @@ const [deletingSession, setDeletingSession] = useState(false);
           id: row.etudiant_id ?? row.etudiants?.id,
           nom: row.etudiants?.nom ?? '',
           prenom: row.etudiants?.prenom ?? '',
+          abandonne: row.statut_scolarite === 'abandonne',
         }))
         .filter((s) => s.id);
       setEtudiants(mappedStudents);
@@ -712,16 +713,21 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
 
                   {/* ── Étudiants — ALL confirmed students of the group, no padding ── */}
                   {etudiants.map((e, idx) => (
-                    <tr key={e.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                    <tr key={e.id} className={e.abandonne ? 'bg-slate-100 opacity-60' : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60')}>
                       <td className="border border-[#F1F5F9] px-3 py-2 text-slate-800 sticky left-0 bg-inherit z-10 whitespace-nowrap">
                         <span className="text-slate-300 mr-1">{idx + 1})</span>
                         {e.nom} {e.prenom}
+                        {e.abandonne && (
+                          <span className="ml-2 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500 align-middle">
+                            Abandonné
+                          </span>
+                        )}
                       </td>
                       {sessions.map((s) => {
                         const key = `${s.id}|${e.id}`;
                         const statut = attendance[key]?.statut ?? null;
                         const isEditing = editingCell === key;
-                        const editable = isEditableToday(s.date);
+                        const editable = isEditableToday(s.date) && !e.abandonne;
                         return (
                           <td key={s.id} className="border border-[#F1F5F9] p-0 text-center relative">
                             {!editable ? (
