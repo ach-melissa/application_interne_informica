@@ -130,6 +130,7 @@ model inscriptions {
   prix_promotion       Decimal?              @db.Decimal
   niveau_id            String?               @db.Uuid
   abandonne_at         DateTime?             @db.Timestamptz(6)
+  commentaire          String?
   attestations         attestations[]
   etudiants            etudiants             @relation(fields: [etudiant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   formations           formations            @relation(fields: [formation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -269,6 +270,8 @@ model users {
   created_at                                       DateTime?       @default(now()) @db.Timestamp(6)
   archived                                         Boolean?        @default(false)
   photo_path                                       String?
+  historique_last_seen                             DateTime?       @db.Timestamptz(6)
+  historique                                       historique[]
   notifications_notifications_expediteur_idTousers notifications[] @relation("notifications_expediteur_idTousers")
   notifications_notifications_traite_parTousers    notifications[] @relation("notifications_traite_parTousers")
   salaires                                         salaires[]
@@ -394,6 +397,25 @@ model formation_niveaux {
   @@index([formation_id], map: "idx_formation_niveaux_formation")
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model historique {
+  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  utilisateur_id  String?              @db.Uuid
+  utilisateur_nom String               @db.VarChar(200)
+  role            String               @db.VarChar(20)
+  perimetre       historique_perimetre
+  action          historique_action
+  entite          String               @db.VarChar(50)
+  entite_id       String?              @db.Uuid
+  description     String
+  details         Json?
+  created_at      DateTime             @default(now()) @db.Timestamptz(6)
+  users           users?               @relation(fields: [utilisateur_id], references: [id], onUpdate: NoAction)
+
+  @@index([perimetre, created_at(sort: Desc)], map: "idx_historique_perimetre_created")
+  @@index([utilisateur_id], map: "idx_historique_utilisateur")
+}
+
 enum attendance_status {
   present
   absent
@@ -407,6 +429,7 @@ enum day_enum {
   mardi
   mercredi
   jeudi
+  vendredi
 }
 
 enum formation_status {
@@ -417,6 +440,7 @@ enum formation_status {
 enum group_status {
   active
   inactive
+  terminer
 }
 
 enum inscription_status {
@@ -433,9 +457,6 @@ enum payment_status {
 }
 
 enum registered_by_enum {
-  hanane
-  yasmine
-  page_facebook
   amira
 }
 
@@ -458,7 +479,6 @@ enum source_enum {
   Facebook
   Recherche_Google @map("Recherche Google")
   Site_Web         @map("Site Web")
-  Bouche___oreille @map("Bouche-à-oreille")
   Publicit_        @map("Publicité")
   Autre
 }
@@ -555,4 +575,15 @@ enum statut_scolarite_enum {
   en_cours
   abandonne
   termine
+}
+
+enum historique_action {
+  creation
+  modification
+  suppression
+}
+
+enum historique_perimetre {
+  admin
+  comptable
 }

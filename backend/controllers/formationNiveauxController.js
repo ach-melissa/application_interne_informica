@@ -35,12 +35,12 @@ const setFormationNiveaux = async (req, res) => {
 
   const { data: beforeNiveaux } = await supabase
     .from('formation_niveaux')
-    .select('nom, prix, duree_valeur, type_duree, capacite_groupe')
+    .select('id, nom, prix, duree_valeur, type_duree, capacite_groupe')
     .eq('formation_id', id);
 
     const { data: formation, error: fErr } = await supabase
   .from('formations')
-  .select('prix, prix_etudiant, prix_uniforme, duree_uniforme, type_duree_uniforme, echeancier_uniforme, capacite_uniforme')
+  .select('prix, prix_uniforme, duree_uniforme, type_duree_uniforme, echeancier_uniforme, capacite_uniforme')
   .eq('id', id)
   .single();
   if (fErr) return res.status(500).json({ error: fErr.message });
@@ -78,7 +78,7 @@ const setFormationNiveaux = async (req, res) => {
   }
     const sum = n.periods.reduce((s, p) => s + Number(p.montant), 0);
   const expected = formation.prix_uniforme
-    ? Number(formation.prix_etudiant ?? formation.prix ?? 0)
+    ? Number( formation.prix ?? 0)
     : Number(n.prix);
   if (Math.abs(sum - expected) > 0.01) {
     return res.status(400).json({
@@ -88,9 +88,29 @@ const setFormationNiveaux = async (req, res) => {
 }
   }
 
+  // Niveaux présents avant mais absents du nouveau payload = niveaux qui vont être supprimés
+  const incomingNoms = new Set(niveaux.map((n) => n.nom.trim()));
+  const niveauxASupprimer = (beforeNiveaux || []).filter((n) => !incomingNoms.has(n.nom));
+
+  if (niveauxASupprimer.length > 0) {
+    for (const n of niveauxASupprimer) {
+      const { count, error: cErr } = await supabase
+        .from('inscriptions')
+        .select('*', { count: 'exact', head: true })
+        .eq('niveau_id', n.id);
+
+      if (cErr) return res.status(500).json({ error: cErr.message });
+
+      if (count > 0) {
+        return res.status(409).json({
+          error: `Impossible de supprimer le niveau "${n.nom}" : ${count} étudiant(s) y sont inscrits (confirmés, en attente ou archivés).`,
+        });
+      }
+    }
+  }
+
   const { error: delErr } = await supabase.from('formation_niveaux').delete().eq('formation_id', id);
   if (delErr) return res.status(500).json({ error: delErr.message });
-
   if (niveaux.length === 0) return res.json([]);
 
    const rows = niveaux.map((n, idx) => ({

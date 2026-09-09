@@ -104,7 +104,7 @@ Pré inscriptions en attente
           {withCount.map((f) => {
             const pct = Math.min((f.count / f.capacite) * 100, 100);
             const tier =
-              pct >= 100 ? { bar: 'bg-red-500',    badge: 'bg-red-50 text-red-600',       label: ' — Complet !' } :
+              pct >= 100 ? { bar: 'bg-red-500',    badge: 'bg-red-50 text-red-600',       label: '  ' } :
               pct >= 70  ? { bar: 'bg-orange-500', badge: 'bg-orange-50 text-orange-700', label: '' } :
               pct >= 40  ? { bar: 'bg-yellow-500', badge: 'bg-yellow-50 text-yellow-700', label: '' } :
                            { bar: 'bg-emerald-500',badge: 'bg-emerald-50 text-emerald-700', label: '' };

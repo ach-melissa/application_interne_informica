@@ -91,7 +91,36 @@ if ('statut' in req.body && req.body.statut !== 'confirmed') {
   if (error) return res.status(500).json({ error: error.message });
 
   const { abandonne_at, ...updatesForLog } = updates;
-  const changes = buildDiffDescription(before, updatesForLog);
+
+  const beforeForLog = { ...before };
+
+  if ('formation_id' in updatesForLog) {
+    const [{ data: oldF }, { data: newF }] = await Promise.all([
+      before.formation_id
+        ? supabase.from('formations').select('nom').eq('id', before.formation_id).single()
+        : { data: null },
+      updatesForLog.formation_id
+        ? supabase.from('formations').select('nom').eq('id', updatesForLog.formation_id).single()
+        : { data: null },
+    ]);
+    beforeForLog.formation_id = oldF?.nom || null;
+    updatesForLog.formation_id = newF?.nom || null;
+  }
+
+  if ('niveau_id' in updatesForLog) {
+    const [{ data: oldN }, { data: newN }] = await Promise.all([
+      before.niveau_id
+        ? supabase.from('niveaux').select('nom').eq('id', before.niveau_id).single()
+        : { data: null },
+      updatesForLog.niveau_id
+        ? supabase.from('niveaux').select('nom').eq('id', updatesForLog.niveau_id).single()
+        : { data: null },
+    ]);
+    beforeForLog.niveau_id = oldN?.nom || null;
+    updatesForLog.niveau_id = newN?.nom || null;
+  }
+
+  const changes = buildDiffDescription(beforeForLog, updatesForLog);
   if (changes.length > 0) {
     await logHistorique({
       req, perimetre: 'admin', action: 'modification', entite: 'etudiant', entite_id: id,

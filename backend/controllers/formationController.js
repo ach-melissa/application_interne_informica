@@ -264,6 +264,20 @@ const restoreFormation = async (req, res) => {
 const deleteFormation = async (req, res) => {
   const { id } = req.params;
 
+  // Bloque la suppression si des étudiants sont/ont été inscrits, quel que soit le statut
+  const { count: nb_etudiants, error: cErr } = await supabase
+    .from('inscriptions')
+    .select('*', { count: 'exact', head: true })
+    .eq('formation_id', id);
+
+  if (cErr) return res.status(500).json({ error: cErr.message });
+
+  if (nb_etudiants > 0) {
+    return res.status(409).json({
+      error: `Impossible de supprimer cette formation : ${nb_etudiants} étudiant(s) y sont inscrits (confirmés, en attente ou archivés).`,
+    });
+  }
+
   const { data: toDelete } = await supabase.from('formations').select('nom').eq('id', id).single();
 
   const { error } = await supabase
@@ -272,7 +286,6 @@ const deleteFormation = async (req, res) => {
     .eq('id', id);
 
   if (error) return res.status(500).json({ error: error.message });
-
   await logHistorique({
     req, perimetre: 'admin', action: 'suppression', entite: 'formation', entite_id: id,
     description: `a supprimé la formation "${toDelete?.nom}"`,
@@ -318,7 +331,7 @@ const setFormationPeriods = async (req, res) => {
 if (periods.length > 0) {
     const { data: formation, error: fErr } = await supabase
       .from('formations')
-      .select('prix, prix_etudiant')
+      .select('prix')
       .eq('id', id)
       .single();
     if (fErr) return res.status(500).json({ error: fErr.message });

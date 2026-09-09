@@ -113,10 +113,14 @@ const Formations = () => {
     setDeleting(true); setError(null);
     try {
       const res = await fetch(`${API}/api/formations/${confirmDelete.id}`, { method: 'DELETE', headers: headers() });
-      if (!res.ok) throw new Error('Erreur serveur');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Erreur serveur');
       setFormations(prev => prev.filter(f => f.id !== confirmDelete.id));
       setConfirmDelete(null);
-    } catch (err) { setError(err.message); } finally { setDeleting(false); }
+    } catch (err) {
+      setError(err.message);
+      setConfirmDelete(null); // ferme le modal de confirmation pour laisser voir le message d'erreur
+    } finally { setDeleting(false); }
   };
 
   const handleStatutScolariteChange = async (inscriptionId, value) => {
@@ -443,15 +447,18 @@ const Formations = () => {
               <div className="bg-red-50 rounded-md p-3">
                 <p className="text-xs text-red-600 flex items-center gap-1.5">
                   <AlertTriangle size={13} className="flex-shrink-0" />
-                  {(confirmDelete.nb_groupes > 0 || confirmDelete.nb_etudiants > 0)
-                    ? `Supprimer « ${confirmDelete.nom} » supprimera aussi ${confirmDelete.nb_groupes ?? 0} groupe(s) et ${confirmDelete.nb_etudiants ?? 0} inscription(s). Action irréversible.`
+                  {confirmDelete.nb_etudiants > 0
+                    ? `Suppression impossible : ${confirmDelete.nb_etudiants} étudiant(s) sont inscrits dans « ${confirmDelete.nom} » . Retirez-les d'abord.`
+                    : confirmDelete.nb_groupes > 0
+                    ? `Supprimer « ${confirmDelete.nom} » supprimera aussi ${confirmDelete.nb_groupes} groupe(s) sans étudiant. Action irréversible.`
                     : `Supprimer définitivement « ${confirmDelete.nom} » ? Action irréversible.`}
                 </p>
               </div>
             </div>
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
               <button onClick={() => setConfirmDelete(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">Annuler</button>
-              <button onClick={doDelete} disabled={deleting} className="text-xs px-3 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
+              <button onClick={doDelete} disabled={deleting || confirmDelete.nb_etudiants > 0}
+                className="text-xs px-3 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
                 {deleting ? '...' : 'Oui, supprimer'}
               </button>
             </div>

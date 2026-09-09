@@ -276,7 +276,7 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
 
  const COLS = [
   { label: '', Icon: null, width: 36 },
-  { label: 'Étudiant',    Icon: null,        width: 130 },
+  { label: 'Étudiant',    Icon: null,        width: 160 },
   { label: 'Tél.',        Icon: Phone,       width: 90  },
   { label: 'Wilaya',      Icon: MapPin,      width: 100 },
   { label: 'Formation',   Icon: Users,       width: 150 },

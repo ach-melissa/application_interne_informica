@@ -137,9 +137,11 @@ useEffect(() => {
         method: 'PUT', headers: getHeaders(), body: JSON.stringify({ periods: validPeriods }),
       });
       if (form.a_niveaux) {
-        await fetch(`${API}/api/formations/${data.id}/niveaux`, {
+        const nRes = await fetch(`${API}/api/formations/${data.id}/niveaux`, {
           method: 'PUT', headers: getHeaders(), body: JSON.stringify({ niveaux }),
         });
+        const nData = await nRes.json();
+        if (!nRes.ok) throw new Error(nData.error);
       }
       setShowDeactivateWarning(false);
       setConfirmSave(false);
