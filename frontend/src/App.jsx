@@ -42,7 +42,7 @@ import ProfGroupDetail from './pages/prof/formations/ProfGroupDetail';
 import DashboardComptable from './pages/comptable/dashboard/DashboardComptable';
 import StatistiqueComptable from './pages/comptable/statistique/Statistique';
 import Paiements from './pages/comptable/paiements/Paiements';
-import Charges from './pages/comptable/charges/Charges';
+import Charges from "./pages/comptable/Charges/Charges";
 import Salaires from './pages/comptable/salaires/Salaires';
 
 // ── Super admin ── 
