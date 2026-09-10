@@ -224,7 +224,7 @@ const confirmArchiveGroup = async () => {
                       <Trash2 size={12} /> Supprimer
                     </button>
                    {g.date_fin && g.date_fin <= today && (
-  <button onClick={() => setArchivingGroup(g.id)} className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 hover:shadow-sm active:scale-95 transition">
+  <button onClick={() => { setArchivingGroup(g.id); setArchiveYear(getAnneeScolairePourDate(g.date_fin)); }} className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 hover:shadow-sm active:scale-95 transition">
     <Archive size={12} /> Archiver
   </button>
 )}
