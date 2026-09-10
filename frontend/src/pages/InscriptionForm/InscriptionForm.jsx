@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import logo from '../../assets/images/logo_informica.png';
 
-const API = 'http://localhost:5000/api';
+const API = `${import.meta.env.VITE_API_URL}/api`;
 const EMPTY = { nom: '', prenom: '', ddn: '', lieu: '', wilaya: '', adresse: '', niveau: '', email: '', tel: '', formation_id: '', source: '' };
 const REQUIRED = ['nom', 'prenom', 'tel', 'formation_id', 'ddn', 'niveau', 'wilaya'];
 const inp = (err) => `w-full border rounded-lg pl-9 pr-3 py-2.5 text-sm bg-white transition focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/30 focus:border-[#1E3A5F] ${err ? 'border-orange-400' : 'border-slate-200'}`;
