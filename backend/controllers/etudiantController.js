@@ -413,7 +413,7 @@ const getGroupsByFormation = async (req, res) => {
     .select(`
       id, nom, jours_formation, heure_formation, statut, date_debut, date_fin, niveau_id,
       teachers ( users ( nom, prenom ) ),
-      inscriptions ( id, archived, statut ),
+      inscriptions ( id, archived, statut, statut_scolarite ),
       sessions ( id, statut )
     `)
     .eq('formation_id', formation_id)
@@ -427,7 +427,9 @@ const getGroupsByFormation = async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
 
   const enriched = data.map(g => {
-    const nb_etudiants = (g.inscriptions || []).filter(i => !i.archived && i.statut === 'confirmed').length;
+    const nb_etudiants = (g.inscriptions || []).filter(
+      i => !i.archived && i.statut === 'confirmed' && i.statut_scolarite !== 'abandonne'
+    ).length;
     const nb_sessions  = (g.sessions || []).filter(s => s.statut === 'effectuee').length;
     const termine = !!g.date_fin && g.date_fin < today;
 

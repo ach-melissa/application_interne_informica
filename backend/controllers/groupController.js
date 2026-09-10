@@ -93,7 +93,8 @@ const getGroupsByFormation = async (req, res) => {
         .select('*', { count: 'exact', head: true })
         .eq('group_id', g.id)
         .eq('statut', 'confirmed')
-        .eq('archived', false);
+        .eq('archived', false)
+        .or('statut_scolarite.is.null,statut_scolarite.neq.abandonne');
       return {
         ...g,
         nb_etudiants: count ?? 0,
