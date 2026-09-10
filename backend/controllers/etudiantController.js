@@ -16,11 +16,10 @@ const getEtudiants = async (req, res) => {
       etudiant:etudiant_id(*),
       formation:formation_id(nom),
       niveau:niveau_id(id, nom),
-            groups(nom, jours_formation, heure_formation, date_fin)
+            groups(nom, jours_formation, heure_formation, date_fin, archived)
     `)
     .eq('archived', archived)
     .order('created_at', { ascending: false });
-
   if (req.query.formation_id) {
     query = query.eq('formation_id', req.query.formation_id);
   }
@@ -136,12 +135,13 @@ const archiveInscription = async (req, res) => {
   const { annee_scolaire } = req.body || {};
 
   const { data: current, error: fetchErr } = await supabase
-    .from('inscriptions').select('group_id, groups(date_fin)').eq('id', id).single();
+    .from('inscriptions').select('group_id, groups(nom)').eq('id', id).single();
   if (fetchErr) return res.status(500).json({ error: fetchErr.message });
 
-  const today = new Date().toISOString().slice(0, 10);
-  if (current.group_id && (!current.groups?.date_fin || current.groups.date_fin > today)) {
-    return res.status(400).json({ error: "Ce groupe n'est pas encore terminé — impossible d'archiver cet étudiant." });
+  if (current.group_id) {
+    return res.status(400).json({
+      error: `Cet étudiant est affecté au groupe « ${current.groups?.nom ?? '—'} ». Archivez le groupe pour archiver automatiquement tous ses étudiants.`,
+    });
   }
 
   const updates = { archived: true };
@@ -173,15 +173,14 @@ const archiveMultipleInscriptions = async (req, res) => {
 
   const { data: selected, error: fetchErr } = await supabase
     .from('inscriptions')
-    .select('id, group_id, groups(date_fin)')
+    .select('id, group_id')
     .in('id', ids);
   if (fetchErr) return res.status(500).json({ error: fetchErr.message });
 
-  const today = new Date().toISOString().slice(0, 10);
-  const notFinished = selected.filter(i => i.group_id && (!i.groups?.date_fin || i.groups.date_fin > today));
-  if (notFinished.length > 0) {
+  const inGroup = selected.filter(i => i.group_id);
+  if (inGroup.length > 0) {
     return res.status(400).json({
-      error: `${notFinished.length} étudiant(s) sélectionné(s) appartiennent à un groupe non terminé. Désélectionnez-les avant d'archiver.`,
+      error: `${inGroup.length} étudiant(s) sélectionné(s) sont affectés à un groupe. Archivez le(s) groupe(s) correspondant(s) pour archiver automatiquement leurs étudiants.`,
     });
   }
 

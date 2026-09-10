@@ -585,7 +585,7 @@ win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fi
                       className="flex items-center gap-1 text-xs bg-red-500 text-white px-2.5 py-1.5 rounded-md hover:bg-red-600">
                       <Trash2 size={11} /> Supprimer
                     </button>
-                    <button onClick={() => { setArchiveYear(getCurrentAnneeScolaire()); setConfirm('archive'); }}
+                    <button onClick={() => { groupId ? setConfirm('archive_blocked') : (setArchiveYear(getCurrentAnneeScolaire()), setConfirm('archive')); }}
   className="flex items-center gap-1 text-xs bg-amber-500 text-white px-2.5 py-1.5 rounded-md hover:bg-amber-600">
   <Archive size={11} /> Archiver
 </button>
@@ -650,6 +650,15 @@ win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fi
         {submitting ? '...' : 'Oui'}
       </button>
     </div>
+  </div>
+)}
+
+{!readOnly && confirm === 'archive_blocked' && (
+  <div className="bg-red-50 rounded-md p-3 flex items-center justify-between gap-3">
+    <p className="text-xs text-red-600 flex items-center gap-1.5">
+      <AlertTriangle size={13} /> Cet étudiant est affecté au groupe « {groupInfo?.nom ?? '—'} ». Archivez le groupe pour archiver automatiquement tous ses étudiants.
+    </p>
+    <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white flex-shrink-0">Compris</button>
   </div>
 )}
   </div>

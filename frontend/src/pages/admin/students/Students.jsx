@@ -105,7 +105,7 @@ const Students = () => {
   return new Date() > limit;
 };
 const today = new Date().toISOString().slice(0, 10);
-const isGroupNotFinished = (i) => !!i.group_id && (!i.groups?.date_fin || i.groups.date_fin > today);
+const hasGroup = (i) => !!i.group_id;
 const [etudiants, setEtudiants]   = useState([]);
 const [formations, setFormations] = useState([]);
 const [wilayas, setWilayas]             = useState([]);
@@ -139,9 +139,9 @@ const toggleSelectAll = () => setSelectedIds(prev =>
 );
 
 const doBulkArchive = async () => {
-  const blocked = etudiants.filter(i => selectedIds.has(i.id) && isGroupNotFinished(i));
+  const blocked = etudiants.filter(i => selectedIds.has(i.id) && hasGroup(i));
   if (blocked.length > 0) {
-    setBulkError(`${blocked.length} étudiant(s) sélectionné(s) appartiennent à un groupe non terminé.`);
+    setBulkError(`${blocked.length} étudiant(s) sélectionné(s) sont affectés à un groupe. Archivez le groupe correspondant.`);
     return;
   }
   if (!bulkArchiveYear) {
@@ -541,10 +541,10 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
 <div className="px-5 py-4 space-y-3">
   <p className="text-xs text-slate-500">Archiver {selectedIds.size} inscription(s) sélectionnée(s) ?</p>
   {(() => {
-    const blockedCount = [...selectedIds].filter(id => isGroupNotFinished(etudiants.find(e => e.id === id))).length;
+    const blockedCount = [...selectedIds].filter(id => hasGroup(etudiants.find(e => e.id === id))).length;
     return blockedCount > 0 ? (
       <p className="text-red-500 text-xs bg-red-50 px-3 py-2 rounded-md">
-        {blockedCount} étudiant(s) appartiennent à un groupe non terminé — désélectionnez-les pour continuer.
+        {blockedCount} étudiant(s) sont affectés à un groupe — archivez le groupe pour les archiver.
       </p>
     ) : null;
   })()}
@@ -561,7 +561,7 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
           className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">Annuler</button>
 <button onClick={doBulkArchive} disabled={
   bulkArchiving || !bulkArchiveYear ||
-  [...selectedIds].some(id => isGroupNotFinished(etudiants.find(e => e.id === id)))
+  [...selectedIds].some(id => hasGroup(etudiants.find(e => e.id === id)))
 }
   className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">
   {bulkArchiving ? 'Archivage...' : 'Oui, archiver'}
