@@ -91,7 +91,9 @@ const getGroupsByFormation = async (req, res) => {
       const { count } = await supabase
         .from('inscriptions')
         .select('*', { count: 'exact', head: true })
-        .eq('group_id', g.id);
+        .eq('group_id', g.id)
+        .eq('statut', 'confirmed')
+        .eq('archived', false);
       return {
         ...g,
         nb_etudiants: count ?? 0,

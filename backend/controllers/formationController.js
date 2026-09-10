@@ -16,13 +16,13 @@ const getFormations = async (req, res) => {
         .eq('formation_id', f.id)
         .eq('archived', false);
 
-      const { count: nb_etudiants } = await supabase
+      const { data: inscData } = await supabase
         .from('inscriptions')
-        .select('*', { count: 'exact', head: true })
+        .select('id, group_id, groups(archived)')
         .eq('formation_id', f.id)
         .eq('statut', 'confirmed')
         .eq('archived', false);
-
+      const nb_etudiants = (inscData || []).filter(i => !i.group_id || i.groups?.archived === false).length;
       // NEW: pull the actual levels so the card can show/expand them
       let niveaux = [];
       if (f.a_niveaux) {
@@ -67,13 +67,13 @@ const getFormationById = async (req, res) => {
         .eq('niveau_id', n.id)
         .eq('archived', false);
 
-      const { count: nb_etudiants } = await supabase
+      const { data: inscData } = await supabase
         .from('inscriptions')
-        .select('*', { count: 'exact', head: true })
+        .select('id, group_id, groups(archived)')
         .eq('niveau_id', n.id)
         .eq('statut', 'confirmed')
         .eq('archived', false);
-
+      const nb_etudiants = (inscData || []).filter(i => !i.group_id || i.groups?.archived === false).length;
       const { data: periods } = await supabase
         .from('formation_payment_periods')
         .select('jours_offset, montant')
