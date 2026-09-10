@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -41,13 +42,14 @@ const Tooltip = ({ label, anchorRect }) => {
   if (!anchorRect) return null;
   const top = anchorRect.top + anchorRect.height / 2;
   const left = anchorRect.right + 12;
-  return (
+  return createPortal(
     <div
       style={{ position: 'fixed', top, left, transform: 'translateY(-50%)' }}
       className="px-2.5 py-1.5 bg-[#0369A1] text-white text-xs rounded-lg whitespace-nowrap pointer-events-none z-[9999] shadow-md"
     >
       {label}
-    </div>
+    </div>,
+    document.body
   );
 };
 
