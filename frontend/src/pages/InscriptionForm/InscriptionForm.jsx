@@ -228,13 +228,13 @@ export default function InscriptionForm() {
 
             {apiError && <p className="text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">{apiError}</p>}
 
-            <div className="flex gap-3">
+            <div className="flex flex-col-reverse sm:flex-row gap-3">
               <button type="button" onClick={handleReset}
-                className="flex items-center justify-center gap-1.5 px-4 py-3.5 rounded-xl text-sm font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 transition">
+                className="flex items-center justify-center gap-1.5 px-4 py-3.5 rounded-xl text-sm font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 transition whitespace-nowrap">
                 <RotateCcw size={15} /> Effacer tout
               </button>
               <button type="submit" disabled={submitting}
-                className="flex-1 flex items-center justify-center gap-2 bg-[#1E3A5F] text-white py-3.5 rounded-xl text-sm font-semibold hover:bg-[#152C49] transition disabled:opacity-50">
+                className="flex-1 flex items-center justify-center gap-2 bg-[#1E3A5F] text-white py-3.5 rounded-xl text-sm font-semibold hover:bg-[#152C49] transition disabled:opacity-50 whitespace-nowrap">
                 {submitting ? 'Envoi en cours…' : <>Soumettre l'inscription <Rocket size={15} /></>}
               </button>
             </div>

@@ -300,9 +300,11 @@ const archiveGroup = async (req, res) => {
     });
   }
 
-  const groupUpdates = { archived: true };
-  if (annee_scolaire?.trim()) groupUpdates.annee_scolaire = annee_scolaire.trim();
+  if (!annee_scolaire?.trim()) {
+    return res.status(400).json({ error: "L'année scolaire est obligatoire pour archiver un groupe." });
+  }
 
+  const groupUpdates = { archived: true, annee_scolaire: annee_scolaire.trim() };
   const { data, error } = await supabase
     .from('groups')
     .update(groupUpdates)
