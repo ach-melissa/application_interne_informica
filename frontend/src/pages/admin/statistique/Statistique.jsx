@@ -227,21 +227,25 @@ const Statistique = () => {
   const [errorMsg, setErrorMsg] = useState(null);
 
   useEffect(() => {
-    const chargerStatistiques = async () => {
-      setLoading(true);
-      setErrorMsg(null);
-      try {
-        const res = await fetch('/api/statistiques');
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Erreur lors du chargement des statistiques.');
-        setInscriptions(data.inscriptions || []);
-        setFormationsListe(data.formations || []);
-      } catch (err) {
-        setErrorMsg(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const chargerStatistiques = async () => {
+  setLoading(true);
+  setErrorMsg(null);
+  try {
+    const res = await fetch(`${API_URL}/api/statistiques`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur lors du chargement des statistiques.');
+    setInscriptions(data.inscriptions || []);
+    setFormationsListe(data.formations || []);
+  } catch (err) {
+    setErrorMsg(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
     chargerStatistiques();
   }, []);
 
