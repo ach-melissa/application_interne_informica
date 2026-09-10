@@ -104,8 +104,7 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
   const updatePeriodField = (id, field, value) => setPeriods(prev => prev.map(p => p._id === id ? { ...p, [field]: value } : p));
   const basePrice = formation?.a_niveaux && formation?.prix_uniforme === false
     ? Number(niveau?.prix ?? 0)
-    : Number(formation?.prix_etudiant ?? formation?.prix ?? 0);
-
+    : Number(formation?.prix ?? 0);
   const defaultDureeValeur = formation?.a_niveaux && formation?.duree_uniforme === false
     ? Number(niveau?.duree_valeur ?? 0)
     : Number(formation?.heures ?? 0);

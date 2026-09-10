@@ -400,7 +400,7 @@ const getGroupPeriods = async (req, res) => {
 
  const { data: group, error: gErr } = await supabase
   .from('groups')
-  .select('formation_id, niveau_id, use_default_periods, en_promotion, prix_promotion, date_debut, formation:formation_id(prix, prix_etudiant, prix_uniforme), niveau:niveau_id(prix)')
+  .select('formation_id, niveau_id, use_default_periods, en_promotion, prix_promotion, date_debut, formation:formation_id(prix, prix_uniforme), niveau:niveau_id(prix)')
   .eq('id', id)
   .single();
 if (gErr) return res.status(500).json({ error: gErr.message });
@@ -422,9 +422,9 @@ if (gErr) return res.status(500).json({ error: gErr.message });
   }
 
   const resolved = resolveGroupPeriods(group, formationPeriods ?? [], groupPeriods);
-  const basePrice = group.formation?.prix_uniforme === false
+   const basePrice = group.formation?.prix_uniforme === false
     ? Number(group.niveau?.prix ?? 0)
-    : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
+    : Number(group.formation?.prix ?? 0);
   const expected_total = group.en_promotion && group.prix_promotion != null
     ? Number(group.prix_promotion)
     : basePrice;
@@ -475,15 +475,14 @@ const setGroupPeriods = async (req, res) => {
 
 const { data: group, error: gErr } = await supabase
     .from('groups')
-    .select('en_promotion, prix_promotion, date_debut, niveau_id, formation:formation_id(prix, prix_etudiant, prix_uniforme), niveau:niveau_id(prix)')
+    .select('en_promotion, prix_promotion, date_debut, niveau_id, formation:formation_id(prix, prix_uniforme), niveau:niveau_id(prix)')
     .eq('id', id)
     .single();
   if (gErr) return res.status(500).json({ error: gErr.message });
 
   const expectedBasePrice = group.formation?.prix_uniforme === false
     ? Number(group.niveau?.prix ?? 0)
-    : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
-
+    : Number(group.formation?.prix ?? 0);
   const expectedTotal = group.en_promotion && group.prix_promotion != null
     ? Number(group.prix_promotion)
     : expectedBasePrice;
