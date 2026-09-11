@@ -42,7 +42,7 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
   const [stagedStudents, setStagedStudents] = useState([]);
     const [stagedSchedules, setStagedSchedules] = useState([]);
     const [assignedStudents, setAssignedStudents] = useState([]);
-const [removing, setRemoving] = useState(null); // id of student currently being removed
+const [stagedRemovals, setStagedRemovals] = useState([]);
   const [useDefaultDuree, setUseDefaultDuree] = useState(editGroup?.use_default_duree ?? true);
   const [dureeValeur, setDureeValeur] = useState(editGroup?.duree_valeur ?? '');
   const [typeDuree, setTypeDuree] = useState(editGroup?.type_duree ?? formation?.type_duree ?? 'heures');
@@ -79,37 +79,20 @@ const [removing, setRemoving] = useState(null); // id of student currently being
       .catch(() => { setUseDefaultPeriods(true); setPeriods([]); });
   }, []);
 
-  const handleAssignStudent = async (inscription_id) => {
-    if (isNewGroup) {
-      const student = unassignedStudents.find((i) => i.id === inscription_id);
-      if (student) setStagedStudents((prev) => [...prev, student]);
-      setUnassignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
-      return;
-    }
-       try {
-      await fetch(`${API}/api/inscriptions/${inscription_id}/assign-group`, {
-        method: 'PATCH',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ group_id: editGroup.id, niveau_id: niveauId || null }),
-      });
-      setUnassignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
-    } catch (err) { setError(err.message); }
+  const handleAssignStudent = (inscription_id) => {
+    const student = unassignedStudents.find((i) => i.id === inscription_id);
+    if (student) setStagedStudents((prev) => [...prev, student]);
+    setUnassignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
   };
-  const handleRemoveAssignedStudent = async (inscription_id) => {
-    setRemoving(inscription_id);
-    try {
-      const res = await fetch(`${API}/api/inscriptions/${inscription_id}/assign-group`, {
-        method: 'PATCH',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ group_id: null, niveau_id: niveauId || null }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'Erreur serveur');
-      setAssignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setRemoving(null);
-    }
+  const handleRemoveAssignedStudent = (inscription_id) => {
+    const student = assignedStudents.find((i) => i.id === inscription_id);
+    if (student) setStagedRemovals((prev) => [...prev, student]);
+    setAssignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
+  };
+  const handleUnstageRemoval = (inscription_id) => {
+    const student = stagedRemovals.find((i) => i.id === inscription_id);
+    if (student) setAssignedStudents((prev) => [...prev, student]);
+    setStagedRemovals((prev) => prev.filter((i) => i.id !== inscription_id));
   };
   const handleUnstageStudent = (inscription_id) => {
     const student = stagedStudents.find((i) => i.id === inscription_id);
@@ -184,13 +167,20 @@ const [removing, setRemoving] = useState(null); // id of student currently being
         for (const { _localId, ...slot } of stagedSchedules) {
           await fetch(`${API}/api/schedules`, { method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ ...slot, group_id: saved.id }) });
         }
-               for (const student of stagedStudents) {
-          await fetch(`${API}/api/inscriptions/${student.id}/assign-group`, {
-            method: 'PATCH',
-            headers: jsonHeaders(),
-            body: JSON.stringify({ group_id: saved.id, niveau_id: form.niveau_id || null }),
-          });
-        }
+      }
+      for (const student of stagedStudents) {
+        await fetch(`${API}/api/inscriptions/${student.id}/assign-group`, {
+          method: 'PATCH',
+          headers: jsonHeaders(),
+          body: JSON.stringify({ group_id: saved.id, niveau_id: form.niveau_id || null }),
+        });
+      }
+      for (const student of stagedRemovals) {
+        await fetch(`${API}/api/inscriptions/${student.id}/assign-group`, {
+          method: 'PATCH',
+          headers: jsonHeaders(),
+          body: JSON.stringify({ group_id: null, niveau_id: niveauId || null }),
+        });
       }
       setConfirmSave(false);
       onSaved();
@@ -375,9 +365,25 @@ const [removing, setRemoving] = useState(null); // id of student currently being
                         <p className="text-xs font-medium text-slate-800 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</p>
                         <p className="text-[11px] text-slate-400 truncate">{i.etudiant?.telephone ?? 'Téléphone non renseigné'}</p>
                       </div>
-                      <button onClick={() => handleRemoveAssignedStudent(i.id)} disabled={removing === i.id}
-                        className="text-[11px] font-medium text-red-500 bg-red-50 border border-red-500/20 px-2.5 py-1 rounded-full hover:bg-red-100 active:scale-95 transition flex-shrink-0 disabled:opacity-40">
-                        {removing === i.id ? '...' : 'Retirer'}
+                      <button onClick={() => handleRemoveAssignedStudent(i.id)}
+                        className="text-[11px] font-medium text-red-500 bg-red-50 border border-red-500/20 px-2.5 py-1 rounded-full hover:bg-red-100 active:scale-95 transition flex-shrink-0">
+                        Retirer
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {stagedRemovals.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide">À retirer dès l'enregistrement</p>
+                  {stagedRemovals.map((s) => (
+                    <div key={s.id} className="flex items-center gap-3 bg-red-50 border border-red-500/20 rounded-lg px-3 py-2">
+                      <div className="w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-semibold flex-shrink-0">
+                        {(s.etudiant?.nom?.[0] ?? '?').toUpperCase()}{(s.etudiant?.prenom?.[0] ?? '').toUpperCase()}
+                      </div>
+                      <span className="flex-1 min-w-0 text-xs font-medium text-[#1E293B] truncate line-through">{s.etudiant?.nom} {s.etudiant?.prenom}</span>
+                      <button onClick={() => handleUnstageRemoval(s.id)} className="text-[11px] font-medium text-slate-400 hover:text-[#0369A1] flex-shrink-0 transition">
+                        Annuler
                       </button>
                     </div>
                   ))}
@@ -385,7 +391,6 @@ const [removing, setRemoving] = useState(null); // id of student currently being
               )}
             </div>
           )}
-
           <div>
             <Label icon={GraduationCap} text="Étudiants confirmés non affectés" />
                        {unassignedStudents.length === 0 ? (
