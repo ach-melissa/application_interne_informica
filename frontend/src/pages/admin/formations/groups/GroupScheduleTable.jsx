@@ -25,7 +25,7 @@ export default function GroupScheduleTable({ groupId, staged, onAddStaged, onRem
   const [contenu, setContenu] = useState('');
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [confirmRemoveKey, setConfirmRemoveKey] = useState(null);
+  const [pendingRemoval, setPendingRemoval] = useState(null);
   const loadSchedules = () => {
     setLoading(true);
     fetch(`${import.meta.env.VITE_API_URL}/api/schedules`, { headers: getHeaders() })
@@ -103,12 +103,13 @@ fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeade
     if (!entry?.isOwn) return;
     if (!groupId) return onRemoveStaged(entry.stagedLocalId);
     if (!entry.id) return;
-    setConfirmRemoveKey(entry.id);
+    setPendingRemoval(entry);
   };
 
-  const confirmRemove = async (entry) => {
-    await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/${entry.id}`, { method: 'DELETE', headers: getHeaders() });
-    setConfirmRemoveKey(null);
+  const confirmRemove = async () => {
+    if (!pendingRemoval) return;
+    await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/${pendingRemoval.id}`, { method: 'DELETE', headers: getHeaders() });
+    setPendingRemoval(null);
     loadSchedules();
   };
 
@@ -116,8 +117,19 @@ fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeade
 
   return (
     <div className="space-y-4">
+      {pendingRemoval && (
+        <div className="bg-[#DCEBFA]/50 rounded-md p-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-[#0369A1] flex items-center gap-1.5">
+            Retirer le créneau {pendingRemoval.heure_debut?.slice(0, 5)}
+            {pendingRemoval.heure_fin ? ` → ${pendingRemoval.heure_fin.slice(0, 5)}` : ''} ?
+          </p>
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={() => setPendingRemoval(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+            <button onClick={confirmRemove} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f]">Oui</button>
+          </div>
+        </div>
+      )}
       <p className="text-[10px] text-slate-400">Cliquez une case libre de la grille pour y ajouter un créneau.</p>
-
      {showForm && (
   <div className="border border-slate-200 rounded-lg p-3 space-y-2.5 bg-white shadow-sm">
     <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
@@ -168,17 +180,7 @@ fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeade
                             {entry.niveauNom && (
                               <p className="text-[9px] text-slate-400">{entry.niveauNom}</p>
                             )}
-                            {entry.isOwn && (
-                              confirmRemoveKey === entry.id ? (
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <span className="text-[9px] text-[#0369A1]">Retirer ?</span>
-                                  <button onClick={() => setConfirmRemoveKey(null)} className="text-[9px] text-slate-400 hover:text-slate-600">Non</button>
-                                  <button onClick={() => confirmRemove(entry)} className="text-[9px] font-medium text-red-500 hover:text-red-600">Oui</button>
-                                </div>
-                              ) : (
-                                <button onClick={() => handleRemove(entry)} className="text-[9px] text-red-400 hover:text-red-600 mt-0.5">Retirer</button>
-                              )
-                            )}
+                                                 {entry.isOwn && <button onClick={() => handleRemove(entry)} className="text-[9px] text-red-400 hover:text-red-600 mt-0.5">Retirer</button>}
                           </div>
                         ))}
                         <button type="button" onClick={openForm} className="w-full flex justify-center text-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded transition text-sm py-0.5">+</button>
