@@ -262,6 +262,22 @@ const [stagedRemovals, setStagedRemovals] = useState([]);
             <Toggle checked={useDefaultPeriods} onChange={(val) => { setUseDefaultPeriods(val); if (!val && periods.length === 0) copyFromTemplate(); }}
               label="Utiliser l'échéancier par défaut de la formation" />
 
+            {useDefaultPeriods && (
+              <div className="mt-2 space-y-1.5">
+                {periods.length === 0 ? (
+                  <p className="text-[11px] text-slate-400">Aucun échéancier par défaut disponible.</p>
+                ) : (
+                  periods.map((p, idx) => (
+                    <div key={p._id} className="flex items-center gap-2 bg-[#F8FAFC] rounded-md px-2.5 py-1.5">
+                      <span className="text-[10px] text-slate-400 w-8 flex-shrink-0">P{idx + 1}</span>
+                      <span className="flex-1 text-xs text-slate-700">{Number(p.montant).toLocaleString('fr-FR')} DA</span>
+                      <span className="text-[10px] text-slate-400 flex-shrink-0">{cumulativeDates[idx] ?? '—'}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
             {!useDefaultPeriods && (
               <div className="mt-2 space-y-1.5">
                 <p className="text-[10px] text-slate-500 bg-[#F0F9FF] border border-[#DCEBFA] rounded-md px-2.5 py-1.5">
