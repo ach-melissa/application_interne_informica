@@ -42,8 +42,7 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
   const [stagedStudents, setStagedStudents] = useState([]);
     const [stagedSchedules, setStagedSchedules] = useState([]);
     const [assignedStudents, setAssignedStudents] = useState([]);
-const [removingStudent, setRemovingStudent] = useState(null);
-const [removing, setRemoving] = useState(false);
+const [removing, setRemoving] = useState(null); // id of student currently being removed
   const [useDefaultDuree, setUseDefaultDuree] = useState(editGroup?.use_default_duree ?? true);
   const [dureeValeur, setDureeValeur] = useState(editGroup?.duree_valeur ?? '');
   const [typeDuree, setTypeDuree] = useState(editGroup?.type_duree ?? formation?.type_duree ?? 'heures');
@@ -96,22 +95,20 @@ const [removing, setRemoving] = useState(false);
       setUnassignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
     } catch (err) { setError(err.message); }
   };
-  const handleRemoveAssignedStudent = async () => {
-    if (!removingStudent) return;
-    setRemoving(true);
+  const handleRemoveAssignedStudent = async (inscription_id) => {
+    setRemoving(inscription_id);
     try {
-      const res = await fetch(`${API}/api/inscriptions/${removingStudent.id}/assign-group`, {
+      const res = await fetch(`${API}/api/inscriptions/${inscription_id}/assign-group`, {
         method: 'PATCH',
         headers: jsonHeaders(),
         body: JSON.stringify({ group_id: null, niveau_id: niveauId || null }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'Erreur serveur');
-      setAssignedStudents((prev) => prev.filter((i) => i.id !== removingStudent.id));
-      setRemovingStudent(null);
+      setAssignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
     } catch (err) {
       setError(err.message);
     } finally {
-      setRemoving(false);
+      setRemoving(null);
     }
   };
   const handleUnstageStudent = (inscription_id) => {
@@ -370,34 +367,18 @@ const [removing, setRemoving] = useState(false);
               ) : (
                 <div className="mt-1 space-y-1.5 max-h-56 overflow-y-auto pr-1">
                   {assignedStudents.map((i) => (
-                    <div key={i.id} className="bg-white border border-[#F1F5F9] rounded-lg px-3 py-2 hover:border-[#DCEBFA] hover:bg-[#F8FAFC] transition">
-                      {removingStudent?.id === i.id ? (
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11px] text-[#0369A1] flex items-center gap-1.5">
-                            <AlertTriangle size={12} /> Retirer {i.etudiant?.nom} {i.etudiant?.prenom} du groupe ?
-                          </p>
-                          <div className="flex gap-1.5 flex-shrink-0">
-                            <button onClick={() => setRemovingStudent(null)} className="text-[11px] px-2.5 py-1 rounded-md text-slate-500 hover:bg-white">Non</button>
-                            <button onClick={handleRemoveAssignedStudent} disabled={removing}
-                              className="text-[11px] px-2.5 py-1 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
-                              {removing ? '...' : 'Oui'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center text-[11px] font-semibold flex-shrink-0">
-                            {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}{(i.etudiant?.prenom?.[0] ?? '').toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-slate-800 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</p>
-                            <p className="text-[11px] text-slate-400 truncate">{i.etudiant?.telephone ?? 'Téléphone non renseigné'}</p>
-                          </div>
-                          <button onClick={() => setRemovingStudent(i)} className="text-[11px] font-medium text-red-500 bg-red-50 border border-red-500/20 px-2.5 py-1 rounded-full hover:bg-red-100 active:scale-95 transition flex-shrink-0">
-                            Retirer
-                          </button>
-                        </div>
-                      )}
+                    <div key={i.id} className="flex items-center gap-3 bg-white border border-[#F1F5F9] rounded-lg px-3 py-2 hover:border-[#DCEBFA] hover:bg-[#F8FAFC] transition">
+                      <div className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center text-[11px] font-semibold flex-shrink-0">
+                        {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}{(i.etudiant?.prenom?.[0] ?? '').toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-slate-800 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{i.etudiant?.telephone ?? 'Téléphone non renseigné'}</p>
+                      </div>
+                      <button onClick={() => handleRemoveAssignedStudent(i.id)} disabled={removing === i.id}
+                        className="text-[11px] font-medium text-red-500 bg-red-50 border border-red-500/20 px-2.5 py-1 rounded-full hover:bg-red-100 active:scale-95 transition flex-shrink-0 disabled:opacity-40">
+                        {removing === i.id ? '...' : 'Retirer'}
+                      </button>
                     </div>
                   ))}
                 </div>
