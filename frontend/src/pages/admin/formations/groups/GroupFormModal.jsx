@@ -377,11 +377,11 @@ const [stagedRemovals, setStagedRemovals] = useState([]);
                 <div className="mt-2 space-y-1.5">
                   <p className="text-[10px] text-slate-400 uppercase tracking-wide">À retirer dès l'enregistrement</p>
                   {stagedRemovals.map((s) => (
-                    <div key={s.id} className="flex items-center gap-3 bg-red-50 border border-red-500/20 rounded-lg px-3 py-2">
-                      <div className="w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-semibold flex-shrink-0">
+                    <div key={s.id} className="flex items-center gap-3 bg-[#F8FAFC] border border-[#F1F5F9] rounded-lg px-3 py-2">
+                      <div className="w-7 h-7 rounded-full bg-slate-300 text-white flex items-center justify-center text-[10px] font-semibold flex-shrink-0">
                         {(s.etudiant?.nom?.[0] ?? '?').toUpperCase()}{(s.etudiant?.prenom?.[0] ?? '').toUpperCase()}
                       </div>
-                      <span className="flex-1 min-w-0 text-xs font-medium text-[#1E293B] truncate line-through">{s.etudiant?.nom} {s.etudiant?.prenom}</span>
+                      <span className="flex-1 min-w-0 text-xs font-medium text-slate-400 truncate line-through">{s.etudiant?.nom} {s.etudiant?.prenom}</span>
                       <button onClick={() => handleUnstageRemoval(s.id)} className="text-[11px] font-medium text-slate-400 hover:text-[#0369A1] flex-shrink-0 transition">
                         Annuler
                       </button>
