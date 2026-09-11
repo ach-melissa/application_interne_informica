@@ -16,6 +16,12 @@ const getFormations = async (req, res) => {
         .eq('formation_id', f.id)
         .eq('archived', false);
 
+      const { count: nb_groupes_archives } = await supabase
+        .from('groups')
+        .select('*', { count: 'exact', head: true })
+        .eq('formation_id', f.id)
+        .eq('archived', true);
+
       const { data: inscData } = await supabase
         .from('inscriptions')
         .select('id, group_id, statut_scolarite, groups(archived)')
@@ -25,6 +31,39 @@ const getFormations = async (req, res) => {
       const nb_etudiants = (inscData || []).filter(
         i => (!i.group_id || i.groups?.archived === false) && i.statut_scolarite !== 'abandonne'
       ).length;
+      let nb_inscriptions_total = 0;
+      if (f.a_niveaux) {
+        const { data: niveauIds } = await supabase
+          .from('formation_niveaux')
+          .select('id')
+          .eq('formation_id', f.id);
+        const ids = (niveauIds || []).map(n => n.id);
+
+        const { data: byFormation } = await supabase
+          .from('inscriptions')
+          .select('id')
+          .eq('formation_id', f.id);
+
+        let byNiveau = [];
+        if (ids.length > 0) {
+          const { data: byNiveauData } = await supabase
+            .from('inscriptions')
+            .select('id')
+            .in('niveau_id', ids);
+          byNiveau = byNiveauData || [];
+        }
+
+        const uniqueIds = new Set([...(byFormation || []).map(r => r.id), ...byNiveau.map(r => r.id)]);
+        nb_inscriptions_total = uniqueIds.size;
+      } else {
+        const { count } = await supabase
+          .from('inscriptions')
+          .select('*', { count: 'exact', head: true })
+          .eq('formation_id', f.id);
+        nb_inscriptions_total = count ?? 0;
+      }
+        console.log('DEBUG', f.nom, '| a_niveaux:', f.a_niveaux, '| nb_inscriptions_total:', nb_inscriptions_total);
+
       // NEW: pull the actual levels so the card can show/expand them
       let niveaux = [];
       if (f.a_niveaux) {
@@ -36,7 +75,7 @@ const getFormations = async (req, res) => {
         niveaux = niveauxData ?? [];
       }
 
-      return { ...f, nb_groupes: nb_groupes ?? 0, nb_etudiants: nb_etudiants ?? 0, niveaux };
+    return { ...f, nb_groupes: nb_groupes ?? 0, nb_groupes_archives: nb_groupes_archives ?? 0, nb_etudiants: nb_etudiants ?? 0, nb_inscriptions_total: nb_inscriptions_total ?? 0, niveaux };
     })
   );
 
@@ -269,21 +308,70 @@ const deleteFormation = async (req, res) => {
   const { id } = req.params;
 
   // Bloque la suppression si des étudiants sont/ont été inscrits, quel que soit le statut
-  const { count: nb_etudiants, error: cErr } = await supabase
-    .from('inscriptions')
-    .select('*', { count: 'exact', head: true })
-    .eq('formation_id', id);
+  const { data: formationRowForDelete, error: fErrForDelete } = await supabase
+    .from('formations')
+    .select('a_niveaux')
+    .eq('id', id)
+    .single();
+  if (fErrForDelete) return res.status(500).json({ error: fErrForDelete.message });
 
-  if (cErr) return res.status(500).json({ error: cErr.message });
+  let nb_etudiants = 0;
+  if (formationRowForDelete.a_niveaux) {
+    const { data: niveauIds } = await supabase
+      .from('formation_niveaux')
+      .select('id')
+      .eq('formation_id', id);
+    const ids = (niveauIds || []).map(n => n.id);
+
+    const { data: byFormation, error: e1 } = await supabase
+      .from('inscriptions')
+      .select('id')
+      .eq('formation_id', id);
+    if (e1) return res.status(500).json({ error: e1.message });
+
+    let byNiveau = [];
+    if (ids.length > 0) {
+      const { data: byNiveauData, error: e2 } = await supabase
+        .from('inscriptions')
+        .select('id')
+        .in('niveau_id', ids);
+      if (e2) return res.status(500).json({ error: e2.message });
+      byNiveau = byNiveauData || [];
+    }
+
+    const uniqueIds = new Set([...(byFormation || []).map(r => r.id), ...byNiveau.map(r => r.id)]);
+    nb_etudiants = uniqueIds.size;
+  } else {
+    const { count, error: cErr } = await supabase
+      .from('inscriptions')
+      .select('*', { count: 'exact', head: true })
+      .eq('formation_id', id);
+    if (cErr) return res.status(500).json({ error: cErr.message });
+    nb_etudiants = count ?? 0;
+  }
 
   if (nb_etudiants > 0) {
     return res.status(409).json({
-      error: `Impossible de supprimer cette formation : ${nb_etudiants} étudiant(s) y sont inscrits (confirmés, en attente ou archivés).`,
+      error: `Impossible de supprimer cette formation : ${nb_etudiants} étudiant(s) y sont ou ont été inscrits (confirmés, en attente, abandonnés ou archivés).`,
+    });
+  }
+
+  // Bloque aussi si des groupes archivés existent (historique à conserver)
+  const { count: nb_groupes_archives, error: gaErr } = await supabase
+    .from('groups')
+    .select('*', { count: 'exact', head: true })
+    .eq('formation_id', id)
+    .eq('archived', true);
+
+  if (gaErr) return res.status(500).json({ error: gaErr.message });
+
+  if (nb_groupes_archives > 0) {
+    return res.status(409).json({
+      error: `Impossible de supprimer cette formation : ${nb_groupes_archives} groupe(s) archivé(s) existent pour cette formation.`,
     });
   }
 
   const { data: toDelete } = await supabase.from('formations').select('nom').eq('id', id).single();
-
   const { error } = await supabase
     .from('formations')
     .delete()

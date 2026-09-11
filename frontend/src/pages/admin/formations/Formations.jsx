@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, Clock, DollarSign, BookOpen, UserCheck, Phone, Mail, MapPin, CalendarDays, CheckCircle2, GraduationCap, Pencil, Trash2, ChevronRight, ArrowLeft, Gauge, Activity, X, ChevronDown, AlertTriangle, Layers } from 'lucide-react';
+import { Plus, Search, Users, Clock, DollarSign, BookOpen, UserCheck, Phone, Mail, MapPin, CalendarDays, CheckCircle2, GraduationCap, Pencil, Trash2, ChevronRight, ArrowLeft, Gauge, Activity, X, ChevronDown, AlertTriangle, Layers, UserCircle, UserX } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import AddFormationModal from './AddFormationModal';
 import EtudiantDetailModal from '../students/EtudiantDetailModal';
@@ -21,7 +21,21 @@ const INSCRIPTION_STATUT_META = {
   confirmed: { label: 'Confirmé',     cls: 'bg-emerald-50 text-emerald-600' },
   pending:   { label: 'En attente',   cls: 'bg-amber-50 text-amber-700' },
 };
-
+const StatTile = ({ icon: Icon, label, value, color = 'blue' }) => {
+  const COLORS = { blue: { bg: 'bg-[#DCEBFA]', text: 'text-[#0369A1]' }, red: { bg: 'bg-red-50', text: 'text-red-500' }, emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' } };
+  const c = COLORS[color] ?? COLORS.blue;
+  return (
+    <div className="flex items-center gap-3 bg-white rounded-xl border border-[#F1F5F9] px-4 py-3">
+      <div className={`w-9 h-9 rounded-full ${c.bg} flex items-center justify-center flex-shrink-0`}>
+        <Icon size={16} className={c.text} />
+      </div>
+      <div>
+        <p className="text-lg font-bold text-slate-800 leading-none">{value}</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">{label}</p>
+      </div>
+    </div>
+  );
+};
 const FilterSelect = ({ icon: Icon, label, value, onChange, opts, display }) => (
   <div className="relative flex items-center">
     {Icon && <Icon size={13} className="absolute left-2 text-[#0369A1] pointer-events-none" />}
@@ -157,6 +171,9 @@ const Formations = () => {
     } else if (filterDateFrom || filterDateTo) return false;
     return i.statut === 'confirmed';
   });
+    const totalInscriptionsCount = filteredInscriptions.length;
+  const abandonnesCount = filteredInscriptions.filter(i => i.statut_scolarite === 'abandonne').length;
+  const nonAbandonnesCount = totalInscriptionsCount - abandonnesCount;
 
   const InscriptionsTable = () => (
     <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
@@ -276,7 +293,15 @@ const Formations = () => {
           className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 active:scale-95 transition">
           <Pencil size={13} /> Modifier
         </button>
-        <button onClick={() => setConfirmDelete(f)}
+<button onClick={async () => {
+            try {
+              const res = await fetch(`${API}/api/formations`, { headers: headers() });
+              if (!res.ok) throw new Error('Erreur serveur');
+              const fresh = await res.json();
+              setFormations(fresh);
+              setConfirmDelete(fresh.find(x => x.id === f.id) || f);
+            } catch (err) { setError(err.message); }
+          }}
           className="flex items-center gap-1.5 text-xs font-medium text-red-500 bg-red-50 border border-red-500/20 px-3 py-1.5 rounded-full hover:bg-red-100 active:scale-95 transition">
           <Trash2 size={13} /> Supprimer
         </button>
@@ -350,6 +375,11 @@ const Formations = () => {
 
       {view === 'all_inscriptions' && !loadingInscriptions && (
         <>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <StatTile icon={UserCircle} label="Total inscriptions" value={totalInscriptionsCount} color="blue" />
+            <StatTile icon={UserCheck} label="Non abandonnés" value={nonAbandonnesCount} color="emerald" />
+            <StatTile icon={UserX} label="Abandonnés" value={abandonnesCount} color="red" />
+          </div>
           <div className="mb-6 flex flex-wrap gap-2 items-center">
             <div className="relative min-w-[160px] flex-1 max-w-[220px]">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
@@ -402,6 +432,11 @@ const Formations = () => {
             </div>
           </div>
           <p className="mb-4 text-xs text-slate-400 ml-12">{filteredInscriptions.length} étudiant(s)</p>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <StatTile icon={UserCircle} label="Total inscriptions" value={totalInscriptionsCount} color="blue" />
+            <StatTile icon={UserCheck} label="Non abandonnés" value={nonAbandonnesCount} color="emerald" />
+            <StatTile icon={UserX} label="Abandonnés" value={abandonnesCount} color="red" />
+          </div>
          <div className="mb-6 flex flex-wrap items-center gap-2 max-w-xl">
   <div className="relative flex-1 min-w-[160px] max-w-xs">
     <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
@@ -447,18 +482,20 @@ const Formations = () => {
               <div className="bg-red-50 rounded-md p-3">
                 <p className="text-xs text-red-600 flex items-center gap-1.5">
                   <AlertTriangle size={13} className="flex-shrink-0" />
-                  {confirmDelete.nb_etudiants > 0
-                    ? `Suppression impossible : ${confirmDelete.nb_etudiants} étudiant(s) sont inscrits dans « ${confirmDelete.nom} » . Retirez-les d'abord.`
-                    : confirmDelete.nb_groupes > 0
-                    ? `Supprimer « ${confirmDelete.nom} » supprimera aussi ${confirmDelete.nb_groupes} groupe(s) sans étudiant. Action irréversible.`
-                    : `Supprimer définitivement « ${confirmDelete.nom} » ? Action irréversible.`}
+{confirmDelete.nb_inscriptions_total > 0
+    ? `Suppression impossible : des étudiants sont ou ont été inscrits dans « ${confirmDelete.nom} » (actifs, abandonnés ou archivés).`
+    : confirmDelete.nb_groupes_archives > 0
+    ? `Suppression impossible : « ${confirmDelete.nom} » a ${confirmDelete.nb_groupes_archives} groupe(s) archivé(s). L'historique doit être conservé.`
+    : confirmDelete.nb_groupes > 0
+    ? `Supprimer « ${confirmDelete.nom} » supprimera aussi ${confirmDelete.nb_groupes} groupe(s) vide(s). Action irréversible.`
+    : `Supprimer définitivement « ${confirmDelete.nom} » ? Action irréversible.`}
                 </p>
               </div>
             </div>
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
               <button onClick={() => setConfirmDelete(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">Annuler</button>
-              <button onClick={doDelete} disabled={deleting || confirmDelete.nb_etudiants > 0}
-                className="text-xs px-3 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
+<button onClick={doDelete} disabled={deleting || confirmDelete.nb_inscriptions_total > 0 || confirmDelete.nb_groupes_archives > 0}
+             className="text-xs px-3 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
                 {deleting ? '...' : 'Oui, supprimer'}
               </button>
             </div>
