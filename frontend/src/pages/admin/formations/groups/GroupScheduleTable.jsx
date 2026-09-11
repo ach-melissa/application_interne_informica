@@ -25,7 +25,7 @@ export default function GroupScheduleTable({ groupId, staged, onAddStaged, onRem
   const [contenu, setContenu] = useState('');
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
-
+  const [confirmRemoveKey, setConfirmRemoveKey] = useState(null);
   const loadSchedules = () => {
     setLoading(true);
     fetch(`${import.meta.env.VITE_API_URL}/api/schedules`, { headers: getHeaders() })
@@ -99,11 +99,16 @@ fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeade
     }
   };
 
-  const handleRemove = async (entry) => {
+  const handleRemove = (entry) => {
     if (!entry?.isOwn) return;
     if (!groupId) return onRemoveStaged(entry.stagedLocalId);
-    if (!entry.id || !confirm('Retirer ce créneau ?')) return;
+    if (!entry.id) return;
+    setConfirmRemoveKey(entry.id);
+  };
+
+  const confirmRemove = async (entry) => {
     await fetch(`${import.meta.env.VITE_API_URL}/api/schedules/${entry.id}`, { method: 'DELETE', headers: getHeaders() });
+    setConfirmRemoveKey(null);
     loadSchedules();
   };
 
@@ -163,7 +168,17 @@ fetch(`${import.meta.env.VITE_API_URL}/api/schedules/jours`, { headers: getHeade
                             {entry.niveauNom && (
                               <p className="text-[9px] text-slate-400">{entry.niveauNom}</p>
                             )}
-                            {entry.isOwn && <button onClick={() => handleRemove(entry)} className="text-[9px] text-red-400 hover:text-red-600 mt-0.5">Retirer</button>}
+                            {entry.isOwn && (
+                              confirmRemoveKey === entry.id ? (
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[9px] text-[#0369A1]">Retirer ?</span>
+                                  <button onClick={() => setConfirmRemoveKey(null)} className="text-[9px] text-slate-400 hover:text-slate-600">Non</button>
+                                  <button onClick={() => confirmRemove(entry)} className="text-[9px] font-medium text-red-500 hover:text-red-600">Oui</button>
+                                </div>
+                              ) : (
+                                <button onClick={() => handleRemove(entry)} className="text-[9px] text-red-400 hover:text-red-600 mt-0.5">Retirer</button>
+                              )
+                            )}
                           </div>
                         ))}
                         <button type="button" onClick={openForm} className="w-full flex justify-center text-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded transition text-sm py-0.5">+</button>

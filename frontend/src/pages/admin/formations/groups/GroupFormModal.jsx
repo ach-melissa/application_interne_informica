@@ -365,25 +365,9 @@ const [stagedRemovals, setStagedRemovals] = useState([]);
                         <p className="text-xs font-medium text-slate-800 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</p>
                         <p className="text-[11px] text-slate-400 truncate">{i.etudiant?.telephone ?? 'Téléphone non renseigné'}</p>
                       </div>
-                      <button onClick={() => handleRemoveAssignedStudent(i.id)}
-                        className="text-[11px] font-medium text-red-500 bg-red-50 border border-red-500/20 px-2.5 py-1 rounded-full hover:bg-red-100 active:scale-95 transition flex-shrink-0">
-                        Retirer
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {stagedRemovals.length > 0 && (
-                <div className="mt-2 space-y-1.5">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wide">À retirer dès l'enregistrement</p>
-                  {stagedRemovals.map((s) => (
-                    <div key={s.id} className="flex items-center gap-3 bg-[#F8FAFC] border border-[#F1F5F9] rounded-lg px-3 py-2">
-                      <div className="w-7 h-7 rounded-full bg-slate-300 text-white flex items-center justify-center text-[10px] font-semibold flex-shrink-0">
-                        {(s.etudiant?.nom?.[0] ?? '?').toUpperCase()}{(s.etudiant?.prenom?.[0] ?? '').toUpperCase()}
-                      </div>
-                      <span className="flex-1 min-w-0 text-xs font-medium text-slate-400 truncate line-through">{s.etudiant?.nom} {s.etudiant?.prenom}</span>
-                      <button onClick={() => handleUnstageRemoval(s.id)} className="text-[11px] font-medium text-slate-400 hover:text-[#0369A1] flex-shrink-0 transition">
-                        Annuler
+                      <button onClick={() => handleRemoveAssignedStudent(i.id)} disabled={removing === i.id}
+                        className="text-[11px] font-medium text-red-500 bg-red-50 border border-red-500/20 px-2.5 py-1 rounded-full hover:bg-red-100 active:scale-95 transition flex-shrink-0 disabled:opacity-40">
+                        {removing === i.id ? '...' : 'Retirer'}
                       </button>
                     </div>
                   ))}
@@ -391,6 +375,7 @@ const [stagedRemovals, setStagedRemovals] = useState([]);
               )}
             </div>
           )}
+
           <div>
             <Label icon={GraduationCap} text="Étudiants confirmés non affectés" />
                        {unassignedStudents.length === 0 ? (
