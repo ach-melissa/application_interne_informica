@@ -53,7 +53,7 @@ app.use('/api/historique', historiqueRoutes);
 console.log('Running payment alerts job on startup...');
 runPaymentAlerts();
 
-cron.schedule('* * * * *', () => {
+cron.schedule('*/30 * * * *', () => {
   console.log('Running payment alerts job...');
   runPaymentAlerts();
 }, {

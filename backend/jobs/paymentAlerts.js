@@ -1,8 +1,7 @@
 const supabase = require('../supabaseClient');
 const { resolveGroupPeriods, computeStudentTotal } = require('../utils/periods');
 
-const SEND_INTERVALS = [7, 3, 1, 1]; // days to wait before 2nd, 3rd, 4th, 5th notification
-const MAX_SENDS = 5;
+const SEND_INTERVALS = [7, 3, 3, 3]; // days to wait before 2nd, 3rd, 4th, 5th... notification (repeats 3 after this)
 
 const getOverdueStudentsForGroup = async (group) => {
   let formationPeriodsQuery = supabase
@@ -104,16 +103,14 @@ const runPaymentAlerts = async () => {
       continue;
     }
 
+    if (!tracker.active) continue;
+
     const isFinished = group.date_fin && group.date_fin < today;
 
-    if (!tracker.active) continue;
-    if (!isFinished && tracker.send_count >= MAX_SENDS) continue;
-
-    const requiredGap = isFinished ? 7 : (SEND_INTERVALS[tracker.send_count - 1] ?? null);
-    if (!isFinished && requiredGap == null) {
-      await supabase.from('group_payment_alerts').update({ active: false }).eq('group_id', group.id);
-      continue;
-    }
+    // Non-finished: 7, then 3 repeating forever. Finished: every 7 days forever.
+    const requiredGap = isFinished
+      ? 7
+      : (SEND_INTERVALS[tracker.send_count - 1] ?? SEND_INTERVALS[SEND_INTERVALS.length - 1]);
 
     const daysSinceLastSend = tracker.last_sent_at
       ? Math.floor((new Date(today) - new Date(tracker.last_sent_at)) / (1000 * 60 * 60 * 24))
@@ -123,7 +120,7 @@ const runPaymentAlerts = async () => {
       const newCount = tracker.send_count + 1;
       await sendGroupAlert(group, overdue, newCount);
       await supabase.from('group_payment_alerts')
-        .update({ send_count: newCount, last_sent_at: today, active: isFinished ? true : newCount < MAX_SENDS })
+        .update({ send_count: newCount, last_sent_at: today, active: true })
         .eq('group_id', group.id);
     }
   }

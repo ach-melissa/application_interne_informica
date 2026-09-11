@@ -208,6 +208,53 @@ Pré inscriptions en attente
         </div>
       </div>
 
+         {/* Paiements incomplets — students who still owe money, with due date */}
+      {stats?.paiementsIncompletsListe?.length > 0 && (
+        <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-sm mb-6">
+          <h2 className="text-sm font-semibold text-[#1E293B] mb-4 flex items-center gap-2">
+            <CreditCard size={16} className="text-orange-600" />
+            Paiements incomplets
+          </h2>
+          <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-[#0F2A4A]">
+                  <tr>
+                    {['Étudiant', 'Formation', 'Groupe', 'Restant', 'Échéance'].map((label, i) => (
+                      <th key={label} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] whitespace-nowrap ${i === 0 ? 'border-l border-[#0F2A4A]' : ''}`}>
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.paiementsIncompletsListe.map((p, idx) => (
+                    <tr
+                      key={`${p.studentId}-${p.formationId}`}
+                      onClick={() => p.groupId && navigate(`/formations/${p.formationId}/groups/${p.groupId}`)}
+                      className={`${p.isOverdue ? 'bg-red-50' : 'bg-amber-50'} ${p.groupId ? 'cursor-pointer hover:opacity-80 transition' : ''}`}
+                    >
+                      <td className="px-3 py-2 border-b border-l border-[#E2E8F0] font-medium text-slate-700 whitespace-nowrap">{p.nom}</td>
+                      <td className="px-3 py-2 border-b border-[#E2E8F0] text-slate-600 whitespace-nowrap">{p.formationNom}</td>
+                      <td className="px-3 py-2 border-b border-[#E2E8F0] text-slate-600 whitespace-nowrap">{p.groupNom}</td>
+                      <td className="px-3 py-2 border-b border-[#E2E8F0] font-medium text-slate-700 whitespace-nowrap">{p.remaining.toLocaleString('fr-FR')} DA</td>
+                      <td className="px-3 py-2 border-b border-[#E2E8F0] whitespace-nowrap">
+                        {p.prochaineEcheance ? (
+                          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${p.isOverdue ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                            {p.isOverdue ? 'En retard depuis le ' : 'À payer avant le '}
+                            {new Date(p.prochaineEcheance).toLocaleDateString('fr-FR')}
+                          </span>
+                        ) : <span className="text-slate-300">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Recent students — real table with column headers */}
       <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-sm">
         <h2 className="text-sm font-semibold text-[#1E293B] mb-4 flex items-center gap-2">
