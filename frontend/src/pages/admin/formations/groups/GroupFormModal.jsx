@@ -370,17 +370,34 @@ const [removing, setRemoving] = useState(false);
               ) : (
                 <div className="mt-1 space-y-1.5 max-h-56 overflow-y-auto pr-1">
                   {assignedStudents.map((i) => (
-                    <div key={i.id} className="flex items-center gap-3 bg-white border border-[#F1F5F9] rounded-lg px-3 py-2 hover:border-[#DCEBFA] hover:bg-[#F8FAFC] transition">
-                      <div className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center text-[11px] font-semibold flex-shrink-0">
-                        {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}{(i.etudiant?.prenom?.[0] ?? '').toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-800 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</p>
-                        <p className="text-[11px] text-slate-400 truncate">{i.etudiant?.telephone ?? 'Téléphone non renseigné'}</p>
-                      </div>
-                      <button onClick={() => setRemovingStudent(i)} className="text-[11px] font-medium text-red-500 bg-red-50 border border-red-500/20 px-2.5 py-1 rounded-full hover:bg-red-100 active:scale-95 transition flex-shrink-0">
-                        Retirer
-                      </button>
+                    <div key={i.id} className="bg-white border border-[#F1F5F9] rounded-lg px-3 py-2 hover:border-[#DCEBFA] hover:bg-[#F8FAFC] transition">
+                      {removingStudent?.id === i.id ? (
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] text-[#0369A1] flex items-center gap-1.5">
+                            <AlertTriangle size={12} /> Retirer {i.etudiant?.nom} {i.etudiant?.prenom} du groupe ?
+                          </p>
+                          <div className="flex gap-1.5 flex-shrink-0">
+                            <button onClick={() => setRemovingStudent(null)} className="text-[11px] px-2.5 py-1 rounded-md text-slate-500 hover:bg-white">Non</button>
+                            <button onClick={handleRemoveAssignedStudent} disabled={removing}
+                              className="text-[11px] px-2.5 py-1 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
+                              {removing ? '...' : 'Oui'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center text-[11px] font-semibold flex-shrink-0">
+                            {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}{(i.etudiant?.prenom?.[0] ?? '').toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-slate-800 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</p>
+                            <p className="text-[11px] text-slate-400 truncate">{i.etudiant?.telephone ?? 'Téléphone non renseigné'}</p>
+                          </div>
+                          <button onClick={() => setRemovingStudent(i)} className="text-[11px] font-medium text-red-500 bg-red-50 border border-red-500/20 px-2.5 py-1 rounded-full hover:bg-red-100 active:scale-95 transition flex-shrink-0">
+                            Retirer
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -449,28 +466,7 @@ const [removing, setRemoving] = useState(false);
             </button>
           </div>
         </div>
-              {removingStudent && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={(e) => { e.stopPropagation(); if (!removing) setRemovingStudent(null); }}>
-          <div onClick={ev => ev.stopPropagation()} className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4">
-            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#F1F5F9]">
-              <h2 className="text-sm font-semibold text-slate-800">Retirer l'étudiant du groupe</h2>
-              <button onClick={() => setRemovingStudent(null)} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
-            </div>
-            <div className="px-5 py-4">
-              <p className="text-xs text-slate-600">
-                Retirer <strong>{removingStudent.etudiant?.nom} {removingStudent.etudiant?.prenom}</strong> de ce groupe ? Il redeviendra un étudiant non affecté.
-              </p>
-            </div>
-            <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
-              <button onClick={() => setRemovingStudent(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">Annuler</button>
-              <button onClick={handleRemoveAssignedStudent} disabled={removing}
-                className="text-xs px-3 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
-                {removing ? '...' : 'Oui, retirer'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
       </div>
     </div>
   );
