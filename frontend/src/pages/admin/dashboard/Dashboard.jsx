@@ -231,7 +231,7 @@ Pré inscriptions en attente
                   {stats.paiementsIncompletsListe.map((p, idx) => (
                     <tr
                       key={`${p.studentId}-${p.formationId}`}
-                      onClick={() => p.groupId && navigate(`/formations/${p.formationId}/groups/${p.groupId}`)}
+onClick={() => p.groupId && navigate(`/admin/formations/${p.formationId}/groups/${p.groupId}?tab=paiements`)}
                       className={`${p.isOverdue ? 'bg-red-50' : 'bg-amber-50'} ${p.groupId ? 'cursor-pointer hover:opacity-80 transition' : ''}`}
                     >
                       <td className="px-3 py-2 border-b border-l border-[#E2E8F0] font-medium text-slate-700 whitespace-nowrap">{p.nom}</td>
