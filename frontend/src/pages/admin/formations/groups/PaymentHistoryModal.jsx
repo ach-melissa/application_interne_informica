@@ -20,6 +20,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
   const [submitting, setSubmitting] = useState(false);
   const [uploadingId, setUploadingId] = useState(null);
   const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
   const fileInputRef = useRef(null);
   const [pendingUploadId, setPendingUploadId] = useState(null);
 
@@ -81,11 +82,16 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Supprimer ce paiement ?')) return;
+  const handleDelete = (p) => {
+    setPendingDelete(p);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
     try {
-      const res = await fetch(`${API}/api/payments/${id}`, { method: 'DELETE', headers: getHeaders() });
+      const res = await fetch(`${API}/api/payments/${pendingDelete.id}`, { method: 'DELETE', headers: getHeaders() });
       if (!res.ok) throw new Error('Erreur suppression');
+      setPendingDelete(null);
       await refresh();
       onRefresh?.();
     } catch (err) {
@@ -159,6 +165,18 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
               <p className="text-red-500 text-xs bg-red-50 rounded-md px-3 py-2">{error}</p>
             )}
 
+            {pendingDelete && (
+              <div className="bg-[#DCEBFA]/50 rounded-md p-3 flex items-center justify-between gap-3">
+                <p className="text-xs text-[#0369A1]">
+                  Supprimer le paiement de {Number(pendingDelete.montant).toLocaleString('fr-FR')} DA (T{pendingDelete.tranche}) ?
+                </p>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button onClick={() => setPendingDelete(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+                  <button onClick={confirmDelete} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f]">Oui</button>
+                </div>
+              </div>
+            )}
+
             {/* Summary pills */}
                       <div className="flex gap-2">
               <div className="flex-1 bg-[#F8FAFC] rounded-md border border-[#F1F5F9] px-3 py-2 text-center">
@@ -226,7 +244,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                                   >
                                     <Pencil size={13} />
                                   </button>
-                                  <button onClick={() => handleDelete(p.id)} className="text-slate-400 hover:text-red-400 transition">
+                                  <button onClick={() => handleDelete(p)} className="text-slate-400 hover:text-red-400 transition">
                                     <Trash2 size={13} />
                                   </button>
                                 </>
