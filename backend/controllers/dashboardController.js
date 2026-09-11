@@ -76,7 +76,6 @@ const getDashboardStats = async (req, res) => {
       }
     }
 
-    const today = new Date().toISOString().split('T')[0];
     const EPSILON = 0.01;
 
     let incomplets = 0;
@@ -109,7 +108,7 @@ const getDashboardStats = async (req, res) => {
           running += Number(per.montant);
           if (paid < running - EPSILON) {
             prochaineEcheance = per.due_date;
-            isOverdue = per.due_date && per.due_date <= today;
+            isOverdue = per.due_date && per.due_date <= todayStr;
             break;
           }
         }
