@@ -281,14 +281,18 @@ const deleteRattrapageStudent = async (req, res) => {
   }
 
   if (req.user?.role === 'admin' && ids.length) {
-    const [{ data: etudiant }, { data: group }] = await Promise.all([
-      supabase.from('etudiants').select('nom, prenom').eq('id', etudiant_id).single(),
-      supabase.from('groups').select('nom').eq('id', group_id).single(),
-    ]);
-    await logHistorique({
-      req, perimetre: 'admin', action: 'modification', entite: 'pointage', entite_id: group_id,
-      description: `a retiré ${etudiant?.nom ?? ''} ${etudiant?.prenom ?? ''} de la liste des rattrapages (${ids.length} marque(s) supprimée(s), groupe "${group?.nom ?? '—'}")`,
-    });
+    try {
+      const [{ data: etudiant }, { data: group }] = await Promise.all([
+        supabase.from('etudiants').select('nom, prenom').eq('id', etudiant_id).single(),
+        supabase.from('groups').select('nom').eq('id', group_id).single(),
+      ]);
+      await logHistorique({
+        req, perimetre: 'admin', action: 'modification', entite: 'pointage', entite_id: group_id,
+        description: `a retiré ${etudiant?.nom ?? ''} ${etudiant?.prenom ?? ''} de la liste des rattrapages (${ids.length} marque(s) supprimée(s), groupe "${group?.nom ?? '—'}")`,
+      });
+    } catch (logErr) {
+      console.error('logHistorique failed:', logErr);
+    }
   }
 
   res.json({ success: true, deleted: ids.length });
