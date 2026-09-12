@@ -267,7 +267,7 @@ const updateDuree = async (sessionId, duree) => {
 body: JSON.stringify({
   date: newDate, type_seance: newType,
   heure_debut: heureDebut,
-  heure_fin: isHourBased ? heureFin : null,
+   heure_fin: heureFin || null,
   duree_effectuee: isHourBased ? Number(dureeEffectuee) : null,
 }),
       });
@@ -309,7 +309,7 @@ body: JSON.stringify({
           date: editDate,
           type_seance: editType,
           heure_debut: editHeureDebut,
-          heure_fin: isHourBased ? editHeureFin : null,
+                  heure_fin: editHeureFin || null,
           duree_effectuee: isHourBased ? Number(editDuree) : null,
         }),
       });
@@ -455,11 +455,6 @@ const deleteSession = async (sessionId) => {
     return acc;
   }, {});
 
-  const filteredCandidates = rattrapageCandidates.filter((c) => {
-    const q = rattrapageSearch.trim().toLowerCase();
-    if (!q) return true;
-    return `${c.nom ?? ''} ${c.prenom ?? ''}`.toLowerCase().includes(q);
-  });
 
   const teacherName = groupData?.teacher?.user
     ? `${groupData.teacher.user.nom ?? ''} ${groupData.teacher.user.prenom ?? ''}`.trim()
@@ -582,13 +577,11 @@ const canConfirm = newDate && heureDebut && (newType !== 'normale' || jourValide
                     <input type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
                   </div>
-                  {isHourBased && (
-                    <div className="flex-1">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin</p>
-                      <input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
-                    </div>
-                  )}
+                   <div className="flex-1">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin</p>
+                    <input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
+                  </div>
                 </div>
                 {isHourBased && (
                   <div>
@@ -742,29 +735,7 @@ const canConfirm = newDate && heureDebut && (newType !== 'normale' || jourValide
                     ))}
                   </tr>
 
-                  {/* ── Ajouter rattrapage — uniquement sur la séance du jour ── */}
-                  <tr className="print:hidden">
-                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-white z-10 text-[10px]">
-                      Rattrapage
-                    </td>
-                    {sessions.map((s) => {
-                      const editable = isEditableToday(s.date);
-                      return (
-                        <td key={s.id} className="border border-[#F1F5F9] px-2 py-1.5 text-center">
-                          {editable ? (
-                            <button
-                              onClick={() => openAddRattrapage(s)}
-                              className="text-[10px] px-2 py-0.5 rounded-md bg-[#DCEBFA] text-[#0369A1] font-medium hover:bg-[#c9e0f5] transition"
-                            >
-                              + Ajouter
-                            </button>
-                          ) : (
-                            <Lock size={12} className="inline-block text-slate-200" />
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
+
                   {/* ── Date ── */}
                   <tr>
                     <td className="border border-[#F1F5F9] px-3 py-2 sticky left-0 bg-white z-10">
