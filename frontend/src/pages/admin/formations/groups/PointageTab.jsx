@@ -524,11 +524,16 @@ const getCellStatut = (session, etudiant_id) => {
                                    <tr>
                     <td colSpan={sessions.length + 1} className="bg-slate-100 border border-slate-200 px-3 py-1.5 font-semibold text-slate-600">Présences</td>
                   </tr>
-                  {etudiants.map((e, idx) => (
-            <tr key={e.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                      <td className="border border-[#F1F5F9] px-3 py-2 text-slate-800 sticky left-0 bg-inherit z-10 whitespace-nowrap">
-                        <span className="text-slate-300 mr-1">{idx + 1})</span>{e.nom} {e.prenom}
-                      </td>
+          {etudiants.map((e, idx) => (
+  <tr key={e.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-800 sticky left-0 bg-inherit z-10 whitespace-nowrap">
+      <span className="text-slate-300 mr-1">{idx + 1})</span>{e.nom} {e.prenom}
+      {e.abandonne && (
+        <span className="ml-2 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500 align-middle">
+          Abandonné
+        </span>
+      )}
+    </td>
                       {sessions.map(s => {
                         const key = `${s.id}|${e.id}`;
                         const statut = getCellStatut(s, e.id);
