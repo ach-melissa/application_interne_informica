@@ -237,6 +237,47 @@ const deleteRattrapage = async (req, res) => {
   res.json({ success: true });
 };
 
+// Retire un étudiant de la liste des rattrapages d'un groupe : supprime
+// TOUTES ses marques de rattrapage dans les séances de ce groupe.
+const deleteRattrapageStudent = async (req, res) => {
+  const { group_id, etudiant_id } = req.query;
+  if (!group_id || !etudiant_id) {
+    return res.status(400).json({ error: 'group_id et etudiant_id requis' });
+  }
+
+  const { data: sessions } = await supabase
+    .from('sessions').select('id').eq('group_id', group_id);
+  const sessionIds = (sessions ?? []).map(s => s.id);
+  if (!sessionIds.length) return res.json({ success: true, deleted: 0 });
+
+  const { data: toDelete, error: findErr } = await supabase
+    .from('attendance')
+    .select('id')
+    .in('session_id', sessionIds)
+    .eq('etudiant_id', etudiant_id)
+    .eq('statut', 'rattrapage');
+  if (findErr) return res.status(500).json({ error: findErr.message });
+
+  const ids = (toDelete ?? []).map(r => r.id);
+  if (ids.length) {
+    const { error } = await supabase.from('attendance').delete().in('id', ids);
+    if (error) return res.status(500).json({ error: error.message });
+  }
+
+  if (req.user?.role === 'admin' && ids.length) {
+    const [{ data: etudiant }, { data: group }] = await Promise.all([
+      supabase.from('etudiants').select('nom, prenom').eq('id', etudiant_id).single(),
+      supabase.from('groups').select('nom').eq('id', group_id).single(),
+    ]);
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'pointage', entite_id: group_id,
+      description: `a retiré ${etudiant?.nom ?? ''} ${etudiant?.prenom ?? ''} de la liste des rattrapages (${ids.length} marque(s) supprimée(s), groupe "${group?.nom ?? '—'}")`,
+    });
+  }
+
+  res.json({ success: true, deleted: ids.length });
+};
+
 // Badge : total de présences (présent + rattrapage) par étudiant, tous groupes confondus.
 const getPresenceCounts = async (req, res) => {
   const { etudiant_ids } = req.query;
@@ -286,6 +327,6 @@ const getGroupRattrapages = async (req, res) => {
 };
 module.exports = {
   getAttendance, createAttendance, updateAttendance, deleteAttendance, batchAttendance,
-  getRattrapageCandidates, createRattrapage, deleteRattrapage, getPresenceCounts,
+  getRattrapageCandidates, createRattrapage, deleteRattrapage, deleteRattrapageStudent, getPresenceCounts,
   getGroupRattrapages,
 };
