@@ -208,6 +208,22 @@ const createRattrapage = async (req, res) => {
     return res.status(400).json({ error: 'session_id et etudiant_id requis' });
   }
 
+  // Un prof ne peut ajouter un rattrapage que sur une séance de son propre
+  // groupe, et seulement le jour même (même règle que le reste du pointage).
+  if (req.user?.role === 'teacher') {
+    const { data: teacher } = await supabase
+      .from('teachers').select('id').eq('user_id', req.user.id).single();
+    const { data: session } = await supabase
+      .from('sessions').select('date, groups(teacher_id)').eq('id', session_id).single();
+    if (!session || session.groups?.teacher_id !== teacher?.id) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
+    if (session.date?.slice(0, 10) !== today) {
+      return res.status(403).json({ error: 'Cette séance ne peut plus être modifiée (jour passé)' });
+    }
+  }
+
   const { data, error } = await supabase
     .from('attendance')
     .insert({ session_id, etudiant_id, statut: 'rattrapage' })
@@ -235,9 +251,21 @@ const deleteRattrapage = async (req, res) => {
 
   const { data: before } = await supabase
     .from('attendance')
-    .select('etudiant_id, session_id, etudiant:etudiant_id(nom, prenom), sessions(date, groups(nom))')
+    .select('etudiant_id, session_id, etudiant:etudiant_id(nom, prenom), sessions(date, groups(nom, teacher_id))')
     .eq('id', id)
     .single();
+
+  if (req.user?.role === 'teacher') {
+    const { data: teacher } = await supabase
+      .from('teachers').select('id').eq('user_id', req.user.id).single();
+    if (!before || before.sessions?.groups?.teacher_id !== teacher?.id) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
+    if (before.sessions?.date?.slice(0, 10) !== today) {
+      return res.status(403).json({ error: 'Ce rattrapage ne peut plus être retiré (jour passé)' });
+    }
+  }
 
   const { error } = await supabase.from('attendance').delete().eq('id', id).eq('statut', 'rattrapage');
   if (error) return res.status(500).json({ error: error.message });

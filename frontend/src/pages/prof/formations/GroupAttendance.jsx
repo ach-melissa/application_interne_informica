@@ -76,6 +76,13 @@ const [deletingSession, setDeletingSession] = useState(false);
   const [joursEmploi, setJoursEmploi] = useState([]);
   const [editingCell, setEditingCell] = useState(null);
   const [saveError, setSaveError] = useState(null);
+  const [rattrapages, setRattrapages] = useState([]); // [{ id, session_id, date, etudiant_id, nom, prenom }]
+  const [addingRattrapageFor, setAddingRattrapageFor] = useState(null); // session object
+  const [rattrapageCandidates, setRattrapageCandidates] = useState([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [rattrapageSearch, setRattrapageSearch] = useState('');
+  const [savingRattrapageId, setSavingRattrapageId] = useState(null);
+  const [deletingRattrapageId, setDeletingRattrapageId] = useState(null);
   const dropdownRef = useRef(null);
   const [heureDebut, setHeureDebut] = useState('');
   const [heureFin, setHeureFin] = useState('');
@@ -113,11 +120,12 @@ const [deletingSession, setDeletingSession] = useState(false);
     setLoading(true);
     setLoadError(null);
     try {
-      const [resGroup, resStudents, resAttendance, resSchedule] = await Promise.all([
+      const [resGroup, resStudents, resAttendance, resSchedule, resRattrapages] = await Promise.all([
         fetch(apiBase, { headers: getHeaders() }),
         fetch(`${apiBase}/students`, { headers: getHeaders() }),
         fetch(`${apiBase}/attendance`, { headers: getHeaders() }),
         fetch(`${API}/api/schedules/me`, { headers: getHeaders() }),
+        fetch(`${API}/api/attendance/group-rattrapages?group_id=${groupId}`, { headers: getHeaders() }),
       ]);
 
       if (!resGroup.ok) throw new Error('Impossible de charger les informations du groupe.');
@@ -156,6 +164,11 @@ const [deletingSession, setDeletingSession] = useState(false);
         const filteredSchedule = (Array.isArray(scheduleJson) ? scheduleJson : [])
           .filter((row) => String(row.groups?.id) === String(groupId));
         setJoursEmploi([...new Set(filteredSchedule.map((row) => row.jour_semaine))]);
+      }
+
+      if (resRattrapages.ok) {
+        const rattrapagesJson = await resRattrapages.json();
+        setRattrapages(Array.isArray(rattrapagesJson) ? rattrapagesJson : []);
       }
     } catch (err) {
       console.error(err);
@@ -328,12 +341,101 @@ const deleteSession = async (sessionId) => {
     }
   };
 
+  // ── Rattrapage — ajouter un étudiant d'un autre groupe sur une séance de
+  // ce groupe. Le bouton n'apparaît que sur les séances du jour même
+  // (isEditableToday), et le serveur applique la même règle + vérifie que
+  // la séance appartient bien au prof connecté.
+  const openAddRattrapage = async (session) => {
+    setAddingRattrapageFor(session);
+    setRattrapageSearch('');
+    setRattrapageCandidates([]);
+    setLoadingCandidates(true);
+    try {
+      const formationId = groupData?.formation_id ?? groupData?.formations?.id;
+      const res = await fetch(
+        `${API}/api/attendance/rattrapage-candidates?formation_id=${formationId}&exclude_group_id=${groupId}`,
+        { headers: getHeaders() }
+      );
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setRattrapageCandidates(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setSaveError("Impossible de charger les stagiaires éligibles au rattrapage.");
+    } finally {
+      setLoadingCandidates(false);
+    }
+  };
+
+  const confirmAddRattrapage = async (candidate) => {
+    if (!addingRattrapageFor) return;
+    setSavingRattrapageId(candidate.etudiant_id);
+    try {
+      const res = await fetch(`${API}/api/attendance/rattrapage`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ session_id: addingRattrapageFor.id, etudiant_id: candidate.etudiant_id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Erreur lors de l\'ajout du rattrapage.');
+      }
+      const data = await res.json();
+      setRattrapages((r) => [...r, {
+        id: data.id,
+        session_id: addingRattrapageFor.id,
+        date: addingRattrapageFor.date,
+        etudiant_id: candidate.etudiant_id,
+        nom: candidate.nom,
+        prenom: candidate.prenom,
+      }]);
+      setAddingRattrapageFor(null);
+    } catch (err) {
+      console.error(err);
+      setSaveError(err.message || "Erreur lors de l'ajout du rattrapage.");
+    } finally {
+      setSavingRattrapageId(null);
+    }
+  };
+
+  const removeRattrapage = async (rattrapageId) => {
+    setDeletingRattrapageId(rattrapageId);
+    try {
+      const res = await fetch(`${API}/api/attendance/rattrapage/${rattrapageId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Erreur lors de la suppression du rattrapage.');
+      }
+      setRattrapages((r) => r.filter((x) => x.id !== rattrapageId));
+    } catch (err) {
+      console.error(err);
+      setSaveError(err.message || 'Erreur lors de la suppression du rattrapage.');
+    } finally {
+      setDeletingRattrapageId(null);
+    }
+  };
+
   const formatDate = (d) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const isEditableToday = (sessionDate) => sessionDate?.slice(0, 10) === todayAlgeria();
 
   // Nombre de stagiaires présents — calculé en direct depuis le pointage, par séance
   const getNbPresents = (sessionId) =>
     Object.entries(attendance).filter(([k, v]) => k.startsWith(`${sessionId}|`) && (v.statut === 'present' || v.statut === 'retard')).length;
+
+   const rattrapagesByStudent = rattrapages.reduce((acc, r) => {
+    if (!acc[r.etudiant_id]) acc[r.etudiant_id] = { nom: r.nom, prenom: r.prenom, bySession: {} };
+    acc[r.etudiant_id].bySession[r.session_id] = r;
+    return acc;
+  }, {});
+
+  const filteredCandidates = rattrapageCandidates.filter((c) => {
+    const q = rattrapageSearch.trim().toLowerCase();
+    if (!q) return true;
+    return `${c.nom ?? ''} ${c.prenom ?? ''}`.toLowerCase().includes(q);
+  });
 
   const teacherName = groupData?.teacher?.user
     ? `${groupData.teacher.user.nom ?? ''} ${groupData.teacher.user.prenom ?? ''}`.trim()
@@ -618,6 +720,30 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                     ))}
                   </tr>
 
+                  {/* ── Ajouter rattrapage — uniquement sur la séance du jour ── */}
+                  <tr className="print:hidden">
+                    <td className="border border-[#F1F5F9] px-3 py-2 text-slate-400 sticky left-0 bg-white z-10 text-[10px]">
+                      Rattrapage
+                    </td>
+                    {sessions.map((s) => {
+                      const editable = isEditableToday(s.date);
+                      return (
+                        <td key={s.id} className="border border-[#F1F5F9] px-2 py-1.5 text-center">
+                          {editable ? (
+                            <button
+                              onClick={() => openAddRattrapage(s)}
+                              className="text-[10px] px-2 py-0.5 rounded-md bg-[#DCEBFA] text-[#0369A1] font-medium hover:bg-[#c9e0f5] transition"
+                            >
+                              + Ajouter
+                            </button>
+                          ) : (
+                            <Lock size={12} className="inline-block text-slate-200" />
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
                   {/* ── Date ── */}
                   <tr>
                     <td className="border border-[#F1F5F9] px-3 py-2 sticky left-0 bg-white z-10">
@@ -748,6 +874,50 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                     </tr>
                   ))}
 
+                  {Object.keys(rattrapagesByStudent).length > 0 && (
+                    <>
+                      <tr>
+                        <td colSpan={sessions.length + 1} className="bg-amber-50 border border-amber-100 px-3 py-1.5 font-semibold text-amber-700">
+                          Rattrapages
+                        </td>
+                      </tr>
+                      {Object.entries(rattrapagesByStudent).map(([etudiantId, info], idx) => (
+                        <tr key={etudiantId} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                          <td className="border border-[#F1F5F9] px-3 py-2 text-slate-800 sticky left-0 bg-inherit z-10 whitespace-nowrap">
+                            {info.nom} {info.prenom}
+                            <span className="ml-2 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 align-middle">
+                              Rattrapage
+                            </span>
+                          </td>
+                          {sessions.map((s) => {
+                            const rec = info.bySession[s.id];
+                            const editable = isEditableToday(s.date);
+                            return (
+                              <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center">
+                                {rec ? (
+                                  editable ? (
+                                    <button
+                                      onClick={() => removeRattrapage(rec.id)}
+                                      disabled={deletingRattrapageId === rec.id}
+                                      className="text-xs font-bold text-amber-700 hover:text-red-500 transition disabled:opacity-40"
+                                      title="Retirer ce rattrapage"
+                                    >
+                                      R
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs font-bold text-amber-700">R</span>
+                                  )
+                                ) : (
+                                  <span className="text-xs text-slate-200">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </>
+                  )}
+
                   {/* ── Supprimer séance ── */}
                   <tr className="print:hidden">
                     <td className="border border-slate-200 px-3 py-1.5 text-slate-300 sticky left-0 bg-white z-10 text-[10px]">
@@ -851,6 +1021,50 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
     </div>
   </div>
 )}
+        {addingRattrapageFor && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setAddingRattrapageFor(null)}>
+            <div onClick={(ev) => ev.stopPropagation()} className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9]">
+                <h2 className="text-sm font-bold text-slate-800">
+                  Ajouter un rattrapage — {formatDate(addingRattrapageFor.date)}
+                </h2>
+                <button onClick={() => setAddingRattrapageFor(null)}><X size={16} className="text-slate-300 hover:text-slate-600" /></button>
+              </div>
+              <div className="p-5 space-y-3">
+                <input
+                  type="text"
+                  autoFocus
+                  value={rattrapageSearch}
+                  onChange={(e) => setRattrapageSearch(e.target.value)}
+                  placeholder="Rechercher un stagiaire…"
+                  className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
+                />
+                <div className="max-h-56 overflow-auto pointage-scroll space-y-1">
+                  {loadingCandidates && (
+                    <p className="text-xs text-slate-400 text-center py-4">Chargement…</p>
+                  )}
+                  {!loadingCandidates && filteredCandidates.length === 0 && (
+                    <p className="text-xs text-slate-400 text-center py-4">Aucun stagiaire éligible trouvé.</p>
+                  )}
+                  {!loadingCandidates && filteredCandidates.map((c) => (
+                    <button
+                      key={c.inscription_id}
+                      onClick={() => confirmAddRattrapage(c)}
+                      disabled={savingRattrapageId === c.etudiant_id}
+                      className="w-full flex items-center justify-between gap-2 text-xs px-2.5 py-2 rounded-md hover:bg-[#F1F5F9] transition disabled:opacity-40 text-left"
+                    >
+                      <span>{c.nom} {c.prenom}</span>
+                      <span className="text-[10px] text-slate-400 shrink-0">{c.groupe_origine}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex justify-end pt-1">
+                  <button onClick={() => setAddingRattrapageFor(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Fermer</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
