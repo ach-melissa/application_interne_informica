@@ -161,5 +161,133 @@ const batchAttendance = async (req, res) => {
 
   res.json({ success: true });
 };
+// Liste les étudiants éligibles au rattrapage pour une formation donnée :
+// confirmés, dans un groupe différent du groupe hôte, dont le groupe est
+// actif OU archivé depuis moins d'1 an (approximé via date_fin).
+const getRattrapageCandidates = async (req, res) => {
+  const { formation_id, exclude_group_id } = req.query;
+  if (!formation_id) return res.status(400).json({ error: 'formation_id requis' });
 
-module.exports = { getAttendance, createAttendance, updateAttendance, deleteAttendance, batchAttendance };
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const oneYearAgoStr = oneYearAgo.toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from('inscriptions')
+    .select(`
+      id, etudiant_id, group_id,
+      etudiant:etudiant_id(id, nom, prenom),
+      groups(id, nom, archived, date_fin)
+    `)
+    .eq('formation_id', formation_id)
+    .eq('statut', 'confirmed')
+    .eq('archived', false)
+    .not('group_id', 'is', null);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const eligible = (data ?? []).filter((i) => {
+    if (!i.groups) return false;
+    if (exclude_group_id && i.group_id === exclude_group_id) return false;
+    if (!i.groups.archived) return true;
+    return i.groups.date_fin && i.groups.date_fin >= oneYearAgoStr;
+  });
+
+  res.json(eligible.map((i) => ({
+    inscription_id: i.id,
+    etudiant_id: i.etudiant_id,
+    nom: i.etudiant?.nom,
+    prenom: i.etudiant?.prenom,
+    groupe_origine: i.groups?.nom,
+  })));
+};
+
+// Crée un enregistrement de rattrapage dans le groupe hôte (session_id fourni),
+// pour un étudiant qui n'est pas inscrit dans ce groupe.
+const createRattrapage = async (req, res) => {
+  const { session_id, etudiant_id } = req.body;
+  if (!session_id || !etudiant_id) {
+    return res.status(400).json({ error: 'session_id et etudiant_id requis' });
+  }
+
+  const { data, error } = await supabase
+    .from('attendance')
+    .insert({ session_id, etudiant_id, statut: 'rattrapage' })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+
+  if (req.user?.role === 'admin') {
+    const [{ data: session }, { data: etudiant }] = await Promise.all([
+      supabase.from('sessions').select('date, groups(nom)').eq('id', session_id).single(),
+      supabase.from('etudiants').select('nom, prenom').eq('id', etudiant_id).single(),
+    ]);
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'pointage', entite_id: data.id,
+      description: `a ajouté ${etudiant?.nom ?? ''} ${etudiant?.prenom ?? ''} en rattrapage (séance du ${session?.date ?? '—'}, groupe "${session?.groups?.nom ?? '—'}")`,
+    });
+  }
+
+  res.json(data);
+};
+
+// Retire un rattrapage.
+const deleteRattrapage = async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase.from('attendance').delete().eq('id', id).eq('statut', 'rattrapage');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+};
+
+// Badge : total de présences (présent + rattrapage) par étudiant, tous groupes confondus.
+const getPresenceCounts = async (req, res) => {
+  const { etudiant_ids } = req.query;
+  const ids = (etudiant_ids || '').split(',').filter(Boolean);
+  if (!ids.length) return res.json({});
+
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('etudiant_id')
+    .in('statut', ['present', 'rattrapage'])
+    .in('etudiant_id', ids);
+  if (error) return res.status(500).json({ error: error.message });
+
+  const counts = {};
+  (data ?? []).forEach((r) => { counts[r.etudiant_id] = (counts[r.etudiant_id] ?? 0) + 1; });
+  res.json(counts);
+};
+// Liste les rattrapages enregistrés dans les séances de ce groupe (groupe hôte),
+// avec le nom de l'étudiant et la date de la séance concernée.
+const getGroupRattrapages = async (req, res) => {
+  const { group_id } = req.query;
+  if (!group_id) return res.status(400).json({ error: 'group_id requis' });
+
+  const { data: sessions } = await supabase
+    .from('sessions').select('id, date').eq('group_id', group_id);
+  const sessionIds = (sessions ?? []).map((s) => s.id);
+  if (!sessionIds.length) return res.json([]);
+
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('id, session_id, etudiant_id, statut, etudiant:etudiant_id(nom, prenom)')
+    .in('session_id', sessionIds)
+    .eq('statut', 'rattrapage');
+  if (error) return res.status(500).json({ error: error.message });
+
+  const sessionDateById = {};
+  (sessions ?? []).forEach((s) => { sessionDateById[s.id] = s.date; });
+
+  res.json((data ?? []).map((r) => ({
+    id: r.id,
+    session_id: r.session_id,
+    date: sessionDateById[r.session_id],
+    etudiant_id: r.etudiant_id,
+    nom: r.etudiant?.nom,
+    prenom: r.etudiant?.prenom,
+  })));
+};
+module.exports = {
+  getAttendance, createAttendance, updateAttendance, deleteAttendance, batchAttendance,
+  getRattrapageCandidates, createRattrapage, deleteRattrapage, getPresenceCounts,
+  getGroupRattrapages,
+};
