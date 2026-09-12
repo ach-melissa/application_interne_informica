@@ -232,11 +232,27 @@ const createRattrapage = async (req, res) => {
 // Retire un rattrapage.
 const deleteRattrapage = async (req, res) => {
   const { id } = req.params;
+
+  const { data: before } = await supabase
+    .from('attendance')
+    .select('etudiant_id, session_id, etudiant:etudiant_id(nom, prenom), sessions(date, groups(nom))')
+    .eq('id', id)
+    .single();
+
   const { error } = await supabase.from('attendance').delete().eq('id', id).eq('statut', 'rattrapage');
   if (error) return res.status(500).json({ error: error.message });
+
+  if (req.user?.role === 'admin' && before) {
+    const nomEtudiant = before?.etudiant ? `${before.etudiant.nom} ${before.etudiant.prenom}` : 'étudiant';
+    const groupe = before?.sessions?.groups;
+    await logHistorique({
+      req, perimetre: 'admin', action: 'modification', entite: 'pointage', entite_id: id,
+      description: `a retiré ${nomEtudiant} du rattrapage (séance du ${before?.sessions?.date ?? '—'}, groupe "${groupe?.nom ?? '—'}")`,
+    });
+  }
+
   res.json({ success: true });
 };
-
 // Retire un étudiant de la liste des rattrapages d'un groupe : supprime
 // TOUTES ses marques de rattrapage dans les séances de ce groupe.
 const deleteRattrapageStudent = async (req, res) => {
