@@ -699,7 +699,7 @@ const canConfirm = newDate && heureDebut && (newType !== 'normale' || jourValide
             </div>
           </div>
 
-          <div className="overflow-auto pointage-scroll rounded-md border border-[#F1F5F9] print:overflow-visible print:border-0 mt-4 max-h-[65vh]">
+                   <div className="overflow-x-auto pointage-scroll rounded-md border border-[#F1F5F9] print:overflow-visible print:border-0 mt-4">
             <table className="text-xs border-collapse bg-white" style={{ minWidth: `${140 + sessions.length * 80}px` }}>
               <tbody>
 
