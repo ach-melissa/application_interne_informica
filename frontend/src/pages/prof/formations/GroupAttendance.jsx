@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, X, CalendarDays, Lock, UserCheck, UserX, Clock, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, X, CalendarDays, Lock, UserCheck, UserX, Clock, AlertTriangle, UserPlus } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { resolveGroupDuration } from '../../../utils/pointageHelpers';
 const API = import.meta.env.VITE_API_URL;
@@ -77,12 +77,13 @@ const [deletingSession, setDeletingSession] = useState(false);
   const [editingCell, setEditingCell] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [rattrapages, setRattrapages] = useState([]); // [{ id, session_id, date, etudiant_id, nom, prenom }]
-  const [addingRattrapageFor, setAddingRattrapageFor] = useState(null); // session object
+  const [addingRattrapage, setAddingRattrapage] = useState(false);
   const [rattrapageCandidates, setRattrapageCandidates] = useState([]);
-  const [loadingCandidates, setLoadingCandidates] = useState(false);
-  const [rattrapageSearch, setRattrapageSearch] = useState('');
-  const [savingRattrapageId, setSavingRattrapageId] = useState(null);
-  const [deletingRattrapageId, setDeletingRattrapageId] = useState(null);
+  const [selectedRattrapageStudent, setSelectedRattrapageStudent] = useState('');
+  const [pendingRattrapageEtudiants, setPendingRattrapageEtudiants] = useState([]); // added, no mark yet
+  const [editingRattrapageCell, setEditingRattrapageCell] = useState(null); // `${sessionId}|${etudiantId}`
+  const [confirmDeleteRattrapageStudent, setConfirmDeleteRattrapageStudent] = useState(null); // { etudiant_id, nom, prenom, count }
+  const [deletingRattrapageStudent, setDeletingRattrapageStudent] = useState(false);
   const dropdownRef = useRef(null);
   const [heureDebut, setHeureDebut] = useState('');
   const [heureFin, setHeureFin] = useState('');
@@ -341,15 +342,13 @@ const deleteSession = async (sessionId) => {
     }
   };
 
-  // ── Rattrapage — ajouter un étudiant d'un autre groupe sur une séance de
-  // ce groupe. Le bouton n'apparaît que sur les séances du jour même
-  // (isEditableToday), et le serveur applique la même règle + vérifie que
-  // la séance appartient bien au prof connecté.
-  const openAddRattrapage = async (session) => {
-    setAddingRattrapageFor(session);
-    setRattrapageSearch('');
-    setRattrapageCandidates([]);
-    setLoadingCandidates(true);
+  // ── Rattrapage — même flux que l'admin : on ajoute d'abord l'étudiant
+  // (sans marque, via un select), il apparaît dans le tableau avec le
+  // badge "À pointer", puis on clique la séance concernée pour marquer.
+  // Verrouillé le jour même côté serveur (isEditableToday reflète la règle).
+  const openAddRattrapage = async () => {
+    setAddingRattrapage(true);
+    setSelectedRattrapageStudent('');
     try {
       const formationId = groupData?.formation_id ?? groupData?.formations?.id;
       const res = await fetch(
@@ -362,59 +361,84 @@ const deleteSession = async (sessionId) => {
     } catch (err) {
       console.error(err);
       setSaveError("Impossible de charger les stagiaires éligibles au rattrapage.");
-    } finally {
-      setLoadingCandidates(false);
     }
   };
 
-  const confirmAddRattrapage = async (candidate) => {
-    if (!addingRattrapageFor) return;
-    setSavingRattrapageId(candidate.etudiant_id);
+  const confirmAddRattrapageStudent = () => {
+    const c = rattrapageCandidates.find((cand) => cand.etudiant_id === selectedRattrapageStudent);
+    if (!c) return;
+    setPendingRattrapageEtudiants((prev) =>
+      prev.some((p) => p.etudiant_id === c.etudiant_id) ? prev : [...prev, c]
+    );
+    setAddingRattrapage(false);
+  };
+
+  const pickRattrapageCell = async (etudiantId, sessionId, existingEntryId, choice, nom, prenom) => {
+    setEditingRattrapageCell(null);
     try {
-      const res = await fetch(`${API}/api/attendance/rattrapage`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ session_id: addingRattrapageFor.id, etudiant_id: candidate.etudiant_id }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Erreur lors de l\'ajout du rattrapage.');
+      if (choice === 'rattrapage' && !existingEntryId) {
+        const res = await fetch(`${API}/api/attendance/rattrapage`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ session_id: sessionId, etudiant_id: etudiantId }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Erreur lors de l'ajout du rattrapage.");
+        }
+        const data = await res.json();
+        setRattrapages((r) => [...r, {
+          id: data.id,
+          session_id: sessionId,
+          date: sessions.find((s) => s.id === sessionId)?.date,
+          etudiant_id: etudiantId,
+          nom, prenom,
+        }]);
+        setPendingRattrapageEtudiants((prev) => prev.filter((p) => p.etudiant_id !== etudiantId));
+      } else if (choice === null && existingEntryId) {
+        const res = await fetch(`${API}/api/attendance/rattrapage/${existingEntryId}`, {
+          method: 'DELETE',
+          headers: getHeaders(),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Erreur lors de la suppression du rattrapage.');
+        }
+        setRattrapages((r) => r.filter((x) => x.id !== existingEntryId));
       }
-      const data = await res.json();
-      setRattrapages((r) => [...r, {
-        id: data.id,
-        session_id: addingRattrapageFor.id,
-        date: addingRattrapageFor.date,
-        etudiant_id: candidate.etudiant_id,
-        nom: candidate.nom,
-        prenom: candidate.prenom,
-      }]);
-      setAddingRattrapageFor(null);
     } catch (err) {
       console.error(err);
-      setSaveError(err.message || "Erreur lors de l'ajout du rattrapage.");
-    } finally {
-      setSavingRattrapageId(null);
+      setSaveError(err.message || "Le rattrapage n'a pas pu être enregistré.");
     }
   };
 
-  const removeRattrapage = async (rattrapageId) => {
-    setDeletingRattrapageId(rattrapageId);
+  const openDeleteRattrapageStudent = (etudiantId, nom, prenom) => {
+    const count = Object.keys(rattrapagesByStudent[etudiantId]?.bySession ?? {}).length;
+    setConfirmDeleteRattrapageStudent({ etudiant_id: etudiantId, nom, prenom, count });
+  };
+
+  const doDeleteRattrapageStudent = async () => {
+    if (!confirmDeleteRattrapageStudent) return;
+    setDeletingRattrapageStudent(true);
     try {
-      const res = await fetch(`${API}/api/attendance/rattrapage/${rattrapageId}`, {
-        method: 'DELETE',
-        headers: getHeaders(),
-      });
+      const res = await fetch(
+        `${API}/api/attendance/rattrapage-student?group_id=${groupId}&etudiant_id=${confirmDeleteRattrapageStudent.etudiant_id}`,
+        { method: 'DELETE', headers: getHeaders() }
+      );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Erreur lors de la suppression du rattrapage.');
+        throw new Error(data.error || "L'étudiant n'a pas pu être retiré de la liste.");
       }
-      setRattrapages((r) => r.filter((x) => x.id !== rattrapageId));
+      setPendingRattrapageEtudiants((prev) =>
+        prev.filter((p) => p.etudiant_id !== confirmDeleteRattrapageStudent.etudiant_id)
+      );
+      setRattrapages((r) => r.filter((x) => x.etudiant_id !== confirmDeleteRattrapageStudent.etudiant_id));
     } catch (err) {
       console.error(err);
-      setSaveError(err.message || 'Erreur lors de la suppression du rattrapage.');
+      setSaveError(err.message || "L'étudiant n'a pas pu être retiré de la liste.");
     } finally {
-      setDeletingRattrapageId(null);
+      setDeletingRattrapageStudent(false);
+      setConfirmDeleteRattrapageStudent(null);
     }
   };
 
@@ -443,12 +467,10 @@ const deleteSession = async (sessionId) => {
 
   const jourSemaineSelectionne = newDate ? getJourSemaine(newDate) : null;
   const jourValide = jourSemaineSelectionne ? joursEmploi.includes(jourSemaineSelectionne) : true;
-const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeEffectuee)) && (newType !== 'normale' || jourValide);
-
+const canConfirm = newDate && heureDebut && (newType !== 'normale' || jourValide);
   const editJourSemaine = editDate ? getJourSemaine(editDate) : null;
   const editJourValide = editJourSemaine ? joursEmploi.includes(editJourSemaine) : true;
   const canConfirmEdit = editDate && editHeureDebut
-    && (!isHourBased || (editHeureFin && editDuree))
     && (editType !== 'normale' || editJourValide);
   if (loading) {
     return (
@@ -562,7 +584,7 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                   </div>
                   {isHourBased && (
                     <div className="flex-1">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin <span className="text-red-500">*</span></p>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin</p>
                       <input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
                     </div>
@@ -570,7 +592,7 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                 </div>
                 {isHourBased && (
                   <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Durée de la séance (heures) <span className="text-red-500">*</span></p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Durée de la séance (heures)</p>
                     <input type="number" step="0.25" min="0" value={dureeEffectuee}
                       onChange={(e) => { setDureeEffectuee(e.target.value); setDureeTouched(true); }}
                       placeholder="ex: 2"
@@ -641,7 +663,7 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                   </div>
                   {isHourBased && (
                     <div className="flex-1">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin <span className="text-red-500">*</span></p>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin</p>
                       <input type="time" value={editHeureFin} onChange={(e) => setEditHeureFin(e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
                     </div>
@@ -649,7 +671,7 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                 </div>
                 {isHourBased && (
                   <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Durée de la séance (heures) <span className="text-red-500">*</span></p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Durée de la séance (heures)</p>
                     <input type="number" step="0.25" min="0" value={editDuree}
                       onChange={(e) => { setEditDuree(e.target.value); setEditDureeTouched(true); }}
                       className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
@@ -743,7 +765,6 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                       );
                     })}
                   </tr>
-
                   {/* ── Date ── */}
                   <tr>
                     <td className="border border-[#F1F5F9] px-3 py-2 sticky left-0 bg-white z-10">
@@ -874,50 +895,73 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
                     </tr>
                   ))}
 
-                  {Object.keys(rattrapagesByStudent).length > 0 && (
-                    <>
-                      <tr>
-                        <td colSpan={sessions.length + 1} className="bg-amber-50 border border-amber-100 px-3 py-1.5 font-semibold text-amber-700">
-                          Rattrapages
-                        </td>
-                      </tr>
-                      {Object.entries(rattrapagesByStudent).map(([etudiantId, info], idx) => (
-                        <tr key={etudiantId} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                          <td className="border border-[#F1F5F9] px-3 py-2 text-slate-800 sticky left-0 bg-inherit z-10 whitespace-nowrap">
-                            {info.nom} {info.prenom}
-                            <span className="ml-2 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 align-middle">
-                              Rattrapage
-                            </span>
-                          </td>
-                          {sessions.map((s) => {
-                            const rec = info.bySession[s.id];
-                            const editable = isEditableToday(s.date);
-                            return (
-                              <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center">
-                                {rec ? (
-                                  editable ? (
-                                    <button
-                                      onClick={() => removeRattrapage(rec.id)}
-                                      disabled={deletingRattrapageId === rec.id}
-                                      className="text-xs font-bold text-amber-700 hover:text-red-500 transition disabled:opacity-40"
-                                      title="Retirer ce rattrapage"
-                                    >
-                                      R
-                                    </button>
-                                  ) : (
-                                    <span className="text-xs font-bold text-amber-700">R</span>
-                                  )
-                                ) : (
-                                  <span className="text-xs text-slate-200">—</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </>
+                         {(Object.keys(rattrapagesByStudent).length > 0 || pendingRattrapageEtudiants.length > 0) && (
+                    <tr className="print:hidden">
+                      <td colSpan={sessions.length + 1} className="bg-violet-50 border border-violet-100 px-3 py-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-violet-700 text-xs">Rattrapages</span>
+                          <button
+                            onClick={openAddRattrapage}
+                            className="flex items-center gap-1 text-[11px] font-medium text-violet-700 bg-white border border-violet-200 px-2 py-0.5 rounded-full hover:bg-violet-100 transition"
+                          >
+                            <UserPlus size={11} /> Ajouter
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   )}
-
+                  {[
+                    ...Object.entries(rattrapagesByStudent).map(([id, info]) => ({ id, nom: info.nom, prenom: info.prenom })),
+                    ...pendingRattrapageEtudiants
+                      .filter((p) => !rattrapagesByStudent[p.etudiant_id])
+                      .map((p) => ({ id: p.etudiant_id, nom: p.nom, prenom: p.prenom })),
+                  ].map((info) => {
+                    const bySession = rattrapagesByStudent[info.id]?.bySession ?? {};
+                    const hasEntries = Object.keys(bySession).length > 0;
+                    return (
+                      <tr key={`rattrapage-${info.id}`} className="bg-violet-50/30">
+                        <td className="border border-[#F1F5F9] px-3 py-2 text-slate-800 sticky left-0 bg-violet-50/30 z-10 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex-1 min-w-0 truncate">{info.nom} {info.prenom}</span>
+                            {!hasEntries && (
+                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-500 whitespace-nowrap">
+                                À pointer
+                              </span>
+                            )}
+                            <button
+                              onClick={() => openDeleteRattrapageStudent(info.id, info.nom, info.prenom)}
+                              className="text-violet-300 hover:text-red-500 transition flex-shrink-0"
+                              title="Retirer de la liste"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </td>
+                        {sessions.map((s) => {
+                          const entry = bySession[s.id];
+                          const editable = isEditableToday(s.date);
+                          return (
+                            <td key={s.id} className="border border-[#F1F5F9] p-0 text-center relative">
+                              {editable ? (
+                                <button
+                                  onClick={() => setEditingRattrapageCell(`${s.id}|${info.id}`)}
+                                  className={`w-full py-2 px-1 text-xs font-bold transition hover:opacity-80 ${
+                                    entry ? 'text-violet-700' : 'text-slate-300 hover:bg-violet-50'
+                                  }`}
+                                >
+                                  {entry ? 'R' : '—'}
+                                </button>
+                              ) : (
+                                <div className={`w-full py-2 px-1 text-xs font-bold ${entry ? 'text-violet-700' : 'text-slate-300'}`}>
+                                  {entry ? 'R' : '—'}
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
                   {/* ── Supprimer séance ── */}
                   <tr className="print:hidden">
                     <td className="border border-slate-200 px-3 py-1.5 text-slate-300 sticky left-0 bg-white z-10 text-[10px]">
@@ -1021,46 +1065,131 @@ const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeE
     </div>
   </div>
 )}
-        {addingRattrapageFor && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setAddingRattrapageFor(null)}>
-            <div onClick={(ev) => ev.stopPropagation()} className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4">
+        {editingRattrapageCell && (() => {
+          const [sessionId, etudiantId] = editingRattrapageCell.split('|');
+          const session = sessions.find((s) => String(s.id) === sessionId);
+          const info = [
+            ...Object.entries(rattrapagesByStudent).map(([id, i]) => ({ id, nom: i.nom, prenom: i.prenom })),
+            ...pendingRattrapageEtudiants.map((p) => ({ id: p.etudiant_id, nom: p.nom, prenom: p.prenom })),
+          ].find((i) => String(i.id) === etudiantId);
+          const existingEntry = rattrapagesByStudent[etudiantId]?.bySession?.[sessionId];
+          return (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setEditingRattrapageCell(null)}>
+              <div onClick={(ev) => ev.stopPropagation()} className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9]">
+                  <h2 className="text-sm font-bold text-slate-800">
+                    {session ? formatDate(session.date) : ''} — Rattrapage
+                  </h2>
+                  <button onClick={() => setEditingRattrapageCell(null)}><X size={16} className="text-slate-300 hover:text-slate-600" /></button>
+                </div>
+                <div className="p-5 space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => pickRattrapageCell(etudiantId, sessionId, existingEntry?.id, 'rattrapage', info?.nom, info?.prenom)}
+                      className="flex flex-col items-center gap-1 py-2.5 rounded-md text-xs font-bold bg-violet-50 text-violet-700 hover:bg-violet-100 transition"
+                    >
+                      <UserPlus size={16} /> Rattrapage
+                    </button>
+                    <button
+                      onClick={() => pickRattrapageCell(etudiantId, sessionId, existingEntry?.id, null)}
+                      className="flex flex-col items-center gap-1 py-2.5 rounded-md text-xs font-bold bg-slate-50 text-slate-500 hover:bg-slate-100 transition"
+                    >
+                      <X size={16} /> Effacer
+                    </button>
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <button onClick={() => setEditingRattrapageCell(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {addingRattrapage && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setAddingRattrapage(false)}>
+            <div className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F5F9]">
-                <h2 className="text-sm font-bold text-slate-800">
-                  Ajouter un rattrapage — {formatDate(addingRattrapageFor.date)}
+                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-violet-600 flex items-center justify-center shrink-0">
+                    <UserPlus size={14} className="text-white" />
+                  </span>
+                  Ajouter un rattrapage
                 </h2>
-                <button onClick={() => setAddingRattrapageFor(null)}><X size={16} className="text-slate-300 hover:text-slate-600" /></button>
+                <button onClick={() => setAddingRattrapage(false)}><X size={16} className="text-slate-300 hover:text-slate-600" /></button>
               </div>
               <div className="p-5 space-y-3">
-                <input
-                  type="text"
-                  autoFocus
-                  value={rattrapageSearch}
-                  onChange={(e) => setRattrapageSearch(e.target.value)}
-                  placeholder="Rechercher un stagiaire…"
-                  className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
-                />
-                <div className="max-h-56 overflow-auto pointage-scroll space-y-1">
-                  {loadingCandidates && (
-                    <p className="text-xs text-slate-400 text-center py-4">Chargement…</p>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Étudiant <span className="text-red-500">*</span></p>
+                  <select
+                    value={selectedRattrapageStudent}
+                    onChange={(e) => setSelectedRattrapageStudent(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-400/40 focus:border-violet-400 transition-colors"
+                  >
+                    <option value="">— Choisir —</option>
+                    {rattrapageCandidates
+                      .filter((c) => !rattrapagesByStudent[c.etudiant_id] && !pendingRattrapageEtudiants.some((p) => p.etudiant_id === c.etudiant_id))
+                      .map((c) => (
+                        <option key={c.etudiant_id} value={c.etudiant_id}>{c.nom} {c.prenom} — {c.groupe_origine}</option>
+                      ))}
+                  </select>
+                  {rattrapageCandidates.length === 0 && (
+                    <p className="text-[10px] text-slate-400 mt-1">Aucun étudiant éligible trouvé pour cette formation.</p>
                   )}
-                  {!loadingCandidates && filteredCandidates.length === 0 && (
-                    <p className="text-xs text-slate-400 text-center py-4">Aucun stagiaire éligible trouvé.</p>
-                  )}
-                  {!loadingCandidates && filteredCandidates.map((c) => (
-                    <button
-                      key={c.inscription_id}
-                      onClick={() => confirmAddRattrapage(c)}
-                      disabled={savingRattrapageId === c.etudiant_id}
-                      className="w-full flex items-center justify-between gap-2 text-xs px-2.5 py-2 rounded-md hover:bg-[#F1F5F9] transition disabled:opacity-40 text-left"
-                    >
-                      <span>{c.nom} {c.prenom}</span>
-                      <span className="text-[10px] text-slate-400 shrink-0">{c.groupe_origine}</span>
-                    </button>
-                  ))}
                 </div>
-                <div className="flex justify-end pt-1">
-                  <button onClick={() => setAddingRattrapageFor(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Fermer</button>
+                <p className="text-[11px] text-slate-400">
+                  L'étudiant apparaîtra dans le tableau ci-dessous. Cliquez sur la séance du jour pour marquer le rattrapage.
+                </p>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button onClick={() => setAddingRattrapage(false)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
+                  <button
+                    onClick={confirmAddRattrapageStudent}
+                    disabled={!selectedRattrapageStudent}
+                    className="text-xs px-3 py-1.5 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 font-medium"
+                  >
+                    Ajouter
+                  </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmDeleteRattrapageStudent && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => !deletingRattrapageStudent && setConfirmDeleteRattrapageStudent(null)}>
+            <div onClick={(ev) => ev.stopPropagation()} className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4">
+              <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#F1F5F9]">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-red-500 flex items-center justify-center shrink-0">
+                    <Trash2 size={15} className="text-white" />
+                  </div>
+                  <h2 className="text-sm font-semibold text-slate-800">Retirer l'étudiant</h2>
+                </div>
+                <button onClick={() => setConfirmDeleteRattrapageStudent(null)} className="text-slate-300 hover:text-slate-600 flex-shrink-0">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="px-5 py-4">
+                <div className="bg-red-50 rounded-md p-3">
+                  <p className="text-xs text-red-600 flex items-center gap-1.5">
+                    <AlertTriangle size={13} className="flex-shrink-0" />
+                    {confirmDeleteRattrapageStudent.count > 0
+                      ? `${confirmDeleteRattrapageStudent.nom} ${confirmDeleteRattrapageStudent.prenom} sera retiré de la liste des rattrapages. ${confirmDeleteRattrapageStudent.count} marque(s) de présence en rattrapage seront définitivement supprimée(s). Action irréversible.`
+                      : `${confirmDeleteRattrapageStudent.nom} ${confirmDeleteRattrapageStudent.prenom} sera retiré de la liste des rattrapages.`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
+                <button onClick={() => setConfirmDeleteRattrapageStudent(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">
+                  Annuler
+                </button>
+                <button
+                  onClick={doDeleteRattrapageStudent}
+                  disabled={deletingRattrapageStudent}
+                  className="text-xs px-3 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40"
+                >
+                  {deletingRattrapageStudent ? '...' : 'Retirer'}
+                </button>
               </div>
             </div>
           </div>

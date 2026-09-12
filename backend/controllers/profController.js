@@ -167,9 +167,9 @@ const getProfGroup = async (req, res) => {
     const { data: group, error } = await supabase
       .from('groups')
       .select(`
-    id, nom, date_debut, date_fin,
+    id, nom, date_debut, date_fin, formation_id,
     use_default_duree, type_duree, duree_valeur,
-    formations(nom, heures, duree_uniforme, type_duree_uniforme, type_duree),
+    formations(id, nom, heures, duree_uniforme, type_duree_uniforme, type_duree),
     niveau:formation_niveaux(duree_valeur, type_duree)
   `)
       .eq('id', req.params.groupId)
