@@ -303,7 +303,7 @@ const getPresenceCounts = async (req, res) => {
   const { data, error } = await supabase
     .from('attendance')
     .select('etudiant_id')
-    .in('statut', ['present', 'rattrapage'])
+    .in('statut', ['present', 'retard', 'rattrapage'])
     .in('etudiant_id', ids);
   if (error) return res.status(500).json({ error: error.message });
 
