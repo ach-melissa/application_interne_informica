@@ -22,13 +22,12 @@ const AddSessionModal = ({ onClose, onConfirm, joursFormation, lastSessionDate, 
     }
   }, [heureDebut, heureFin, isHourBased, dureeTouched]);
 
-  const canConfirm = newDate && heureDebut && (!isHourBased || (heureFin && dureeEffectuee));
-
+  const canConfirm = newDate && heureDebut && (!isHourBased || dureeEffectuee);
   const handleConfirm = () => {
     if (!canConfirm) return;
     onConfirm({
       date: newDate, type_seance: newType, heure_debut: heureDebut,
-      heure_fin: isHourBased ? heureFin : null,
+      heure_fin: heureFin || null,
       duree_effectuee: isHourBased ? Number(dureeEffectuee) : null,
     });
   };
@@ -74,16 +73,14 @@ const AddSessionModal = ({ onClose, onConfirm, joursFormation, lastSessionDate, 
                 className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
               />
             </div>
-                      {isHourBased && (
-              <div className="flex-1">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin <span className="text-red-500">*</span></p>
-                <input
-                  type="time" value={heureFin}
-                  onChange={e => setHeureFin(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
-                />
-              </div>
-            )}
+            <div className="flex-1">
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin</p>
+              <input
+                type="time" value={heureFin}
+                onChange={e => setHeureFin(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
+              />
+            </div>
           </div>
           {isHourBased && (
             <div>
