@@ -352,13 +352,18 @@ const getCellStatut = (session, etudiant_id) => {
               </>
             )}
 
-            {!readOnly && isAdmin && !pendingSessionId && (
-              <button onClick={() => setShowFinishGroup(true)}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-amber-600 text-white font-medium hover:bg-amber-700 transition-colors">
-                <Flag size={14} /> Ce groupe a terminé
-              </button>
-            )}
-
+{!readOnly && isAdmin && !pendingSessionId && (
+  ficheInfo.date_fin ? (
+    <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-slate-100 text-slate-500 font-medium">
+      <Flag size={14} /> Groupe terminé
+    </span>
+  ) : (
+    <button onClick={() => setShowFinishGroup(true)}
+      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-amber-600 text-white font-medium hover:bg-amber-700 transition-colors">
+      <Flag size={14} /> Ce groupe a terminé
+    </button>
+  )
+)}
             {!readOnly && (
               pendingSessionId ? (
                 <div className="flex gap-2">

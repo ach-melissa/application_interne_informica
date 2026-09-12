@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Search, X, GraduationCap, Phone, Mail, MapPin, CalendarDays, CheckCircle2, ChevronRight, ChevronDown, Activity, Layers } from 'lucide-react';
+import { ArrowLeft, Search, X, GraduationCap, Phone, Mail, MapPin, CalendarDays, CheckCircle2, ChevronRight, ChevronDown, Activity, Layers, Flag } from 'lucide-react';
 import AdminLayout from '../../../../layouts/AdminLayout';
 import PaymentsTab from './PaymentsTab';
 import PaymentHistoryModal from './PaymentHistoryModal';
@@ -171,13 +171,20 @@ const GroupDetail = () => {
           <ArrowLeft size={16} className="text-[#0369A1]" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-slate-800">{group?.nom ?? 'Groupe'}</h1>
-          <p className="text-slate-400 text-xs mt-0.5">
-            Prof : {group?.teacher?.user ? `${group.teacher.user.nom} ${group.teacher.user.prenom}` : 'Non assigné'}
-            {' · '}{etudiants.length} étudiant(s)
-            {niveauInfo && <> {' · '}<span className="inline-flex items-center gap-1 text-violet-600"><Layers size={11} /> {niveauInfo.nom}</span></>}
-          </p>
-        </div>
+  <div className="flex items-center gap-2">
+    <h1 className="text-xl font-bold text-slate-800">{group?.nom ?? 'Groupe'}</h1>
+    {group?.statut === 'terminer' && (
+      <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-white">
+        <Flag size={10} /> Terminé
+      </span>
+    )}
+  </div>
+  <p className="text-slate-400 text-xs mt-0.5">
+    Prof : {group?.teacher?.user ? `${group.teacher.user.nom} ${group.teacher.user.prenom}` : 'Non assigné'}
+    {' · '}{etudiants.length} étudiant(s)
+    {niveauInfo && <> {' · '}<span className="inline-flex items-center gap-1 text-violet-600"><Layers size={11} /> {niveauInfo.nom}</span></>}
+  </p>
+</div>
       </div>
 
       {/* Tabs */}
