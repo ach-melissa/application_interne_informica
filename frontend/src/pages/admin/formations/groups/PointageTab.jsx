@@ -409,19 +409,17 @@ const getCellStatut = (session, etudiant_id) => {
                   <div className="flex items-center gap-2">
              {isAdmin && !readOnly && (
               <>
+                {!pendingSessionId && (
+                  <button onClick={() => setAddingSession(true)}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white font-medium hover:bg-[#16385f] transition-colors">
+                    <Plus size={14} /> Ajouter séance
+                  </button>
+                )}
                 {editMode && (
-                  <>
-                    <button onClick={() => setEditMode(false)}
-                      className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9] font-medium">
-                      Annuler
-                    </button>
-                    {!pendingSessionId && (
-                      <button onClick={() => setAddingSession(true)}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white font-medium hover:bg-[#16385f] transition-colors">
-                        <Plus size={14} /> Ajouter séance
-                      </button>
-                    )}
-                  </>
+                  <button onClick={() => setEditMode(false)}
+                    className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9] font-medium">
+                    Annuler
+                  </button>
                 )}
                                <button onClick={() => setEditMode(m => !m)}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white font-medium hover:bg-[#16385f] transition-colors">
@@ -429,7 +427,6 @@ const getCellStatut = (session, etudiant_id) => {
                 </button>
               </>
             )}
-
 {!readOnly && isAdmin && !pendingSessionId && (
   ficheInfo.date_fin ? (
     <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-slate-100 text-slate-500 font-medium">
