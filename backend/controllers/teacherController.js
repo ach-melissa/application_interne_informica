@@ -26,6 +26,45 @@ const getTeachers = async (req, res) => {
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
 
+  // Formations assignées à chaque prof — vient de teacher_formations,
+  // jamais déduite des groupes (un prof peut couvrir une formation sans
+  // avoir de groupe actif dessus pour l'instant).
+  const allTeacherIds = data.map((t) => t.id);
+  const { data: allLinks, error: allLinksErr } = await supabase
+    .from('teacher_formations')
+    .select('teacher_id, formation:formation_id(id, nom)')
+    .in('teacher_id', allTeacherIds.length ? allTeacherIds : ['00000000-0000-0000-0000-000000000000']);
+  if (allLinksErr) return res.status(500).json({ error: allLinksErr.message });
+
+  const formationsByTeacher = {};
+  (allLinks ?? []).forEach((l) => {
+    if (!l.formation?.id) return;
+    (formationsByTeacher[l.teacher_id] ??= []).push({ id: l.formation.id, nom: l.formation.nom });
+  });
+
+  // Groupes en cours (non archivés, non terminés) — uniquement parmi les
+  // formations que ce prof est censé enseigner, pas tous les groupes qui
+  // lui sont techniquement assignés en base.
+  const today = new Date().toISOString().slice(0, 10);
+  const allFormationIds = [...new Set((allLinks ?? []).map((l) => l.formation?.id).filter(Boolean))];
+
+  let groupsByTeacher = {};
+  if (allTeacherIds.length && allFormationIds.length) {
+    const { data: groups, error: groupsErr } = await supabase
+      .from('groups')
+      .select('id, teacher_id, formation_id, archived, statut, date_fin')
+      .in('teacher_id', allTeacherIds)
+      .in('formation_id', allFormationIds)
+      .eq('archived', false)
+      .neq('statut', 'terminer')
+      .or(`date_fin.is.null,date_fin.gte.${today}`);
+    if (groupsErr) return res.status(500).json({ error: groupsErr.message });
+
+    (groups ?? []).forEach((g) => {
+      (groupsByTeacher[g.teacher_id] ??= []).push(g);
+    });
+  }
+
   const result = data.map((t) => ({
     id: t.id,
     user_id: t.user_id,
@@ -33,11 +72,13 @@ const getTeachers = async (req, res) => {
     prenom: t.user?.prenom ?? '',
     email: t.user?.email ?? '',
     telephone: t.user?.telephone ?? '',
+    formations: formationsByTeacher[t.id] ?? [],
+    nb_formations: (formationsByTeacher[t.id] ?? []).length,
+    nb_groupes: (groupsByTeacher[t.id] ?? []).length,
   }));
 
   res.json(result);
 };
-
 // GET /api/teachers/by-user/:user_id — formation_ids for pre-filling the edit form
 const getTeacherFormationsByUser = async (req, res) => {
   const { user_id } = req.params;
