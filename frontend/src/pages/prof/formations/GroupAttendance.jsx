@@ -654,13 +654,11 @@ const canConfirm = newDate && heureDebut && (newType !== 'normale' || jourValide
                     <input type="time" value={editHeureDebut} onChange={(e) => setEditHeureDebut(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
                   </div>
-                  {isHourBased && (
-                    <div className="flex-1">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin</p>
-                      <input type="time" value={editHeureFin} onChange={(e) => setEditHeureFin(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
-                    </div>
-                  )}
+                  <div className="flex-1">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Heure fin</p>
+                    <input type="time" value={editHeureFin} onChange={(e) => setEditHeureFin(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors" />
+                  </div>
                 </div>
                 {isHourBased && (
                   <div>
@@ -866,8 +864,7 @@ const canConfirm = newDate && heureDebut && (newType !== 'normale' || jourValide
                     </tr>
                   ))}
 
-                         {(Object.keys(rattrapagesByStudent).length > 0 || pendingRattrapageEtudiants.length > 0) && (
-                    <tr className="print:hidden">
+                                        <tr className="print:hidden">
                       <td colSpan={sessions.length + 1} className="bg-violet-50 border border-violet-100 px-3 py-1.5">
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-violet-700 text-xs">Rattrapages</span>
@@ -880,7 +877,6 @@ const canConfirm = newDate && heureDebut && (newType !== 'normale' || jourValide
                         </div>
                       </td>
                     </tr>
-                  )}
                   {[
                     ...Object.entries(rattrapagesByStudent).map(([id, info]) => ({ id, nom: info.nom, prenom: info.prenom })),
                     ...pendingRattrapageEtudiants
