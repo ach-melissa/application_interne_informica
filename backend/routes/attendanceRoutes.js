@@ -7,7 +7,7 @@ const {
 } = require('../controllers/attendanceController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 
-router.use(verifyToken, requireRole('admin', 'teacher'));
+router.use(verifyToken, requireRole('admin', 'teacher', 'prof'));
 router.get('/', getAttendance);
 router.post('/', createAttendance);
 router.post('/batch', batchAttendance);
