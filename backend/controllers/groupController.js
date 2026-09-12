@@ -346,6 +346,13 @@ const restoreGroup = async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
 
+  const { error: insErr } = await supabase
+    .from('inscriptions')
+    .update({ archived: false })
+    .eq('group_id', id)
+    .eq('archived', true);
+  if (insErr) return res.status(500).json({ error: insErr.message });
+
   const contexte = data.niveau?.nom
     ? `${data.formations?.nom} — ${data.niveau.nom}`
     : data.formations?.nom;

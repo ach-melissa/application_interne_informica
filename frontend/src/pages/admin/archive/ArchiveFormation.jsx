@@ -382,14 +382,20 @@ const ArchiveFormation = () => {
                                 <td className="px-3 py-2.5 border-b border-slate-100">
                                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}>{sm?.label ?? i.statut}</span>
                                 </td>
-                                <td className="px-3 py-2.5 text-right border-b border-slate-100" onClick={e => e.stopPropagation()}>
-                                  <button
-                                    onClick={() => setConfirmRestore({ type: 'inscription', id: i.id, label: `${i.etudiant?.nom} ${i.etudiant?.prenom}` })}
-                                    disabled={restoring === i.id}
-                                    className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-600/20 px-2.5 py-1 rounded-full hover:bg-emerald-100 transition disabled:opacity-40 ml-auto"
-                                  >
-                                    <RotateCcw size={11} /> {restoring === i.id ? '...' : 'Restaurer'}
-                                  </button>
+<td className="px-3 py-2.5 text-right border-b border-slate-100" onClick={e => e.stopPropagation()}>
+                                  {i.group_id ? (
+                                    <span className="text-[11px] text-slate-400 italic">
+                                      Via le groupe « {i.groups?.nom ?? '—'} »
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => setConfirmRestore({ type: 'inscription', id: i.id, label: `${i.etudiant?.nom} ${i.etudiant?.prenom}` })}
+                                      disabled={restoring === i.id}
+                                      className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-600/20 px-2.5 py-1 rounded-full hover:bg-emerald-100 transition disabled:opacity-40 ml-auto"
+                                    >
+                                      <RotateCcw size={11} /> {restoring === i.id ? '...' : 'Restaurer'}
+                                    </button>
+                                  )}
                                 </td>
                               </tr>
                             );
@@ -544,14 +550,20 @@ const ArchiveFormation = () => {
                               <td className="px-3 py-2.5 border-b border-slate-100">
                                 <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}>{sm?.label ?? i.statut}</span>
                               </td>
-                              <td className="px-3 py-2.5 text-right border-b border-slate-100" onClick={e => e.stopPropagation()}>
-                                <button
-                                  onClick={() => setConfirmRestore({ type: 'inscription', id: i.id, label: `${i.etudiant?.nom} ${i.etudiant?.prenom}` })}
-                                  disabled={restoring === i.id}
-                                  className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-600/20 px-2.5 py-1 rounded-full hover:bg-emerald-100 transition disabled:opacity-40 ml-auto"
-                                >
-                                  <RotateCcw size={11} /> {restoring === i.id ? '...' : 'Restaurer'}
-                                </button>
+                            <td className="px-3 py-2.5 text-right border-b border-slate-100" onClick={e => e.stopPropagation()}>
+                                {i.group_id ? (
+                                  <span className="text-[11px] text-slate-400 italic">
+                                    Via le groupe « {i.groups?.nom ?? '—'} »
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmRestore({ type: 'inscription', id: i.id, label: `${i.etudiant?.nom} ${i.etudiant?.prenom}` })}
+                                    disabled={restoring === i.id}
+                                    className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-600/20 px-2.5 py-1 rounded-full hover:bg-emerald-100 transition disabled:opacity-40 ml-auto"
+                                  >
+                                    <RotateCcw size={11} /> {restoring === i.id ? '...' : 'Restaurer'}
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           );

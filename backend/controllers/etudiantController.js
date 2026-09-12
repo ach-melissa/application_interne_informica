@@ -9,14 +9,14 @@ const getEtudiants = async (req, res) => {
   const archived = req.query.archived === 'true';
 
  
-  let query = supabase
+let query = supabase
     .from('inscriptions')
         .select(`
       *,
       etudiant:etudiant_id(*),
       formation:formation_id(nom),
       niveau:niveau_id(id, nom),
-            groups(nom, jours_formation, heure_formation, date_fin, archived)
+            groups(id, nom, date_fin, archived)
     `)
     .eq('archived', archived)
     .order('created_at', { ascending: false });
@@ -208,6 +208,19 @@ const archiveMultipleInscriptions = async (req, res) => {
 };
 const restoreInscription = async (req, res) => {
   const { id } = req.params;
+
+  const { data: current, error: curErr } = await supabase
+    .from('inscriptions')
+    .select('group_id, groups(nom, archived)')
+    .eq('id', id)
+    .single();
+  if (curErr) return res.status(500).json({ error: curErr.message });
+
+  if (current.group_id && current.groups?.archived) {
+    return res.status(400).json({
+      error: `Cet étudiant appartient au groupe archivé « ${current.groups?.nom ?? '—'} ». Restaurez le groupe pour restaurer automatiquement tous ses étudiants.`,
+    });
+  }
 
   const { data, error } = await supabase
     .from('inscriptions')
