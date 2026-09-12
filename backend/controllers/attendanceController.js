@@ -181,13 +181,11 @@ const getRattrapageCandidates = async (req, res) => {
     `)
     .eq('formation_id', formation_id)
     .eq('statut', 'confirmed')
-    .eq('archived', false)
-    .not('group_id', 'is', null);
-
+    .eq('archived', false);
   if (error) return res.status(500).json({ error: error.message });
 
   const eligible = (data ?? []).filter((i) => {
-    if (!i.groups) return false;
+    if (!i.groups) return true;
     if (exclude_group_id && i.group_id === exclude_group_id) return false;
     if (!i.groups.archived) return true;
     return i.groups.date_fin && i.groups.date_fin >= oneYearAgoStr;
@@ -198,7 +196,7 @@ const getRattrapageCandidates = async (req, res) => {
     etudiant_id: i.etudiant_id,
     nom: i.etudiant?.nom,
     prenom: i.etudiant?.prenom,
-    groupe_origine: i.groups?.nom,
+     groupe_origine: i.groups?.nom ?? 'Sans groupe',
   })));
 };
 

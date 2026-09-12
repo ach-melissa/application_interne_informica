@@ -446,12 +446,12 @@ const getCellStatut = (session, etudiant_id) => {
                     <Check size={14} /> Terminer
                   </button>
                 </div>
-              ) : (
+              ) : (!isAdmin || editMode) ? (
                 <button onClick={() => setAddingSession(true)}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white font-medium hover:bg-[#16385f] transition-colors">
                   <Plus size={14} /> Ajouter séance
                 </button>
-              )
+              ) : null
             )}
           </div>
         </div>
@@ -644,7 +644,7 @@ const getCellStatut = (session, etudiant_id) => {
                       <td colSpan={sessions.length + 1} className="bg-violet-50 border border-violet-100 px-3 py-1.5">
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-violet-700 text-xs">Rattrapages</span>
-                          {!readOnly && (
+                          {!readOnly && (!isAdmin || editMode) && (
                             <button onClick={openAddRattrapage}
                               className="flex items-center gap-1 text-[11px] font-medium text-violet-700 bg-white border border-violet-200 px-2 py-0.5 rounded-full hover:bg-violet-100 transition">
                               <UserPlus size={11} /> Ajouter
