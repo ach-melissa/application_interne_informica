@@ -105,6 +105,7 @@ const archivedBool = archived === 'true';
     })
   );
 
+  res.set('Cache-Control', 'no-store');
   res.json(result);
 };
 
