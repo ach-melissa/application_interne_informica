@@ -117,7 +117,11 @@ const getDashboardStats = async (req, res) => {
         }
 
         const lastPeriod = resolvedPeriods[resolvedPeriods.length - 1];
-        isOverdue = !!lastPeriod?.due_date && lastPeriod.due_date <= todayStr && paid < total - EPSILON;
+        const isPastFinalDueDate = !!lastPeriod?.due_date && lastPeriod.due_date <= todayStr;
+        const isPastNextDue = !!prochaineEcheance && prochaineEcheance <= todayStr;
+        const hasPaidNothing = paid <= EPSILON;
+
+        isOverdue = (isPastFinalDueDate && paid < total - EPSILON) || (isPastNextDue && hasPaidNothing);
       }
 
       if (paid < total - EPSILON) {

@@ -102,11 +102,9 @@ const getGroupPayments = async (req, res) => {
     const expectedToday = total * fractionDueToday;
 
        const isAbandonne = i.statut_scolarite === 'abandonne';
-    const lastPeriod = resolvedPeriods[resolvedPeriods.length - 1];
-    const isPastFinalDueDate = !!lastPeriod?.due_date && lastPeriod.due_date <= today;
-    const isOverdue = !isAbandonne && isPastFinalDueDate && paid < total - EPSILON;
-    const overdueAmount = isOverdue ? total - paid : 0;
-    // Per-period breakdown, same proportional logic, for future detail views.
+
+    // Per-period breakdown, used both for the detail view and to find
+    // the next period the student hasn't fully covered yet.
     let runningRaw = 0;
     const periodsStatus = resolvedPeriods.map((per) => {
       runningRaw += Number(per.montant);
@@ -116,6 +114,18 @@ const getGroupPayments = async (req, res) => {
       const status = paid >= expectedAtPeriod - EPSILON ? 'paye' : isPastDue ? 'en_retard' : 'a_venir';
       return { numero: per.numero, due_date: per.due_date, status };
     });
+
+    const lastPeriod = resolvedPeriods[resolvedPeriods.length - 1];
+    const isPastFinalDueDate = !!lastPeriod?.due_date && lastPeriod.due_date <= today;
+    const nextDuePeriod = periodsStatus.find((p) => p.status !== 'paye');
+    const isPastNextDue = !!nextDuePeriod?.due_date && nextDuePeriod.due_date <= today;
+    const hasPaidNothing = paid <= EPSILON;
+
+    const isOverdue = !isAbandonne && (
+      (isPastFinalDueDate && paid < total - EPSILON) ||  // last period passed, still incomplete → always red
+      (isPastNextDue && hasPaidNothing)                    // a period is due, nothing paid at all → red
+    );
+    const overdueAmount = isOverdue ? total - paid : 0;
 
     return {
       studentId: i.etudiant_id,
