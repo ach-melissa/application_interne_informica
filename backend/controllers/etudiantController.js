@@ -252,7 +252,40 @@ const createEtudiant = async (req, res) => {
     nom, prenom, telephone, email, adresse,
     niveau_scolaire, date_naissance, lieu_naissance, wilaya,
     formation_id, niveau_id, source, registered_by, commentaire, statut_dossier,
+    confirm_duplicate,
   } = req.body;
+
+  // Vérifie si un étudiant avec le même nom, prénom, téléphone existe déjà
+  // et possède une inscription pour la même formation. Si oui, et que
+  // l'admin n'a pas confirmé vouloir l'ajouter quand même, on bloque avec
+  // un avertissement plutôt qu'une erreur — le frontend proposera de confirmer.
+  if (confirm_duplicate !== 'true' && nom && prenom && telephone) {
+    const { data: sameNamePhone, error: dupErr } = await supabase
+      .from('etudiants')
+      .select('id')
+      .ilike('nom', nom.trim())
+      .ilike('prenom', prenom.trim())
+      .eq('telephone', telephone.trim());
+    if (dupErr) return res.status(500).json({ error: dupErr.message });
+
+    if (sameNamePhone?.length > 0 && formation_id) {
+      const etudiantIds = sameNamePhone.map(e => e.id);
+      const { data: sameFormation, error: insDupErr } = await supabase
+        .from('inscriptions')
+        .select('id')
+        .in('etudiant_id', etudiantIds)
+        .eq('formation_id', formation_id)
+        .limit(1);
+      if (insDupErr) return res.status(500).json({ error: insDupErr.message });
+
+      if (sameFormation?.length > 0) {
+        return res.status(409).json({
+          duplicate: true,
+          error: 'Un étudiant avec le même nom, prénom, numéro de téléphone est déjà inscrit à cette formation. Voulez-vous quand même l\'enregistrer ?',
+        });
+      }
+    }
+  }
 
     let addedByName = null;
 if (req.user?.id) {

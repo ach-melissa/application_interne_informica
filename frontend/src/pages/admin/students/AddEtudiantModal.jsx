@@ -24,6 +24,7 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
   const [niveauOpts, setNiveauOpts] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [form, setForm] = useState({
   nom: '', prenom: '', telephone: '', email: '', adresse: '',
   niveau_scolaire: '', date_naissance: '', lieu_naissance: '', wilaya: '',
@@ -52,7 +53,7 @@ const setFormation = e => {
   const id = e.target.value;
   setForm(p => ({ ...p, formation_id: id, niveau_id: '' })); // reset niveau when formation changes
 };
-  const handleSubmit = async () => {
+  const handleSubmit = async (confirmDuplicate = false) => {
     if (!form.nom || !form.prenom || !form.telephone || !form.formation_id) {
       setError('Nom, prénom, téléphone et formation sont obligatoires.'); return;
     }
@@ -62,6 +63,7 @@ const setFormation = e => {
       Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
       if (files.photo)          fd.append('photo',          files.photo);
       if (files.piece_identite) fd.append('piece_identite', files.piece_identite);
+      if (confirmDuplicate) fd.append('confirm_duplicate', 'true');
 
       const res = await fetch(`${API}/api/etudiants`, {
         method: 'POST',
@@ -69,7 +71,13 @@ const setFormation = e => {
         body: fd,
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        if (res.status === 409 && data.duplicate) {
+          setDuplicateWarning(data.error);
+          return;
+        }
+        throw new Error(data.error);
+      }
       onSuccess?.(); onClose();
     } catch (err) { setError(err.message); }
     finally { setSubmitting(false); }
@@ -177,7 +185,7 @@ const setFormation = e => {
 
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
-            <button onClick={handleSubmit} disabled={submitting}
+            <button onClick={() => handleSubmit(false)} disabled={submitting}
               className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
               {submitting ? 'Ajout...' : 'Ajouter'}
             </button>
