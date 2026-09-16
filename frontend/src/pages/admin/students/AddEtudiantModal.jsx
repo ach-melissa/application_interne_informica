@@ -57,7 +57,7 @@ const setFormation = e => {
     if (!form.nom || !form.prenom || !form.telephone || !form.formation_id) {
       setError('Nom, prénom, téléphone et formation sont obligatoires.'); return;
     }
-    setSubmitting(true); setError(null);
+    setSubmitting(true); setError(null); setDuplicateWarning(null);
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
@@ -99,6 +99,26 @@ const setFormation = e => {
           </div>
           {error && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 mx-5 mb-3 rounded-md">{error}</p>}
         </div>
+
+        {duplicateWarning && (
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mx-5 mt-3 text-xs text-amber-800 space-y-2">
+            <p>{duplicateWarning}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDuplicateWarning(null)}
+                className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => { setDuplicateWarning(null); handleSubmit(true); }}
+                className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600"
+              >
+                Oui, l'ajouter quand même
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="p-5 space-y-4">
           <Section>
@@ -183,13 +203,15 @@ const setFormation = e => {
             </div>
           </Section>
 
-          <div className="flex justify-end gap-2 pt-1">
-            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
-            <button onClick={() => handleSubmit(false)} disabled={submitting}
-              className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
-              {submitting ? 'Ajout...' : 'Ajouter'}
-            </button>
-          </div>
+          {!duplicateWarning && (
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
+              <button onClick={() => handleSubmit(false)} disabled={submitting}
+                className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
+                {submitting ? 'Ajout...' : 'Ajouter'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
