@@ -302,11 +302,13 @@ const chargerStatistiques = async () => {
             <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
               <BarChart3 size={22} className="text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-800">Statistiques</h1>
-          </div>
+<h1 className="text-2xl font-bold text-slate-800">Statistiques</h1>
+</div>
 
-        
-        </div>
+</div>
+<p className="text-xs text-slate-400 -mt-2">
+  Les statistiques ci-dessous comptent uniquement les inscriptions confirmées, hors étudiants abandonnés.
+</p>
 
                 {/* ── Barre de filtres ── */}
         <div className="mb-2 flex flex-wrap gap-2 items-center">

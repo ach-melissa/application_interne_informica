@@ -22,6 +22,20 @@ const { data: formations, error: formationsErr } = await supabase
 
   if (formationsErr) return res.status(500).json({ error: formationsErr.message });
 
+// Canonical rapporteur labels — same source Préinscription uses to fill its dropdown.
+const { data: rapporteursRef, error: rapErr } = await supabase
+  .from('parametre_valeurs')
+  .select('label')
+  .eq('categorie', 'registered_by')
+  .eq('actif', true);
+if (rapErr) return res.status(500).json({ error: rapErr.message });
+
+const rapporteursCanoniques = (rapporteursRef ?? []).map((r) => r.label);
+// lowercase, trimmed → canonical label, so stray casing/whitespace in old
+// inscriptions still matches the real rapporteur instead of splitting off.
+const rapporteurLookup = new Map(
+  rapporteursCanoniques.map((label) => [label.trim().toLowerCase(), label])
+);
 const { data: inscriptionsBrutes, error: insErr } = await supabase
   .from('inscriptions')
   .select(`
@@ -31,7 +45,8 @@ const { data: inscriptionsBrutes, error: insErr } = await supabase
     formation:formation_id(nom),
     etudiant:etudiant_id(wilaya, date_naissance)
   `)
-  .eq('statut', 'confirmed');
+  .eq('statut', 'confirmed')
+  .or('statut_scolarite.is.null,statut_scolarite.neq.abandonne');
   // 👈 no .eq('archived', ...) — we want both active AND archived inscriptions,
   // so every year that ever had activity shows up in the stats.
 
@@ -41,13 +56,19 @@ const inscriptions = inscriptionsBrutes
   .filter((i) => i.date_inscription)
   .map((i) => {
       const date = new Date(i.date_inscription);
+      const rawApporteur = i.registered_by ? i.registered_by.trim() : '';
+      // Match against the canonical list case/whitespace-insensitively so a
+      // stale or mistyped value still counts toward the real rapporteur.
+      const apporteur = rawApporteur
+        ? (rapporteurLookup.get(rawApporteur.toLowerCase()) || rawApporteur)
+        : null;
       return {
         annee: date.getFullYear(),
         mois: moisAbrege[date.getMonth()],
         formation: i.formation?.nom || null,
         wilaya: i.etudiant?.wilaya || null,
         age: calculerAge(i.etudiant?.date_naissance),
-        apporteur: i.registered_by || null,
+        apporteur,
         source: i.source || null,
       };
     });
@@ -55,6 +76,7 @@ const inscriptions = inscriptionsBrutes
   res.json({
     formations: formations.map((f) => f.nom),
     inscriptions,
+    rapporteurs: rapporteursCanoniques,
   });
 };
 
