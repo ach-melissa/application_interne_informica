@@ -24,6 +24,17 @@ const toDecimalHours = (start, end) => {
   return Math.max(0, (eh + em / 60) - (sh + sm / 60));
 };
 
+const getDayName = (dateStr) => {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('fr-FR', { weekday: 'long' });
+};
+
+const dateMatchesJours = (dateStr, joursFormation) => {
+  const day = getDayName(dateStr);
+  return (joursFormation || '').toLowerCase().includes(day.toLowerCase());
+};
+
 const PointageTab = ({ groupId, etudiants, group, formation, niveau, readOnly = false }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -175,6 +186,16 @@ const [editingRattrapageCell, setEditingRattrapageCell] = useState(null); // `${
       setAlertDialog({ title: 'Erreur', message: "La modification n'a pas pu être enregistrée. Réessayez." });
     }
   };
+
+  // ── Auto-correction : remplacement si la date ne correspond plus au(x) jour(s) configuré(s) ──
+useEffect(() => {
+  if (!ficheInfo.jours_formation || sessions.length === 0) return;
+  sessions.forEach(s => {
+    if (s.type_seance !== 'remplacement' && !dateMatchesJours(s.date, ficheInfo.jours_formation)) {
+      updateSessionField(s.id, 'type_seance', 'remplacement');
+    }
+  });
+}, [sessions, ficheInfo.jours_formation]);
 
   const updateDureeEffectuee = async (sessionId, value) => {
     try {
@@ -540,28 +561,51 @@ const getCellStatut = (session, etudiant_id) => {
                       <td key={s.id} className="border border-slate-200 px-2 py-2 text-center font-semibold text-slate-600 min-w-[80px]">{i + 1}</td>
                     ))}
                   </tr>
-                  <tr>
-                    <td className="border border-[#F1F5F9] px-3 py-2 sticky left-0 bg-white z-10">Type</td>
-                    {sessions.map(s => (
-                      <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center">
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                          s.type_seance === 'remplacement'
-                            ? 'bg-amber-50 text-amber-700'
-                            : 'bg-[#DCEBFA] text-[#0369A1]'
-                        }`}>
-                          {s.type_seance === 'remplacement' ? 'Remplacement' : 'Normale'}
-                        </span>
-                      </td>
-                    ))}
-                  </tr>
+<tr>
+  <td className="border border-[#F1F5F9] px-3 py-2 sticky left-0 bg-white z-10">Type</td>
+  {sessions.map(s => {
+    const editable = isSessionEditable(s);
+    const matches = dateMatchesJours(s.date, ficheInfo.jours_formation);
+    return (
+      <td key={s.id} className="border border-[#F1F5F9] px-2 py-2 text-center">
+        {editable ? (
+          <select
+            value={s.type_seance === 'remplacement' ? 'remplacement' : 'normale'}
+            onChange={e => updateSessionField(s.id, 'type_seance', e.target.value)}
+            className="text-[10px] font-medium px-2 py-0.5 rounded-full border-none bg-transparent focus:outline-none"
+          >
+            {matches && <option value="normale">Normale</option>}
+            <option value="remplacement">Remplacement</option>
+          </select>
+        ) : (
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+            s.type_seance === 'remplacement'
+              ? 'bg-amber-50 text-amber-700'
+              : 'bg-[#DCEBFA] text-[#0369A1]'
+          }`}>
+            {s.type_seance === 'remplacement' ? 'Remplacement' : 'Normale'}
+          </span>
+        )}
+      </td>
+    );
+  })}
+</tr>
                   <tr>
                     <td className="border border-[#F1F5F9] px-3 py-2  sticky left-0 bg-white z-10">Date de la Séance</td>
                     {sessions.map(s => (
                       <td key={s.id} className="border border-[#F1F5F9] px-1 py-1 text-center text-slate-800">
                         {isSessionEditable(s) ? (
-                          <input type="date" defaultValue={s.date?.slice(0, 10)} onBlur={e => e.target.value && updateSessionField(s.id, 'date', e.target.value)}
-                            className="w-full text-center text-xs border-b border-transparent hover:border-slate-300 focus:border-[#0369A1] bg-transparent focus:outline-none px-1 py-1" />
-                        ) : formatDate(s.date)}
+<input type="date" defaultValue={s.date?.slice(0, 10)}
+  onBlur={e => {
+    const newDate = e.target.value;
+    if (!newDate) return;
+    updateSessionField(s.id, 'date', newDate);
+    if (s.type_seance !== 'remplacement' && !dateMatchesJours(newDate, ficheInfo.jours_formation)) {
+      updateSessionField(s.id, 'type_seance', 'remplacement');
+    }
+  }}
+  className="w-full text-center text-xs border-b border-transparent hover:border-slate-300 focus:border-[#0369A1] bg-transparent focus:outline-none px-1 py-1" />           
+                ) : formatDate(s.date)}
                       </td>
                     ))}
                   </tr>

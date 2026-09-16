@@ -56,9 +56,8 @@ const EmploiDuTemps = () => {
     };
   }, [fetchSchedule]);
 
-  const getCell = (salle, jour, periode) =>
-    schedules.find((s) => s.salle === salle && s.jour_semaine === jour && s.periode === periode);
-
+const getCellSessions = (salle, jour, periode) =>
+  schedules.filter((s) => s.salle === salle && s.jour_semaine === jour && s.periode === periode);
   return (
     <>
       <div className="flex items-center gap-3 mb-6">
@@ -121,33 +120,38 @@ const EmploiDuTemps = () => {
                         {salle}
                       </span>
                     </td>
-                    {jours.map((jour) =>
-                      PERIODES.map((periode) => {
-                        const s = getCell(salle, jour, periode);
-                        return (
-                          <td key={`${salle}-${jour}-${periode}`} className="border border-slate-200 px-2 py-2 text-center align-top min-w-[100px]">
-                            {s ? (
-                              <div className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] text-left">
-                                <p className="font-semibold text-slate-700 leading-tight flex items-center gap-1">
-                                  <BookOpen size={10} className="flex-shrink-0" />
-                                  {s.groups?.nom}
-                                </p>
-                                {s.groups?.niveau?.nom && (
-                                  <p className="text-[#0369A1] font-semibold leading-tight mt-0.5">{s.groups.niveau.nom}</p>
-                                )}
-                                <p className="text-slate-500 leading-tight flex items-center gap-1 mt-0.5">
-                                  <Clock size={10} className="flex-shrink-0" />
-                                  {s.heure_debut?.slice(0, 5)} – {s.heure_fin?.slice(0, 5)}
-                                </p>
-                                {s.contenu && (
-                                  <p className="text-[#94A3B8] leading-tight truncate mt-0.5">{s.contenu}</p>
-                                )}
-                              </div>
-                            ) : null}
-                          </td>
-                        );
-                      })
-                    )}
+{jours.map((jour) =>
+  PERIODES.map((periode) => {
+    const cellSessions = getCellSessions(salle, jour, periode);
+    return (
+      <td key={`${salle}-${jour}-${periode}`} className="border border-slate-200 px-2 py-2 text-center align-top min-w-[100px]">
+        <div className="flex flex-col gap-1">
+          {cellSessions.map((s) => (
+            <div key={s.id} className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] text-left">
+              <p className="font-semibold text-slate-700 leading-tight flex items-center gap-1">
+                <BookOpen size={10} className="flex-shrink-0" />
+                {s.groups?.nom}
+              </p>
+              {s.groups?.formations?.nom && (
+                <p className="text-slate-500 leading-tight mt-0.5">{s.groups.formations.nom}</p>
+              )}
+              {s.groups?.niveau?.nom && (
+                <p className="text-[#0369A1] font-semibold leading-tight mt-0.5">{s.groups.niveau.nom}</p>
+              )}
+              <p className="text-slate-500 leading-tight flex items-center gap-1 mt-0.5">
+                <Clock size={10} className="flex-shrink-0" />
+                {s.heure_debut?.slice(0, 5)} – {s.heure_fin?.slice(0, 5)}
+              </p>
+              {s.contenu && (
+                <p className="text-[#94A3B8] leading-tight truncate mt-0.5">{s.contenu}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </td>
+    );
+  })
+)}
                   </tr>
                 ))}
               </tbody>
