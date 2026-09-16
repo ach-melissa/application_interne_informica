@@ -86,6 +86,7 @@ const getGroupsByFormation = async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 
+const archivedBool = archived === 'true';
   const result = await Promise.all(
     data.map(async (g) => {
       const { count } = await supabase
@@ -93,7 +94,7 @@ const getGroupsByFormation = async (req, res) => {
         .select('*', { count: 'exact', head: true })
         .eq('group_id', g.id)
         .eq('statut', 'confirmed')
-        .eq('archived', false)
+        .eq('archived', archivedBool)
         .or('statut_scolarite.is.null,statut_scolarite.neq.abandonne');
       return {
         ...g,
@@ -104,6 +105,7 @@ const getGroupsByFormation = async (req, res) => {
     })
   );
 
+  res.set('Cache-Control', 'no-store');
   res.json(result);
 };
 
@@ -346,6 +348,13 @@ const restoreGroup = async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
 
+  const { error: insErr } = await supabase
+    .from('inscriptions')
+    .update({ archived: false })
+    .eq('group_id', id)
+    .eq('archived', true);
+  if (insErr) return res.status(500).json({ error: insErr.message });
+
   const contexte = data.niveau?.nom
     ? `${data.formations?.nom} — ${data.niveau.nom}`
     : data.formations?.nom;
@@ -365,6 +374,13 @@ const restoreGroup = async (req, res) => {
 const getGroupEtudiants = async (req, res) => {
   const { id } = req.params;
 
+  const { data: group, error: gErr } = await supabase
+    .from('groups')
+    .select('archived')
+    .eq('id', id)
+    .single();
+  if (gErr) return res.status(500).json({ error: gErr.message });
+
   const { data, error } = await supabase
     .from('inscriptions')
     .select(`
@@ -375,7 +391,7 @@ const getGroupEtudiants = async (req, res) => {
     `)
     .eq('group_id', id)
     .eq('statut', 'confirmed')
-    .eq('archived', false);
+    .eq('archived', group.archived);
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };

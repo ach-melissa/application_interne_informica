@@ -51,7 +51,7 @@ const Groups = () => {
     setLoading(true);
     try {
       const url = `${API}/api/groups?formation_id=${formation_id}${niveauId ? `&niveau_id=${niveauId}` : ''}`;
-      const res = await fetch(url, { headers: authHeaders() });
+          const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
       if (!res.ok) throw new Error('Erreur serveur');
       setGroups(await res.json());
     } catch (err) {
@@ -63,8 +63,8 @@ const Groups = () => {
 
   useEffect(() => {
     fetchGroups();
-    fetch(`${API}/api/formations/${formation_id}`, { headers: authHeaders() }).then(r => r.json()).then(setFormation).catch(() => {});
-    fetch(`${API}/api/teachers?formation_id=${formation_id}`, { headers: authHeaders() }).then(r => r.json()).then(setTeachers).catch(() => {});
+    fetch(`${API}/api/formations/${formation_id}`, { headers: authHeaders(), cache: 'no-store' }).then(r => r.json()).then(setFormation).catch(() => {});
+    fetch(`${API}/api/teachers?formation_id=${formation_id}`, { headers: authHeaders(), cache: 'no-store' }).then(r => r.json()).then(setTeachers).catch(() => {});
   }, [formation_id, niveauId]);
 
   const openAdd = () => { setEditGroup(null); setShowModal(true); };

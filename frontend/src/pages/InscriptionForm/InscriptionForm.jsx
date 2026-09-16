@@ -81,16 +81,15 @@ export default function InscriptionForm() {
   const [wilayas, setWilayas] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-    const cat = c => fetch(`${API}/parametres?categorie=${c}`, { headers: h }).then(r => r.json());
+useEffect(() => {
+  const cat = c => fetch(`${API}/parametres?categorie=${c}`).then(r => r.json());
 
-    Promise.all([
-      fetch(`${API}/formations`, { headers: h }).then(r => r.json()),
-      cat('wilaya'),
-      cat('source'),
-      cat('niveau_scolaire'),
-    ])
+  Promise.all([
+    fetch(`${API}/formations`).then(r => r.json()),
+    cat('wilaya'),
+    cat('source'),
+    cat('niveau_scolaire'),
+  ])
       .then(([f, wl, src, niv]) => {
         setFormations(Array.isArray(f) ? f : []);
         setWilayas((wl || []).filter(v => v.actif).map(v => v.label));

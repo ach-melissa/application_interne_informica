@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, RotateCcw, ChevronRight, Phone, Mail, GraduationCap, MapPin, CalendarDays, CheckCircle2, X, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, RotateCcw, ChevronRight, Phone, Mail, GraduationCap, MapPin, CalendarDays, CheckCircle2, X, AlertTriangle, Activity } from 'lucide-react';
 import AdminLayout from '../../../layouts/AdminLayout';
 import PaymentsTab from '../formations/groups/PaymentsTab';
 import PaymentHistoryModal from '../formations/groups/PaymentHistoryModal';
@@ -14,6 +14,12 @@ const statutMeta = {
   confirmed:     { label: 'Confirmé',     cls: 'bg-[#DCEBFA] text-[#0369A1]' },
   pending:       { label: 'En attente',   cls: 'bg-amber-50 text-amber-700' },
   non_confirmed: { label: 'Non confirmé', cls: 'bg-red-50 text-red-500' },
+};
+
+const statutScolariteMeta = {
+  en_cours:  { label: 'En cours',  cls: 'bg-blue-50 text-blue-600' },
+  abandonne: { label: 'Abandonné', cls: 'bg-red-50 text-red-500' },
+  termine:   { label: 'Terminé',   cls: 'bg-slate-100 text-slate-500' },
 };
 
 const Dialog = ({ icon: Icon = RotateCcw, iconBg, title, children, onClose, actions }) => (
@@ -40,6 +46,7 @@ const COLS = [
   { label: 'Adresse',        Icon: MapPin },
   { label: 'Date naissance', Icon: CalendarDays },
   { label: 'Statut',         Icon: CheckCircle2 },
+  { label: 'Scolarité',      Icon: Activity },
 ];
 
 const ArchiveGroupDetail = () => {
@@ -160,7 +167,7 @@ const TABS = [
               </thead>
               <tbody>
                 {etudiants.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-10 text-slate-400 bg-white">Aucun étudiant trouvé.</td></tr>
+                  <tr><td colSpan={8} className="text-center py-10 text-slate-400 bg-white">Aucun étudiant trouvé.</td></tr>
                 ) : etudiants.map((i, idx) => {
                   const sm = statutMeta[i.statut];
                   return (
@@ -184,6 +191,11 @@ const TABS = [
                       <td className="px-3 py-2.5 border-b border-slate-100">
                         <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}>
                           {sm?.label ?? i.statut}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 border-b border-slate-100">
+                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${statutScolariteMeta[i.statut_scolarite || 'en_cours']?.cls ?? 'bg-slate-100 text-slate-500'}`}>
+                          {statutScolariteMeta[i.statut_scolarite || 'en_cours']?.label ?? i.statut_scolarite}
                         </span>
                       </td>
                     </tr>

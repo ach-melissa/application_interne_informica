@@ -37,7 +37,6 @@ const getTeachers = async (req, res) => {
 
   res.json(result);
 };
-
 // GET /api/teachers/by-user/:user_id — formation_ids for pre-filling the edit form
 const getTeacherFormationsByUser = async (req, res) => {
   const { user_id } = req.params;

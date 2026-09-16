@@ -4,7 +4,7 @@ import AdminLayout from '../../../layouts/AdminLayout';
 import EtudiantDetailModal from '../students/EtudiantDetailModal';
 import {
   ArrowLeft, BookOpen, ChevronRight, Users, UserCheck,
-  Search, Phone, CalendarDays, PhoneCall, Megaphone, CheckCircle2, ChevronDown, X, Layers,
+  Search, Phone, CalendarDays, PhoneCall, Megaphone, CheckCircle2, ChevronDown, X, Layers, RotateCcw,
 } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 
@@ -28,6 +28,22 @@ const Badge = ({ cls, children }) => (
   <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${cls}`}>
     {children}
   </span>
+);
+
+const Dialog = ({ icon: Icon = RotateCcw, iconBg, title, children, onClose, actions }) => (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div onClick={ev => ev.stopPropagation()} className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#F1F5F9]">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}><Icon size={15} className="text-white" /></div>
+          <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+        </div>
+        <button onClick={onClose} className="text-slate-300 hover:text-slate-600 flex-shrink-0"><X size={16} /></button>
+      </div>
+      <div className="px-5 py-4">{children}</div>
+      <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">{actions}</div>
+    </div>
+  </div>
 );
 
 const FilterSelect = ({ icon: Icon, label, value, onChange, opts, display }) => (
@@ -60,6 +76,7 @@ const COLS = [
   { label: 'Source',     Icon: Megaphone,    width: 110 },
   { label: 'Par',        Icon: UserCheck,    width: 76  },
   { label: 'Statut',     Icon: CheckCircle2, width: 88  },
+  { label: '',           Icon: null,         width: 100 },
 ];
 
 const ArchiveYear = () => {
@@ -82,6 +99,22 @@ const ArchiveYear = () => {
   const [filterFormation, setFilterFormation] = useState('');
   const [filterNiveau, setFilterNiveau] = useState('');
   const [selected, setSelected] = useState(null);
+  const [restoring, setRestoring] = useState(null);
+  const [confirmRestore, setConfirmRestore] = useState(null);
+  const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+
+  const doRestore = async () => {
+    if (!confirmRestore) return;
+    setRestoring(confirmRestore.id);
+    const url = confirmRestore.type === 'group'
+      ? `${API}/api/groups/${confirmRestore.id}/restore`
+      : `${API}/api/etudiants/${confirmRestore.id}/restore`;
+    await fetch(url, { method: 'PATCH', headers });
+    setRestoring(null);
+    setConfirmRestore(null);
+    setEtudiantsLoaded(false); // force refetch
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     setLoadingF(true);
@@ -320,6 +353,24 @@ const ArchiveYear = () => {
                           <td className="px-2 py-2 overflow-hidden border-b border-slate-100">
                             <Badge cls={sm?.cls ?? 'bg-slate-100 text-slate-500'}>{sm?.label ?? i.statut}</Badge>
                           </td>
+                          <td className="px-2 py-2 overflow-hidden border-b border-slate-100 text-right" onClick={e => e.stopPropagation()}>
+                            {i.group_id ? (
+                              <button
+                                onClick={() => setConfirmRestore({ type: 'group', id: i.group_id, label: i.groups?.nom ?? 'ce groupe' })}
+                                className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-600/20 px-2 py-1 rounded-full hover:bg-emerald-100 transition ml-auto whitespace-nowrap"
+                              >
+                                <RotateCcw size={11} /> Via groupe
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmRestore({ type: 'inscription', id: i.id, label: `${i.etudiant?.nom} ${i.etudiant?.prenom}` })}
+                                disabled={restoring === i.id}
+                                className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-600/20 px-2 py-1 rounded-full hover:bg-emerald-100 transition disabled:opacity-40 ml-auto whitespace-nowrap"
+                              >
+                                <RotateCcw size={11} /> {restoring === i.id ? '...' : 'Restaurer'}
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -329,6 +380,23 @@ const ArchiveYear = () => {
             </div>
           )}
         </>
+      )}
+
+      {confirmRestore && (
+        <Dialog title="Restaurer" iconBg="bg-emerald-500" icon={RotateCcw} onClose={() => setConfirmRestore(null)}
+          actions={<>
+            <button onClick={() => setConfirmRestore(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">Annuler</button>
+            <button onClick={doRestore} disabled={restoring === confirmRestore.id}
+              className="text-xs px-3 py-1.5 rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40">
+              {restoring === confirmRestore.id ? '...' : 'Oui, restaurer'}
+            </button>
+          </>}>
+          <div className="bg-emerald-50 rounded-md p-3">
+            <p className="text-xs text-emerald-700">
+              Restaurer {confirmRestore.type === 'group' ? 'le groupe' : "l'inscription de"} « {confirmRestore.label} » ?
+            </p>
+          </div>
+        </Dialog>
       )}
 
       {selected && (

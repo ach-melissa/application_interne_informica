@@ -41,6 +41,8 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
   const [unassignedStudents, setUnassignedStudents] = useState([]);
   const [stagedStudents, setStagedStudents] = useState([]);
     const [stagedSchedules, setStagedSchedules] = useState([]);
+    const [assignedStudents, setAssignedStudents] = useState([]);
+const [stagedRemovals, setStagedRemovals] = useState([]);
   const [useDefaultDuree, setUseDefaultDuree] = useState(editGroup?.use_default_duree ?? true);
   const [dureeValeur, setDureeValeur] = useState(editGroup?.duree_valeur ?? '');
   const [typeDuree, setTypeDuree] = useState(editGroup?.type_duree ?? formation?.type_duree ?? 'heures');
@@ -65,7 +67,8 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
         fetch(`${API}/api/groups/formation/${formation_id}/unassigned${niveauId ? `?niveau_id=${niveauId}` : ''}`, { headers: authHeaders() })
       .then(r => r.json()).then(setUnassignedStudents).catch(() => {});
     if (isNewGroup) { copyFromTemplate(); return; }
-
+    fetch(`${API}/api/groups/${editGroup.id}/etudiants`, { headers: authHeaders() })
+      .then(r => r.json()).then(setAssignedStudents).catch(() => {});
     fetch(`${API}/api/groups/${editGroup.id}/periods`, { headers: authHeaders() })
       .then(r => r.json())
       .then(data => {
@@ -76,23 +79,21 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
       .catch(() => { setUseDefaultPeriods(true); setPeriods([]); });
   }, []);
 
-  const handleAssignStudent = async (inscription_id) => {
-    if (isNewGroup) {
-      const student = unassignedStudents.find((i) => i.id === inscription_id);
-      if (student) setStagedStudents((prev) => [...prev, student]);
-      setUnassignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
-      return;
-    }
-       try {
-      await fetch(`${API}/api/inscriptions/${inscription_id}/assign-group`, {
-        method: 'PATCH',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ group_id: editGroup.id, niveau_id: niveauId || null }),
-      });
-      setUnassignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
-    } catch (err) { setError(err.message); }
+  const handleAssignStudent = (inscription_id) => {
+    const student = unassignedStudents.find((i) => i.id === inscription_id);
+    if (student) setStagedStudents((prev) => [...prev, student]);
+    setUnassignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
   };
-
+  const handleRemoveAssignedStudent = (inscription_id) => {
+    const student = assignedStudents.find((i) => i.id === inscription_id);
+    if (student) setStagedRemovals((prev) => [...prev, student]);
+    setAssignedStudents((prev) => prev.filter((i) => i.id !== inscription_id));
+  };
+  const handleUnstageRemoval = (inscription_id) => {
+    const student = stagedRemovals.find((i) => i.id === inscription_id);
+    if (student) setAssignedStudents((prev) => [...prev, student]);
+    setStagedRemovals((prev) => prev.filter((i) => i.id !== inscription_id));
+  };
   const handleUnstageStudent = (inscription_id) => {
     const student = stagedStudents.find((i) => i.id === inscription_id);
     if (student) setUnassignedStudents((prev) => [...prev, student]);
@@ -166,13 +167,20 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
         for (const { _localId, ...slot } of stagedSchedules) {
           await fetch(`${API}/api/schedules`, { method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ ...slot, group_id: saved.id }) });
         }
-               for (const student of stagedStudents) {
-          await fetch(`${API}/api/inscriptions/${student.id}/assign-group`, {
-            method: 'PATCH',
-            headers: jsonHeaders(),
-            body: JSON.stringify({ group_id: saved.id, niveau_id: form.niveau_id || null }),
-          });
-        }
+      }
+      for (const student of stagedStudents) {
+        await fetch(`${API}/api/inscriptions/${student.id}/assign-group`, {
+          method: 'PATCH',
+          headers: jsonHeaders(),
+          body: JSON.stringify({ group_id: saved.id, niveau_id: form.niveau_id || null }),
+        });
+      }
+      for (const student of stagedRemovals) {
+        await fetch(`${API}/api/inscriptions/${student.id}/assign-group`, {
+          method: 'PATCH',
+          headers: jsonHeaders(),
+          body: JSON.stringify({ group_id: null, niveau_id: niveauId || null }),
+        });
       }
       setConfirmSave(false);
       onSaved();
@@ -253,6 +261,22 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
 
             <Toggle checked={useDefaultPeriods} onChange={(val) => { setUseDefaultPeriods(val); if (!val && periods.length === 0) copyFromTemplate(); }}
               label="Utiliser l'échéancier par défaut de la formation" />
+
+            {useDefaultPeriods && (
+              <div className="mt-2 space-y-1.5">
+                {periods.length === 0 ? (
+                  <p className="text-[11px] text-slate-400">Aucun échéancier par défaut disponible.</p>
+                ) : (
+                  periods.map((p, idx) => (
+                    <div key={p._id} className="flex items-center gap-2 bg-[#F8FAFC] rounded-md px-2.5 py-1.5">
+                      <span className="text-[10px] text-slate-400 w-8 flex-shrink-0">P{idx + 1}</span>
+                      <span className="flex-1 text-xs text-slate-700">{Number(p.montant).toLocaleString('fr-FR')} DA</span>
+                      <span className="text-[10px] text-slate-400 flex-shrink-0">{cumulativeDates[idx] ?? '—'}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
 
             {!useDefaultPeriods && (
               <div className="mt-2 space-y-1.5">
@@ -341,6 +365,49 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
             </div>
           )}
 
+          {!isNewGroup && (
+            <div>
+              <Label icon={Users} text={`Étudiants du groupe (${assignedStudents.length})`} />
+              {assignedStudents.length === 0 ? (
+                <p className="text-xs text-slate-400 mt-1 bg-[#F8FAFC] border border-[#F1F5F9] rounded-md px-3 py-3 text-center">Aucun étudiant dans ce groupe.</p>
+              ) : (
+                <div className="mt-1 space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  {assignedStudents.map((i) => (
+                    <div key={i.id} className="flex items-center gap-3 bg-white border border-[#F1F5F9] rounded-lg px-3 py-2 hover:border-[#DCEBFA] hover:bg-[#F8FAFC] transition">
+                      <div className="w-8 h-8 rounded-full bg-[#DCEBFA] text-[#0369A1] flex items-center justify-center text-[11px] font-semibold flex-shrink-0">
+                        {(i.etudiant?.nom?.[0] ?? '?').toUpperCase()}{(i.etudiant?.prenom?.[0] ?? '').toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-slate-800 truncate">{i.etudiant?.nom} {i.etudiant?.prenom}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{i.etudiant?.telephone ?? 'Téléphone non renseigné'}</p>
+                      </div>
+                      <button onClick={() => handleRemoveAssignedStudent(i.id)}
+                        className="text-[11px] font-medium text-red-500 bg-red-50 border border-red-500/20 px-2.5 py-1 rounded-full hover:bg-red-100 active:scale-95 transition flex-shrink-0">
+                        Retirer
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {stagedRemovals.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide">À retirer dès l'enregistrement</p>
+                  {stagedRemovals.map((s) => (
+                    <div key={s.id} className="flex items-center gap-3 bg-[#F8FAFC] border border-[#F1F5F9] rounded-lg px-3 py-2">
+                      <div className="w-7 h-7 rounded-full bg-slate-300 text-white flex items-center justify-center text-[10px] font-semibold flex-shrink-0">
+                        {(s.etudiant?.nom?.[0] ?? '?').toUpperCase()}{(s.etudiant?.prenom?.[0] ?? '').toUpperCase()}
+                      </div>
+                      <span className="flex-1 min-w-0 text-xs font-medium text-slate-400 truncate line-through">{s.etudiant?.nom} {s.etudiant?.prenom}</span>
+                      <button onClick={() => handleUnstageRemoval(s.id)} className="text-[11px] font-medium text-slate-400 hover:text-[#0369A1] flex-shrink-0 transition">
+                        Annuler
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <Label icon={GraduationCap} text="Étudiants confirmés non affectés" />
                        {unassignedStudents.length === 0 ? (
@@ -402,6 +469,7 @@ export default function GroupFormModal({ formation_id, niveauId, formation, nive
             </button>
           </div>
         </div>
+
       </div>
     </div>
   );

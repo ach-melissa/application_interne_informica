@@ -81,14 +81,14 @@ const getArchivedFormationsForYear = async (req, res) => {
 const getArchivedEtudiantsForYear = async (req, res) => {
   const { year } = req.params;
 
-  const { data, error } = await supabase
+const { data, error } = await supabase
     .from('inscriptions')
     .select(`
       *,
       etudiant:etudiant_id(*),
       formation:formation_id(nom),
       niveau:niveau_id(id, nom),
-      groups(nom, jours_formation, heure_formation)
+      groups(id, nom, archived)
     `)
     .eq('archived', true)
     .eq('annee_scolaire', year)

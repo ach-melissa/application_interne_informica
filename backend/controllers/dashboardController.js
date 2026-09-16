@@ -1,7 +1,7 @@
 const supabase = require('../supabaseClient');
+const { resolveGroupPeriods, computeStudentTotal } = require('../utils/periods');
 
 const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-
 const getDashboardStats = async (req, res) => {
   try {
     const now = new Date();
@@ -23,11 +23,16 @@ const getDashboardStats = async (req, res) => {
 ]);
     const { data: paymentsData } = await supabase.from('payments').select('etudiant_id, formation_id, montant');
     const { data: inscriptionsForPayments } = await supabase
-      .from('inscriptions').select('etudiant_id, formation_id')
-      .eq('statut', 'confirmed').eq('archived', false).not('group_id', 'is', null);
-
-    const prixMap = {};
-    formationsData?.forEach((f) => { prixMap[f.id] = Number(f.prix_etudiant ?? 0); });
+      .from('inscriptions')
+      .select(`
+        etudiant_id, formation_id, group_id, en_promotion, prix_promotion, statut_scolarite,
+        etudiant:etudiant_id(nom, prenom),
+        formation:formation_id(nom)
+      `)
+      .eq('statut', 'confirmed')
+      .eq('archived', false)
+      .neq('statut_scolarite', 'abandonne')
+      .not('group_id', 'is', null);
 
     const validKeys = new Set(
       inscriptionsForPayments?.map((i) => `${i.etudiant_id}_${i.formation_id}`) ?? []
@@ -36,16 +41,98 @@ const getDashboardStats = async (req, res) => {
     const paidMap = {};
     paymentsData?.forEach((p) => {
       const key = `${p.etudiant_id}_${p.formation_id}`;
-      if (!validKeys.has(key)) return; // ignore payments not tied to an active confirmed inscription
+      if (!validKeys.has(key)) return;
       paidMap[key] = (paidMap[key] ?? 0) + Number(p.montant);
     });
 
+    const allGroupIds = [...new Set((inscriptionsForPayments ?? []).map((i) => i.group_id).filter(Boolean))];
+
+    let groupMap = {};
+    let allFormationPeriods = [];
+    let allGroupPeriods = [];
+
+    if (allGroupIds.length) {
+      const { data: groupsData } = await supabase
+        .from('groups')
+        .select('id, nom, formation_id, niveau_id, en_promotion, prix_promotion, date_debut, use_default_periods, formation:formation_id(prix, prix_etudiant, prix_uniforme), niveau:niveau_id(prix)')
+        .in('id', allGroupIds);
+
+      (groupsData ?? []).forEach((g) => { groupMap[g.id] = g; });
+
+      const relevantFormationIds = [...new Set((groupsData ?? []).map((g) => g.formation_id))];
+      const { data: fp } = await supabase
+        .from('formation_payment_periods')
+        .select('formation_id, niveau_id, numero, jours_offset, montant')
+        .in('formation_id', relevantFormationIds.length ? relevantFormationIds : ['00000000-0000-0000-0000-000000000000']);
+      allFormationPeriods = fp ?? [];
+
+      const customGroupIds = (groupsData ?? []).filter((g) => !g.use_default_periods).map((g) => g.id);
+      if (customGroupIds.length) {
+        const { data: gp } = await supabase
+          .from('group_payment_periods')
+          .select('group_id, numero, jours_offset, montant')
+          .in('group_id', customGroupIds);
+        allGroupPeriods = gp ?? [];
+      }
+    }
+
+    const EPSILON = 0.01;
+
     let incomplets = 0;
-    inscriptionsForPayments?.forEach((i) => {
+    let paiementsIncompletsListe = [];
+
+    (inscriptionsForPayments ?? []).forEach((i) => {
+      const group = groupMap[i.group_id];
       const key = `${i.etudiant_id}_${i.formation_id}`;
       const paid = paidMap[key] ?? 0;
-      if (paid < (prixMap[i.formation_id] ?? 0)) incomplets++;
+
+      let total = 0;
+      let prochaineEcheance = null;
+      let isOverdue = false;
+
+      if (group) {
+        const baseTotal = group.formation?.prix_uniforme === false
+          ? Number(group.niveau?.prix ?? 0)
+          : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
+
+        const formationPeriods = allFormationPeriods.filter((p) =>
+          p.formation_id === group.formation_id &&
+          (group.niveau_id ? p.niveau_id === group.niveau_id : p.niveau_id === null)
+        );
+        const groupPeriods = allGroupPeriods.filter((p) => p.group_id === group.id);
+        const resolvedPeriods = resolveGroupPeriods(group, formationPeriods, groupPeriods);
+        total = computeStudentTotal(baseTotal, i, group);
+
+        let running = 0;
+        for (const per of resolvedPeriods) {
+          running += Number(per.montant);
+          if (paid < running - EPSILON) {
+            prochaineEcheance = per.due_date;
+            isOverdue = per.due_date && per.due_date <= todayStr;
+            break;
+          }
+        }
+      }
+
+      if (paid < total - EPSILON) {
+        incomplets++;
+        paiementsIncompletsListe.push({
+          studentId: i.etudiant_id,
+          nom: `${i.etudiant?.nom ?? ''} ${i.etudiant?.prenom ?? ''}`.trim(),
+          formationId: i.formation_id,
+          formationNom: i.formation?.nom ?? group?.formation?.nom ?? '',
+          groupId: i.group_id,
+          groupNom: group?.nom ?? '—',
+          total,
+          paid,
+          remaining: total - paid,
+          prochaineEcheance,
+          isOverdue,
+        });
+      }
     });
+
+    paiementsIncompletsListe.sort((a, b) => (b.isOverdue - a.isOverdue) || (b.remaining - a.remaining));
 
     // ── Pending count per formation, 0 included ─────────────────────
     const countMap = {};
@@ -106,6 +193,7 @@ const getDashboardStats = async (req, res) => {
       inscriptionsEnAttente: inscriptionsEnAttente ?? 0,
       sansGroupe: pendingData?.length ?? 0,
       paiementsIncomplets: incomplets,
+      paiementsIncompletsListe,
       groupsAujourdhui: groupsAujourdhuiDedup,
       formationsEnAttenteGroupe,
     });
