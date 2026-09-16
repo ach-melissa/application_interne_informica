@@ -4,15 +4,18 @@ const { resolveGroupPeriods, computeStudentTotal } = require('../utils/periods')
 const SEND_INTERVALS = [7, 3, 3, 3]; // days to wait before 2nd, 3rd, 4th, 5th... notification (repeats 3 after this)
 
 const getOverdueStudentsForGroup = async (group) => {
-  let formationPeriodsQuery = supabase
-    .from('formation_payment_periods')
-    .select('numero, jours_offset, montant')
-    .eq('formation_id', group.formation_id);
-  formationPeriodsQuery = group.niveau_id
-    ? formationPeriodsQuery.eq('niveau_id', group.niveau_id)
-    : formationPeriodsQuery.is('niveau_id', null);
-  const { data: formationPeriods } = await formationPeriodsQuery.order('numero', { ascending: true });
+const { data: allFormationPeriods } = await supabase
+  .from('formation_payment_periods')
+  .select('numero, jours_offset, montant, niveau_id')
+  .eq('formation_id', group.formation_id)
+  .order('numero', { ascending: true });
 
+const niveauPeriods = group.niveau_id
+  ? (allFormationPeriods ?? []).filter((p) => p.niveau_id === group.niveau_id)
+  : (allFormationPeriods ?? []).filter((p) => p.niveau_id === null);
+const formationPeriods = niveauPeriods.length > 0
+  ? niveauPeriods
+  : (allFormationPeriods ?? []).filter((p) => p.niveau_id === null);
   let groupPeriods = [];
   if (!group.use_default_periods) {
     const { data } = await supabase
