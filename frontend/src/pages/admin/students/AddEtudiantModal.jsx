@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, MapPin, GraduationCap, Calendar, Users, Radio, UserCheck, Layers } from 'lucide-react';
-
+import { X, User, Phone, Mail, MapPin, GraduationCap, Calendar, Users, Radio, UserCheck, Layers, ClipboardList } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
 
@@ -25,10 +24,12 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
   const [niveauOpts, setNiveauOpts] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [form, setForm] = useState({
   nom: '', prenom: '', telephone: '', email: '', adresse: '',
   niveau_scolaire: '', date_naissance: '', lieu_naissance: '', wilaya: '',
   formation_id: '', niveau_id: '', source: '', registered_by: '', commentaire: '',
+  statut_dossier: 'incomplet',
 });
 
   useEffect(() => {
@@ -52,16 +53,17 @@ const setFormation = e => {
   const id = e.target.value;
   setForm(p => ({ ...p, formation_id: id, niveau_id: '' })); // reset niveau when formation changes
 };
-  const handleSubmit = async () => {
+  const handleSubmit = async (confirmDuplicate = false) => {
     if (!form.nom || !form.prenom || !form.telephone || !form.formation_id) {
       setError('Nom, prénom, téléphone et formation sont obligatoires.'); return;
     }
-    setSubmitting(true); setError(null);
+    setSubmitting(true); setError(null); setDuplicateWarning(null);
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
       if (files.photo)          fd.append('photo',          files.photo);
       if (files.piece_identite) fd.append('piece_identite', files.piece_identite);
+      if (confirmDuplicate) fd.append('confirm_duplicate', 'true');
 
       const res = await fetch(`${API}/api/etudiants`, {
         method: 'POST',
@@ -69,7 +71,13 @@ const setFormation = e => {
         body: fd,
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        if (res.status === 409 && data.duplicate) {
+          setDuplicateWarning(data.error);
+          return;
+        }
+        throw new Error(data.error);
+      }
       onSuccess?.(); onClose();
     } catch (err) { setError(err.message); }
     finally { setSubmitting(false); }
@@ -77,8 +85,7 @@ const setFormation = e => {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-md shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-
+      <div className={`bg-white rounded-md shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto ${duplicateWarning ? 'invisible' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
           <div className="flex items-center justify-between px-5 py-4">
             <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
@@ -161,6 +168,14 @@ const setFormation = e => {
                 {registeredByOpts.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
+            <div>
+              <Label icon={ClipboardList} text="Statut dossier" />
+              <select value={form.statut_dossier} onChange={set('statut_dossier')} className={inp}>
+                <option value="incomplet">Incomplet</option>
+                <option value="en_cours">En cours</option>
+                <option value="complet">Complet</option>
+              </select>
+            </div>
             <div className="col-span-2">
               <Label text="Commentaire" />
               <textarea value={form.commentaire} onChange={set('commentaire')} rows={3} className={inp} />
@@ -169,13 +184,51 @@ const setFormation = e => {
 
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
-            <button onClick={handleSubmit} disabled={submitting}
+            <button onClick={() => handleSubmit(false)} disabled={submitting}
               className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
               {submitting ? 'Ajout...' : 'Ajouter'}
             </button>
           </div>
         </div>
       </div>
+
+      {duplicateWarning && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+          onClick={() => setDuplicateWarning(null)}
+        >
+          <div
+            onClick={ev => ev.stopPropagation()}
+            className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4"
+          >
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-[#F1F5F9]">
+              <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
+                <User size={15} className="text-white" />
+              </div>
+              <h2 className="text-sm font-semibold text-slate-800">Doublon détecté</h2>
+            </div>
+
+            <div className="px-5 py-4">
+              <p className="text-xs text-slate-600">{duplicateWarning}</p>
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
+              <button
+                onClick={() => setDuplicateWarning(null)}
+                className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => { setDuplicateWarning(null); handleSubmit(true); }}
+                className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600"
+              >
+                Oui, l'ajouter quand même
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

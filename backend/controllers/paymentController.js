@@ -31,15 +31,19 @@ const getGroupPayments = async (req, res) => {
     : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
   const formationId = group.formation_id;
 
-  let formationPeriodsQuery = supabase
+  const { data: allFormationPeriodsForGroup } = await supabase
     .from('formation_payment_periods')
-    .select('numero, jours_offset, montant')
-    .eq('formation_id', formationId);
-  formationPeriodsQuery = group.niveau_id
-    ? formationPeriodsQuery.eq('niveau_id', group.niveau_id)
-    : formationPeriodsQuery.is('niveau_id', null);
-  const { data: formationPeriods } = await formationPeriodsQuery.order('numero', { ascending: true });
+    .select('numero, jours_offset, montant, niveau_id')
+    .eq('formation_id', formationId)
+    .order('numero', { ascending: true });
 
+  const niveauPeriods = group.niveau_id
+    ? (allFormationPeriodsForGroup ?? []).filter((p) => p.niveau_id === group.niveau_id)
+    : (allFormationPeriodsForGroup ?? []).filter((p) => p.niveau_id === null);
+  // Fallback: no niveau-specific périodes → use the formation's shared (niveau_id = null) échéancier.
+  const formationPeriods = niveauPeriods.length > 0
+    ? niveauPeriods
+    : (allFormationPeriodsForGroup ?? []).filter((p) => p.niveau_id === null);
   let groupPeriods = [];
   if (!group.use_default_periods) {
     const { data } = await supabase
@@ -98,9 +102,9 @@ const getGroupPayments = async (req, res) => {
     const expectedToday = total * fractionDueToday;
 
        const isAbandonne = i.statut_scolarite === 'abandonne';
-    const isOverdue = !isAbandonne && expectedToday > 0 && paid < expectedToday - EPSILON;
-    const overdueAmount = isOverdue ? expectedToday - paid : 0;
-    // Per-period breakdown, same proportional logic, for future detail views.
+
+    // Per-period breakdown, used both for the detail view and to find
+    // the next period the student hasn't fully covered yet.
     let runningRaw = 0;
     const periodsStatus = resolvedPeriods.map((per) => {
       runningRaw += Number(per.montant);
@@ -110,6 +114,18 @@ const getGroupPayments = async (req, res) => {
       const status = paid >= expectedAtPeriod - EPSILON ? 'paye' : isPastDue ? 'en_retard' : 'a_venir';
       return { numero: per.numero, due_date: per.due_date, status };
     });
+
+    const lastPeriod = resolvedPeriods[resolvedPeriods.length - 1];
+    const isPastFinalDueDate = !!lastPeriod?.due_date && lastPeriod.due_date <= today;
+    const nextDuePeriod = periodsStatus.find((p) => p.status !== 'paye');
+    const isPastNextDue = !!nextDuePeriod?.due_date && nextDuePeriod.due_date <= today;
+    const hasPaidNothing = paid <= EPSILON;
+
+    const isOverdue = !isAbandonne && (
+      (isPastFinalDueDate && paid < total - EPSILON) ||  // last period passed, still incomplete → always red
+      (isPastNextDue && hasPaidNothing)                    // a period is due, nothing paid at all → red
+    );
+    const overdueAmount = isOverdue ? total - paid : 0;
 
     return {
       studentId: i.etudiant_id,

@@ -8,18 +8,20 @@ const getDashboardStats = async (req, res) => {
     const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
     const today = JOURS[new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Algiers' })).getDay()];
 
-   const [
+const [
   { count: formationsActivesCount },
   { count: inscriptionsEnAttente },
   { data: groupsAujourdhui },
   { data: pendingData },
   { data: formationsData },
+  { count: confirmesSansGroupe },
 ] = await Promise.all([
   supabase.from('formations').select('*', { count: 'exact', head: true }).eq('statut', 'active'),
   supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('statut', 'pending').eq('archived', false),
     supabase.from('schedules').select('group_id, jour_semaine, heure_debut, heure_fin, group:group_id(nom, archived, statut, date_fin, formation:formation_id(nom))').eq('jour_semaine', today),
   supabase.from('inscriptions').select('formation_id').eq('statut', 'pending').eq('archived', false),
     supabase.from('formations').select('id, nom, prix_etudiant, capacite_groupe, a_niveaux, capacite_uniforme').eq('statut', 'active'),
+  supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('statut', 'confirmed').eq('archived', false).is('group_id', null),
 ]);
     const { data: paymentsData } = await supabase.from('payments').select('etudiant_id, formation_id, montant');
     const { data: inscriptionsForPayments } = await supabase
@@ -95,10 +97,14 @@ const getDashboardStats = async (req, res) => {
           ? Number(group.niveau?.prix ?? 0)
           : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
 
-        const formationPeriods = allFormationPeriods.filter((p) =>
-          p.formation_id === group.formation_id &&
-          (group.niveau_id ? p.niveau_id === group.niveau_id : p.niveau_id === null)
-        );
+        const periodsForFormation = allFormationPeriods.filter((p) => p.formation_id === group.formation_id);
+        const periodsForNiveau = group.niveau_id
+          ? periodsForFormation.filter((p) => p.niveau_id === group.niveau_id)
+          : periodsForFormation.filter((p) => p.niveau_id === null);
+        // Fallback: no niveau-specific périodes → use the formation's shared (niveau_id = null) échéancier.
+        const formationPeriods = periodsForNiveau.length > 0
+          ? periodsForNiveau
+          : periodsForFormation.filter((p) => p.niveau_id === null);
         const groupPeriods = allGroupPeriods.filter((p) => p.group_id === group.id);
         const resolvedPeriods = resolveGroupPeriods(group, formationPeriods, groupPeriods);
         total = computeStudentTotal(baseTotal, i, group);
@@ -108,10 +114,16 @@ const getDashboardStats = async (req, res) => {
           running += Number(per.montant);
           if (paid < running - EPSILON) {
             prochaineEcheance = per.due_date;
-            isOverdue = per.due_date && per.due_date <= todayStr;
             break;
           }
         }
+
+        const lastPeriod = resolvedPeriods[resolvedPeriods.length - 1];
+        const isPastFinalDueDate = !!lastPeriod?.due_date && lastPeriod.due_date <= todayStr;
+        const isPastNextDue = !!prochaineEcheance && prochaineEcheance <= todayStr;
+        const hasPaidNothing = paid <= EPSILON;
+
+        isOverdue = (isPastFinalDueDate && paid < total - EPSILON) || (isPastNextDue && hasPaidNothing);
       }
 
       if (paid < total - EPSILON) {
@@ -191,7 +203,7 @@ const getDashboardStats = async (req, res) => {
     res.json({
       formationsActives: formationsActivesCount ?? 0,
       inscriptionsEnAttente: inscriptionsEnAttente ?? 0,
-      sansGroupe: pendingData?.length ?? 0,
+           sansGroupe: confirmesSansGroupe ?? 0,
       paiementsIncomplets: incomplets,
       paiementsIncompletsListe,
       groupsAujourdhui: groupsAujourdhuiDedup,

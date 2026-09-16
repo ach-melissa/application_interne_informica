@@ -425,13 +425,19 @@ const getGroupPeriods = async (req, res) => {
   .eq('id', id)
   .single();
 if (gErr) return res.status(500).json({ error: gErr.message });
-  let periodsQuery = supabase
+  const { data: allPeriodsForFormation } = await supabase
     .from('formation_payment_periods')
-    .select('numero, jours_offset, montant')
-    .eq('formation_id', group.formation_id);
-  periodsQuery = group.niveau_id ? periodsQuery.eq('niveau_id', group.niveau_id) : periodsQuery.is('niveau_id', null);
-  const { data: formationPeriods } = await periodsQuery.order('numero', { ascending: true });
+    .select('numero, jours_offset, montant, niveau_id')
+    .eq('formation_id', group.formation_id)
+    .order('numero', { ascending: true });
 
+  const niveauPeriods = group.niveau_id
+    ? (allPeriodsForFormation ?? []).filter((p) => p.niveau_id === group.niveau_id)
+    : (allPeriodsForFormation ?? []).filter((p) => p.niveau_id === null);
+  // Fallback: no niveau-specific périodes → use the formation's shared (niveau_id = null) échéancier.
+  const formationPeriods = niveauPeriods.length > 0
+    ? niveauPeriods
+    : (allPeriodsForFormation ?? []).filter((p) => p.niveau_id === null);
   let groupPeriods = [];
   if (!group.use_default_periods) {
     const { data } = await supabase

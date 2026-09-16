@@ -54,7 +54,7 @@ const formationColors = {
 // Palette élargie réutilisée sur les graphiques en barres pour un rendu plus vivant
 const CHART_PALETTE = ['#2563EB', '#0D9488', '#7C3AED', '#F97316', '#DB2777', '#65A30D', '#0EA5E9', '#EAB308', '#EF4444', '#14B8A6'];
 
-const computeStats = (data, toutesLesFormations) => {
+const computeStats = (data, toutesLesFormations, tousLesRapporteurs = []) => {
   const totalEtudiants = data.length;
 
   const formationsCount = toutesLesFormations.map((nom) => {
@@ -82,6 +82,7 @@ const computeStats = (data, toutesLesFormations) => {
   }));
 
   const apporteurCounts = {};
+  tousLesRapporteurs.forEach((nom) => { apporteurCounts[nom] = 0; });
   data.forEach((i) => {
     if (!i.apporteur) return;
     apporteurCounts[i.apporteur] = (apporteurCounts[i.apporteur] || 0) + 1;
@@ -223,6 +224,7 @@ const Statistique = () => {
 
   const [inscriptions, setInscriptions] = useState([]);
   const [formationsListe, setFormationsListe] = useState([]);
+  const [rapporteursListe, setRapporteursListe] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -240,6 +242,7 @@ const chargerStatistiques = async () => {
     if (!res.ok) throw new Error(data.error || 'Erreur lors du chargement des statistiques.');
     setInscriptions(data.inscriptions || []);
     setFormationsListe(data.formations || []);
+    setRapporteursListe(data.rapporteurs || []);
   } catch (err) {
     setErrorMsg(err.message);
   } finally {
@@ -263,8 +266,8 @@ const chargerStatistiques = async () => {
   }, [inscriptions, selectedYear, selectedMonth]);
 
   const stats = useMemo(
-    () => computeStats(filteredData, formationsListe),
-    [filteredData, formationsListe]
+    () => computeStats(filteredData, formationsListe, rapporteursListe),
+    [filteredData, formationsListe, rapporteursListe]
   );
 
   const {
@@ -302,11 +305,13 @@ const chargerStatistiques = async () => {
             <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
               <BarChart3 size={22} className="text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-800">Statistiques</h1>
-          </div>
+<h1 className="text-2xl font-bold text-slate-800">Statistiques</h1>
+</div>
 
-        
-        </div>
+</div>
+<p className="text-xs text-slate-400 -mt-2">
+  Les statistiques ci-dessous comptent uniquement les inscriptions confirmées, hors étudiants abandonnés.
+</p>
 
                 {/* ── Barre de filtres ── */}
         <div className="mb-2 flex flex-wrap gap-2 items-center">
