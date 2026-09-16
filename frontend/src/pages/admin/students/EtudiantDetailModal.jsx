@@ -288,7 +288,12 @@ const Field = ({ icon, label, field, type = 'text', select, opts, form, set, edi
   <Row icon={icon} label={label}>
     {editing
       ? select
-        ? <select value={form[field]} onChange={set(field)} className={inp}>
+        ? <select value={form[field] ?? ''} onChange={set(field)} className={inp}>
+            <option value="">—</option>
+            {/* keep a stored-but-deactivated value visible instead of blanking it */}
+            {form[field] && !opts.includes(form[field]) && (
+              <option value={form[field]}>{form[field]} (inactif)</option>
+            )}
             {opts.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
         : <input type={type} value={form[field]} onChange={set(field)} className={inp} />
