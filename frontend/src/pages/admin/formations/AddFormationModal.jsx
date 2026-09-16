@@ -57,7 +57,7 @@ useEffect(() => {
     fetch(`${API}/api/formations/${formation.id}/niveaux`, { headers: getHeaders() })
       .then(r => r.json())
       .then(data => setNiveaux(data.map(n => ({
-        nom: n.nom, prix: n.prix ?? '', duree_valeur: n.duree_valeur ?? '', type_duree: n.type_duree || '',
+        id: n.id, nom: n.nom, prix: n.prix ?? '', duree_valeur: n.duree_valeur ?? '', type_duree: n.type_duree || '',
         capacite_groupe: n.capacite_groupe ?? '', periods: n.periods || [],
       }))))
       .catch(() => {});

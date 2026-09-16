@@ -109,11 +109,17 @@ const setFormationNiveaux = async (req, res) => {
     }
   }
 
-  const { error: delErr } = await supabase.from('formation_niveaux').delete().eq('formation_id', id);
-  if (delErr) return res.status(500).json({ error: delErr.message });
+  // Supprime uniquement les niveaux réellement retirés — jamais ceux qu'on garde,
+  // sinon leurs ids changent et les groupes/inscriptions liés se retrouvent orphelins.
+  const idsASupprimer = niveauxASupprimer.map((n) => n.id);
+  if (idsASupprimer.length > 0) {
+    const { error: delErr } = await supabase
+      .from('formation_niveaux').delete().in('id', idsASupprimer);
+    if (delErr) return res.status(500).json({ error: delErr.message });
+  }
   if (niveaux.length === 0) return res.json([]);
 
-   const rows = niveaux.map((n, idx) => ({
+  const buildRow = (n, idx) => ({
     formation_id: id,
     nom: n.nom.trim(),
     ordre: idx + 1,
@@ -121,15 +127,33 @@ const setFormationNiveaux = async (req, res) => {
     duree_valeur: n.duree_valeur !== '' && n.duree_valeur !== undefined && n.duree_valeur !== null ? Number(n.duree_valeur) : null,
     type_duree: n.type_duree || null,
     capacite_groupe: n.capacite_groupe !== '' && n.capacite_groupe !== undefined && n.capacite_groupe !== null ? Number(n.capacite_groupe) : null,
-  }));
+  });
 
-  const { data, error } = await supabase.from('formation_niveaux').insert(rows).select();
-  if (error) return res.status(500).json({ error: error.message });
-
+  const existingIds = new Set((beforeNiveaux || []).map((n) => n.id));
+  const data = [];
+  for (let idx = 0; idx < niveaux.length; idx++) {
+    const n = niveaux[idx];
+    const row = buildRow(n, idx);
+    if (n.id && existingIds.has(n.id)) {
+      const { data: upd, error: updErr } = await supabase
+        .from('formation_niveaux').update(row).eq('id', n.id).select().single();
+      if (updErr) return res.status(500).json({ error: updErr.message });
+      data.push(upd);
+    } else {
+      const { data: ins, error: insErr } = await supabase
+        .from('formation_niveaux').insert(row).select().single();
+      if (insErr) return res.status(500).json({ error: insErr.message });
+      data.push(ins);
+    }
+  }
 
 if (!formation.echeancier_uniforme) {
   for (let i = 0; i < data.length; i++) {
     const niveauId = data[i].id;
+    const { error: delPpErr } = await supabase
+      .from('formation_payment_periods').delete().eq('niveau_id', niveauId);
+    if (delPpErr) return res.status(500).json({ error: delPpErr.message });
+
     const periods = niveaux[i].periods || [];
     const periodRows = periods.map((p, idx) => ({
       niveau_id: niveauId,
