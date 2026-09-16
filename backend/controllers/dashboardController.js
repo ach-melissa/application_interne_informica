@@ -8,18 +8,20 @@ const getDashboardStats = async (req, res) => {
     const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
     const today = JOURS[new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Algiers' })).getDay()];
 
-   const [
+const [
   { count: formationsActivesCount },
   { count: inscriptionsEnAttente },
   { data: groupsAujourdhui },
   { data: pendingData },
   { data: formationsData },
+  { count: confirmesSansGroupe },
 ] = await Promise.all([
   supabase.from('formations').select('*', { count: 'exact', head: true }).eq('statut', 'active'),
   supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('statut', 'pending').eq('archived', false),
     supabase.from('schedules').select('group_id, jour_semaine, heure_debut, heure_fin, group:group_id(nom, archived, statut, date_fin, formation:formation_id(nom))').eq('jour_semaine', today),
   supabase.from('inscriptions').select('formation_id').eq('statut', 'pending').eq('archived', false),
     supabase.from('formations').select('id, nom, prix_etudiant, capacite_groupe, a_niveaux, capacite_uniforme').eq('statut', 'active'),
+  supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('statut', 'confirmed').eq('archived', false).is('group_id', null),
 ]);
     const { data: paymentsData } = await supabase.from('payments').select('etudiant_id, formation_id, montant');
     const { data: inscriptionsForPayments } = await supabase
@@ -201,7 +203,7 @@ const getDashboardStats = async (req, res) => {
     res.json({
       formationsActives: formationsActivesCount ?? 0,
       inscriptionsEnAttente: inscriptionsEnAttente ?? 0,
-      sansGroupe: pendingData?.length ?? 0,
+           sansGroupe: confirmesSansGroupe ?? 0,
       paiementsIncomplets: incomplets,
       paiementsIncompletsListe,
       groupsAujourdhui: groupsAujourdhuiDedup,
