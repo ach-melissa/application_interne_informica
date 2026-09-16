@@ -264,7 +264,7 @@ const { data: groups, error: gErr } = await supabase
     .select(`
       id, jour_semaine, salle, periode, contenu, heure_debut, heure_fin,
       type_special, expire_le, applicable_depuis,
-      groups(id, nom, date_fin, niveau:formation_niveaux(id, nom))
+     groups(id, nom, date_fin, niveau:formation_niveaux(id, nom), formations(id, nom))
     `)
     .in('group_id', groupIds);
 

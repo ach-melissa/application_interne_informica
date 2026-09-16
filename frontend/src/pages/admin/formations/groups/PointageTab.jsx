@@ -187,6 +187,16 @@ const [editingRattrapageCell, setEditingRattrapageCell] = useState(null); // `${
     }
   };
 
+  // ── Auto-correction : remplacement si la date ne correspond plus au(x) jour(s) configuré(s) ──
+useEffect(() => {
+  if (!ficheInfo.jours_formation || sessions.length === 0) return;
+  sessions.forEach(s => {
+    if (s.type_seance !== 'remplacement' && !dateMatchesJours(s.date, ficheInfo.jours_formation)) {
+      updateSessionField(s.id, 'type_seance', 'remplacement');
+    }
+  });
+}, [sessions, ficheInfo.jours_formation]);
+
   const updateDureeEffectuee = async (sessionId, value) => {
     try {
       const res = await fetch(`${API}/api/sessions/${sessionId}`, {
