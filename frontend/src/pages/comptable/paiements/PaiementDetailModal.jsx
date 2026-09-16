@@ -31,6 +31,7 @@ const PaiementDetailModal = ({ row, onClose }) => {
       </span>
     </p>
   </div>
+  // ajouter aussi fin de group et le statut de group 
   <button onClick={onClose} className="text-[#0369A1] hover:text-[#0F2A4A]">
     <X size={18} />
   </button>
@@ -44,24 +45,18 @@ const PaiementDetailModal = ({ row, onClose }) => {
               <thead>
                 <tr className="text-[10px] uppercase text-[#0369A1] border-b border-[#E2E8F0]">
                   <th className="text-left py-2">Tranche</th>
-<th className="text-right py-2">Montant prévu</th>
 <th className="text-right py-2">Montant payé</th>
 <th className="text-right py-2">Date de paiement</th>
-<th className="text-center py-2">Statut</th>
                 </tr>
               </thead>
               <tbody>
 {trancheNumbers.map((n) => {
   const t = row.tranches[n];
   const date = t.date_paiement ?? t.date ?? t.created_at ?? null;
-  const prevu = t.montant_prevu; // ← dépend de ta réponse sur le point ci-dessus
   const enRetard = !date && prevu != null; // à affiner selon logique retard voulue
   return (
     <tr key={n} className="border-b border-[#E2E8F0] last:border-0">
       <td className="py-2 font-medium text-slate-700">{n}ère Tranche</td>
-      <td className="py-2 text-right text-slate-500">
-        {prevu != null ? `${Number(prevu).toLocaleString('fr-DZ')} DA` : '—'}
-      </td>
       <td className={`py-2 text-right font-semibold ${enRetard ? 'text-red-600' : 'text-slate-700'}`}>
         {Number(t.montant).toLocaleString('fr-DZ')} DA
       </td>
@@ -69,11 +64,6 @@ const PaiementDetailModal = ({ row, onClose }) => {
         <span className="inline-flex items-center gap-1">
           <Calendar size={11} />
           {date ? new Date(date).toLocaleDateString('fr-DZ') : '—'}
-        </span>
-      </td>
-      <td className="py-2 text-center">
-        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${enRetard ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`}>
-          {enRetard ? 'Retard' : 'Payé'}
         </span>
       </td>
     </tr>

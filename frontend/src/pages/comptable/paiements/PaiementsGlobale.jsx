@@ -238,11 +238,11 @@ map.set(key, {
             <table className="w-full text-xs">
               <thead className="bg-[#DCEBFA]">
                 <tr>
-                  <th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-l border-[#E2E8F0]">
-                    <span className="flex items-center gap-1.5"><User size={12} /> Num </span>
-                  </th>
                   <th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b  border-[#E2E8F0]">
                     <span className="flex items-center gap-1.5"><User size={12} /> Étudiant</span>
+                  </th>
+                  <th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-l border-[#E2E8F0]">
+                    <span className="flex items-center gap-1.5"><User size={12} /> Numero tel </span>
                   </th>
                   <th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0]">
                     <span className="flex items-center gap-1.5"><GraduationCap size={12} /> Formation</span>
@@ -279,9 +279,6 @@ map.set(key, {
                       onClick={() => setSelectedRow(row)}
                       className={`cursor-pointer hover:bg-[#DCEBFA]/30 transition ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}
                     >
-<td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-l border-[#E2E8F0]">
-  {row.matricule}
-</td>
 <td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap border-b border-[#E2E8F0]">
   <span className="inline-flex items-center gap-1.5">
     {row.nom}
@@ -292,6 +289,9 @@ map.set(key, {
       />
     )}
   </span>
+</td>
+<td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-l border-[#E2E8F0]">
+  {row.numerotelphn}
 </td>
 <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
   {row.formationNom}
