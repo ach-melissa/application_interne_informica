@@ -100,26 +100,6 @@ const setFormation = e => {
           {error && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 mx-5 mb-3 rounded-md">{error}</p>}
         </div>
 
-        {duplicateWarning && (
-          <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mx-5 mt-3 text-xs text-amber-800 space-y-2">
-            <p>{duplicateWarning}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setDuplicateWarning(null)}
-                className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => { setDuplicateWarning(null); handleSubmit(true); }}
-                className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600"
-              >
-                Oui, l'ajouter quand même
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className="p-5 space-y-4">
           <Section>
             <div><Label icon={User} text="Nom" required /><input value={form.nom} onChange={set('nom')} className={inp} /></div>
@@ -203,17 +183,53 @@ const setFormation = e => {
             </div>
           </Section>
 
-          {!duplicateWarning && (
-            <div className="flex justify-end gap-2 pt-1">
-              <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
-              <button onClick={() => handleSubmit(false)} disabled={submitting}
-                className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
-                {submitting ? 'Ajout...' : 'Ajouter'}
-              </button>
-            </div>
-          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
+            <button onClick={() => handleSubmit(false)} disabled={submitting}
+              className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] disabled:opacity-40 transition-all font-medium">
+              {submitting ? 'Ajout...' : 'Ajouter'}
+            </button>
+          </div>
         </div>
       </div>
+
+      {duplicateWarning && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+          onClick={() => setDuplicateWarning(null)}
+        >
+          <div
+            onClick={ev => ev.stopPropagation()}
+            className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4"
+          >
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-[#F1F5F9]">
+              <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
+                <User size={15} className="text-white" />
+              </div>
+              <h2 className="text-sm font-semibold text-slate-800">Doublon détecté</h2>
+            </div>
+
+            <div className="px-5 py-4">
+              <p className="text-xs text-slate-600">{duplicateWarning}</p>
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
+              <button
+                onClick={() => setDuplicateWarning(null)}
+                className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => { setDuplicateWarning(null); handleSubmit(true); }}
+                className="text-xs px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600"
+              >
+                Oui, l'ajouter quand même
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
