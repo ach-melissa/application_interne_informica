@@ -239,9 +239,7 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
         ? 'bg-red-50'
         : p.remaining <= 0
           ? 'bg-emerald-50'
-          : p.remaining >= p.total
-            ? 'bg-red-50'
-            : 'bg-amber-50'
+          : 'bg-amber-50'
   }`}
 >
                    <td className="px-3 py-2 overflow-hidden border-b border-l border-[#E2E8F0]">
@@ -292,10 +290,10 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
                       <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{p.total.toLocaleString('fr-FR')} DA</td>
                       <td className="px-3 py-2 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{p.paid.toLocaleString('fr-FR')} DA</td>
 <td className="px-3 py-2 whitespace-nowrap border-b border-[#E2E8F0]">
-  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+<span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
     p.remaining <= 0
       ? 'bg-emerald-50 text-emerald-700'
-      : p.remaining >= p.total
+      : p.isOverdue
         ? 'bg-red-50 text-red-600'
         : 'bg-amber-50 text-amber-700'
   }`}>

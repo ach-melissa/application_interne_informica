@@ -102,8 +102,10 @@ const getGroupPayments = async (req, res) => {
     const expectedToday = total * fractionDueToday;
 
        const isAbandonne = i.statut_scolarite === 'abandonne';
-    const isOverdue = !isAbandonne && expectedToday > 0 && paid < expectedToday - EPSILON;
-    const overdueAmount = isOverdue ? expectedToday - paid : 0;
+    const lastPeriod = resolvedPeriods[resolvedPeriods.length - 1];
+    const isPastFinalDueDate = !!lastPeriod?.due_date && lastPeriod.due_date <= today;
+    const isOverdue = !isAbandonne && isPastFinalDueDate && paid < total - EPSILON;
+    const overdueAmount = isOverdue ? total - paid : 0;
     // Per-period breakdown, same proportional logic, for future detail views.
     let runningRaw = 0;
     const periodsStatus = resolvedPeriods.map((per) => {

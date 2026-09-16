@@ -112,10 +112,12 @@ const getDashboardStats = async (req, res) => {
           running += Number(per.montant);
           if (paid < running - EPSILON) {
             prochaineEcheance = per.due_date;
-            isOverdue = per.due_date && per.due_date <= todayStr;
             break;
           }
         }
+
+        const lastPeriod = resolvedPeriods[resolvedPeriods.length - 1];
+        isOverdue = !!lastPeriod?.due_date && lastPeriod.due_date <= todayStr && paid < total - EPSILON;
       }
 
       if (paid < total - EPSILON) {
