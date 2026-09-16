@@ -85,8 +85,7 @@ const setFormation = e => {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-md shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-
+      <div className={`bg-white rounded-md shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto ${duplicateWarning ? 'invisible' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
           <div className="flex items-center justify-between px-5 py-4">
             <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
