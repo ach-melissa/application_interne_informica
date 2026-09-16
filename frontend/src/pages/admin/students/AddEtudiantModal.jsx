@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, MapPin, GraduationCap, Calendar, Users, Radio, UserCheck, Layers } from 'lucide-react';
-
+import { X, User, Phone, Mail, MapPin, GraduationCap, Calendar, Users, Radio, UserCheck, Layers, ClipboardList } from 'lucide-react';
 const API = import.meta.env.VITE_API_URL;
 const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
 
@@ -29,6 +28,7 @@ const AddEtudiantModal = ({ onClose, onSuccess }) => {
   nom: '', prenom: '', telephone: '', email: '', adresse: '',
   niveau_scolaire: '', date_naissance: '', lieu_naissance: '', wilaya: '',
   formation_id: '', niveau_id: '', source: '', registered_by: '', commentaire: '',
+  statut_dossier: 'incomplet',
 });
 
   useEffect(() => {
@@ -159,6 +159,14 @@ const setFormation = e => {
               <select value={form.registered_by} onChange={set('registered_by')} className={inp}>
                 <option value="">—</option>
                 {registeredByOpts.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label icon={ClipboardList} text="Statut dossier" />
+              <select value={form.statut_dossier} onChange={set('statut_dossier')} className={inp}>
+                <option value="incomplet">Incomplet</option>
+                <option value="en_cours">En cours</option>
+                <option value="complet">Complet</option>
               </select>
             </div>
             <div className="col-span-2">

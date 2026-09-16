@@ -36,7 +36,7 @@ let query = supabase
   res.json(data);
 };
 
-const LOCKED_FIELDS = ['statut', 'first_try', 'second_try', 'third_try', 'statut_scolarite', 'formation_id', 'niveau_id'];
+const LOCKED_FIELDS = ['statut', 'first_try', 'second_try', 'third_try', 'statut_scolarite', 'formation_id', 'niveau_id', 'statut_dossier'];
 const updateInscription = async (req, res) => {
   const { id } = req.params;
   const updates = {};
@@ -58,7 +58,8 @@ const updateInscription = async (req, res) => {
 
   if ('source' in req.body)        updates.source        = req.body.source || null;
   if ('registered_by' in req.body) updates.registered_by = req.body.registered_by || null;
-  if ('statut' in req.body)        updates.statut        = req.body.statut;
+   if ('statut' in req.body)        updates.statut        = req.body.statut;
+  if ('statut_dossier' in req.body) updates.statut_dossier = req.body.statut_dossier || 'incomplet';
   if ('first_try' in req.body)     updates.first_try     = req.body.first_try || null;
   if ('second_try' in req.body)    updates.second_try    = req.body.second_try || null;
   if ('third_try' in req.body)     updates.third_try     = req.body.third_try || null;
@@ -250,7 +251,7 @@ const createEtudiant = async (req, res) => {
   const {
     nom, prenom, telephone, email, adresse,
     niveau_scolaire, date_naissance, lieu_naissance, wilaya,
-    formation_id, niveau_id, source, registered_by, commentaire,
+    formation_id, niveau_id, source, registered_by, commentaire, statut_dossier,
   } = req.body;
 
     let addedByName = null;
@@ -308,6 +309,7 @@ if (req.user?.id) {
       added_by: addedByName,
       date_inscription: new Date().toISOString().split('T')[0],
       statut: 'pending',
+      statut_dossier: statut_dossier || 'incomplet',
     })
     .select('*, formation:formation_id(nom), niveau:niveau_id(nom)')
     .single();

@@ -18,6 +18,9 @@ const getHeaders = () => ({
 
 const statutLabel = { confirmed:'Confirmé', pending:'En attente', non_confirmed:'Non confirmé', rejected:'Rejeté' };
 const statutCls   = { confirmed:'bg-[#DCEBFA] text-[#0369A1]', pending:'bg-amber-50 text-amber-600', non_confirmed:'bg-red-50 text-red-600', rejected:'bg-slate-100 text-slate-500' };
+const DOSSIER_OPTS = ['complet', 'incomplet', 'en_cours'];
+const statutDossierLabel = { complet: 'Complet', incomplet: 'Incomplet', en_cours: 'En cours' };
+const statutDossierCls   = { complet: 'bg-emerald-50 text-emerald-600', incomplet: 'bg-red-50 text-red-600', en_cours: 'bg-amber-50 text-amber-600' };
 const tryMeta     = { repondu:'bg-emerald-50 text-emerald-600', non_repondu:'bg-red-50 text-red-600', occupe:'bg-orange-50 text-orange-600', injoignable:'bg-slate-100 text-slate-500', P_bureau:'bg-[#DCEBFA] text-[#0369A1]', ferme:'bg-violet-50 text-violet-600' };
 
 const inp = 'w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors';
@@ -335,6 +338,7 @@ const groupNotFinished = !!groupInfo && (!groupInfo.date_fin || groupInfo.date_f
   source: inscription?.source ?? '',
   registered_by: inscription?.registered_by ?? '',
   statut: inscription?.statut ?? 'pending',
+  statut_dossier: inscription?.statut_dossier ?? 'incomplet',
   first_try: inscription?.first_try ?? '',
   second_try: inscription?.second_try ?? '',
   third_try: inscription?.third_try ?? '',
@@ -384,7 +388,8 @@ useEffect(() => {
         method: 'PATCH', headers: getHeaders(),
                body: JSON.stringify({
           source: form.source, registered_by: form.registered_by,
-          statut: form.statut, first_try: form.first_try || null,
+          statut: form.statut, statut_dossier: form.statut_dossier || 'incomplet',
+          first_try: form.first_try || null,
           second_try: form.second_try || null, third_try: form.third_try || null,
           formation_id: form.formation_id || null,
           niveau_id: form.niveau_id || null,
@@ -748,6 +753,15 @@ win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fi
                   </select>
                 : <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${statutCls[form.statut] ?? 'bg-slate-100 text-slate-500'}`}>
                     {statutLabel[form.statut] ?? form.statut}
+                  </span>}
+            </Row>
+            <Row icon={ClipboardList} label="Dossier">
+              {editing
+                ? <select value={form.statut_dossier} onChange={set('statut_dossier')} disabled={locked} className={`${inp} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                    {DOSSIER_OPTS.map(o => <option key={o} value={o}>{statutDossierLabel[o]}</option>)}
+                  </select>
+                : <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${statutDossierCls[form.statut_dossier] ?? 'bg-slate-100 text-slate-500'}`}>
+                    {statutDossierLabel[form.statut_dossier] ?? form.statut_dossier}
                   </span>}
             </Row>
             <Row icon={Calendar} label="Date d'inscription">

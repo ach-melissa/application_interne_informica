@@ -30,6 +30,13 @@ const statutMeta = {
   rejected:      { label: 'Rejeté',       cls: 'bg-slate-100 text-slate-500' },
 };
 
+const DOSSIER_OPTS = ['complet', 'incomplet', 'en_cours'];
+const statutDossierMeta = {
+  complet:   { label: 'Complet',   cls: 'bg-emerald-50 text-emerald-600' },
+  incomplet: { label: 'Incomplet', cls: 'bg-red-50 text-red-500' },
+  en_cours:  { label: 'En cours',  cls: 'bg-amber-50 text-amber-600' },
+};
+
 const tryMeta = {
   repondu:     'bg-emerald-50 text-emerald-700',
   non_repondu: 'bg-red-50 text-red-500',
@@ -252,6 +259,7 @@ const filtered = etudiants.filter(i => {
   const name = `${i.etudiant?.nom} ${i.etudiant?.prenom}`.toLowerCase();
   if (search && !name.includes(search.toLowerCase()) && !i.etudiant?.telephone?.includes(search)) return false;
   if (filters.statut        && i.statut           !== filters.statut)         return false;
+  if (filters.statut_dossier && (i.statut_dossier || 'incomplet') !== filters.statut_dossier) return false;
   if (filters.source        && i.source           !== filters.source)         return false;
   if (filters.registered_by && i.registered_by    !== filters.registered_by)  return false;
   if (filters.formation     && i.formation?.nom   !== filters.formation)      return false;
@@ -289,6 +297,7 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
   { label: 'Rapporteur',  Icon: UserCheck,   width: 98  },
   { label: 'Ajouté par',  Icon: UserCheck,   width: 100  },
   { label: 'Statut',      Icon: CheckCircle2,width: 103 },
+  { label: 'Dossier',     Icon: CheckCircle2,width: 103 },
   { label: 'Commentaire', Icon: null,        width: 130 },
 ];
 
@@ -347,7 +356,7 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
 
        
        <FilterSelect icon={CheckCircle2} label="Statut"         value={filters.statut || ''}        onChange={v => setFilter('statut', v)}        opts={statutOpts}               display={o => statutMeta[o]?.label ?? o} />
-      
+       <FilterSelect icon={CheckCircle2} label="Dossier"        value={filters.statut_dossier || ''} onChange={v => setFilter('statut_dossier', v)} opts={DOSSIER_OPTS}             display={o => statutDossierMeta[o]?.label ?? o} />
                <FilterSelect icon={Radio}        label="Source"          value={filters.source || ''}        onChange={v => setFilter('source', v)}        opts={sourceOpts} />
         <FilterSelect icon={UserCheck}    label="Rapporteur"  value={filters.registered_by || ''} onChange={v => setFilter('registered_by', v)} opts={registeredByOpts} />
     <FilterSelect
@@ -432,6 +441,7 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
                   <tr><td colSpan={COLS.length} className="text-center py-10 text-slate-400 bg-white">Aucun étudiant trouvé.</td></tr>
                 ) : filtered.map((i, idx) => {
                   const sm = statutMeta[i.statut];
+                  const sdm = statutDossierMeta[i.statut_dossier || 'incomplet'];
                   return (
                     <tr key={i.id} onClick={() => setSelected(i)}
                       className={`hover:bg-slate-50 transition cursor-pointer ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
@@ -510,6 +520,15 @@ if (filters.wilaya        && i.etudiant?.wilaya !== filters.wilaya)         retu
   className={`text-[11px] font-medium px-2 py-0.5 rounded-full border-0 focus:outline-none w-full ${isGroupLocked(i.groups?.date_fin) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}
 >
                           {statutOpts.map(o => <option key={o} value={o}>{statutMeta[o]?.label ?? o}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-2 py-2 overflow-hidden border-b border-slate-100" onClick={e => e.stopPropagation()}>
+                        <select
+                          value={i.statut_dossier ?? 'incomplet'}
+                          onChange={e => updateField(i.id, 'statut_dossier', e.target.value)}
+                          className={`text-[11px] font-medium px-2 py-0.5 rounded-full border-0 focus:outline-none w-full cursor-pointer ${sdm?.cls ?? 'bg-slate-100 text-slate-500'}`}
+                        >
+                          {DOSSIER_OPTS.map(o => <option key={o} value={o}>{statutDossierMeta[o]?.label ?? o}</option>)}
                         </select>
                       </td>
                       <td className="px-3 py-2 text-slate-500 truncate border-b border-slate-100" title={i.commentaire || ''}>
