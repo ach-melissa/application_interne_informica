@@ -95,10 +95,14 @@ const getDashboardStats = async (req, res) => {
           ? Number(group.niveau?.prix ?? 0)
           : Number(group.formation?.prix_etudiant ?? group.formation?.prix ?? 0);
 
-        const formationPeriods = allFormationPeriods.filter((p) =>
-          p.formation_id === group.formation_id &&
-          (group.niveau_id ? p.niveau_id === group.niveau_id : p.niveau_id === null)
-        );
+        const periodsForFormation = allFormationPeriods.filter((p) => p.formation_id === group.formation_id);
+        const periodsForNiveau = group.niveau_id
+          ? periodsForFormation.filter((p) => p.niveau_id === group.niveau_id)
+          : periodsForFormation.filter((p) => p.niveau_id === null);
+        // Fallback: no niveau-specific périodes → use the formation's shared (niveau_id = null) échéancier.
+        const formationPeriods = periodsForNiveau.length > 0
+          ? periodsForNiveau
+          : periodsForFormation.filter((p) => p.niveau_id === null);
         const groupPeriods = allGroupPeriods.filter((p) => p.group_id === group.id);
         const resolvedPeriods = resolveGroupPeriods(group, formationPeriods, groupPeriods);
         total = computeStudentTotal(baseTotal, i, group);
