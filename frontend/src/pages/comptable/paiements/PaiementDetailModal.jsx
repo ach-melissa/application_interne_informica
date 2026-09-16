@@ -19,15 +19,22 @@ const PaiementDetailModal = ({ row, onClose }) => {
         className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 bg-[#DCEBFA]">
-          <div>
-            <h3 className="text-sm font-bold text-[#0F2A4A]">{row.nom}</h3>
-            <p className="text-[11px] text-[#0369A1]">{row.formationNom}</p>
-          </div>
-          <button onClick={onClose} className="text-[#0369A1] hover:text-[#0F2A4A]">
-            <X size={18} />
-          </button>
-        </div>
+<div className="flex items-start justify-between px-5 py-4 bg-[#DCEBFA]">
+  <div>
+    <h3 className="text-sm font-bold text-[#0F2A4A]">{row.nom}</h3>
+    <p className="text-[11px] text-[#0369A1]">{row.formationNom} — {row.groupeNom}</p>
+    <p className="text-[10px] text-slate-400 mt-0.5">
+      Début du groupe : {row.groupeDateDebut ? new Date(row.groupeDateDebut).toLocaleDateString('fr-DZ') : '—'}
+      {' · '}
+      <span className={row.groupeStatut === 'termine' ? 'text-slate-500' : 'text-emerald-600 font-medium'}>
+        {row.groupeStatut === 'termine' ? 'Terminé' : 'En cours'}
+      </span>
+    </p>
+  </div>
+  <button onClick={onClose} className="text-[#0369A1] hover:text-[#0F2A4A]">
+    <X size={18} />
+  </button>
+</div>
 
         <div className="p-5">
           {trancheNumbers.length === 0 ? (
@@ -37,31 +44,41 @@ const PaiementDetailModal = ({ row, onClose }) => {
               <thead>
                 <tr className="text-[10px] uppercase text-[#0369A1] border-b border-[#E2E8F0]">
                   <th className="text-left py-2">Tranche</th>
-                  <th className="text-right py-2">Montant</th>
-                  <th className="text-right py-2">Date de paiement</th>
+<th className="text-right py-2">Montant prévu</th>
+<th className="text-right py-2">Montant payé</th>
+<th className="text-right py-2">Date de paiement</th>
+<th className="text-center py-2">Statut</th>
                 </tr>
               </thead>
               <tbody>
-                {trancheNumbers.map((n) => {
-                  const t = row.tranches[n];
-                  // Le champ date exact dépend du backend — à ajuster si le nom diffère
-                  // (ex: date_paiement, date, created_at).
-                  const date = t.date_paiement ?? t.date ?? t.created_at ?? null;
-                  return (
-                    <tr key={n} className="border-b border-[#E2E8F0] last:border-0">
-                      <td className="py-2 font-medium text-slate-700">{n}ère Tranche</td>
-                      <td className="py-2 text-right font-semibold text-slate-700">
-                        {Number(t.montant).toLocaleString('fr-DZ')} DA
-                      </td>
-                      <td className="py-2 text-right text-slate-500">
-                        <span className="inline-flex items-center gap-1">
-                          <Calendar size={11} />
-                          {date ? new Date(date).toLocaleDateString('fr-DZ') : '—'}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+{trancheNumbers.map((n) => {
+  const t = row.tranches[n];
+  const date = t.date_paiement ?? t.date ?? t.created_at ?? null;
+  const prevu = t.montant_prevu; // ← dépend de ta réponse sur le point ci-dessus
+  const enRetard = !date && prevu != null; // à affiner selon logique retard voulue
+  return (
+    <tr key={n} className="border-b border-[#E2E8F0] last:border-0">
+      <td className="py-2 font-medium text-slate-700">{n}ère Tranche</td>
+      <td className="py-2 text-right text-slate-500">
+        {prevu != null ? `${Number(prevu).toLocaleString('fr-DZ')} DA` : '—'}
+      </td>
+      <td className={`py-2 text-right font-semibold ${enRetard ? 'text-red-600' : 'text-slate-700'}`}>
+        {Number(t.montant).toLocaleString('fr-DZ')} DA
+      </td>
+      <td className={`py-2 text-right ${enRetard ? 'text-red-600' : 'text-slate-500'}`}>
+        <span className="inline-flex items-center gap-1">
+          <Calendar size={11} />
+          {date ? new Date(date).toLocaleDateString('fr-DZ') : '—'}
+        </span>
+      </td>
+      <td className="py-2 text-center">
+        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${enRetard ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`}>
+          {enRetard ? 'Retard' : 'Payé'}
+        </span>
+      </td>
+    </tr>
+  );
+})}
               </tbody>
             </table>
           )}

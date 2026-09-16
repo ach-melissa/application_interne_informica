@@ -77,6 +77,9 @@ const Paiements = () => {
   const handleRemoveAutre = (id) => {
     setAutresRevenus((prev) => prev.filter((a) => a.id !== id));
   };
+const handleEditAutre = (id, updated) => {
+  setAutresRevenus((prev) => prev.map((a) => (a.id === id ? { ...a, ...updated } : a)));
+};
 
   const TABS = [
     { key: 'globale', label: 'Formation' },
@@ -128,11 +131,12 @@ const Paiements = () => {
       )}
 
       {activeTab === 'autre' && (
-        <PaiementsAutre
-          autresRevenus={autresRevenus}
-          onAdd={handleAddAutre}
-          onRemove={handleRemoveAutre}
-        />
+<PaiementsAutre
+  autresRevenus={autresRevenus}
+  onAdd={handleAddAutre}
+  onEdit={handleEditAutre}
+  onRemove={handleRemoveAutre}
+/>
       )}
     </ComptableLayout>
   );
