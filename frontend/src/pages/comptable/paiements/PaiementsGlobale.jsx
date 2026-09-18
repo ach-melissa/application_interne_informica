@@ -19,7 +19,13 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
       const key = `${p.etudiant_id}_${p.formation_id}`;
       if (!map.has(key)) {
         const formation = formations.find((f) => String(f.id) === String(p.formation_id));
-        const prix = formation?.prix_etudiant ?? formation?.prix ?? formation?.tarif ?? null;
+        const prixBase = formation?.prix_etudiant ?? formation?.prix ?? formation?.tarif ?? null;
+        const enPromotion = p.enPromotion ?? false;
+        const prixPromotion = p.prixPromotion ?? null;
+        const groupEnPromotion = p.groupEnPromotion ?? false;
+        const groupPrixPromotion = p.groupPrixPromotion ?? null;
+        // Price still follows priority: a student's own override beats the group's.
+        const prix = enPromotion ? prixPromotion : groupEnPromotion ? groupPrixPromotion : prixBase;
         map.set(key, {
           key,
           etudiantId: p.etudiant_id,
@@ -33,6 +39,12 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
           groupeDateFin: p.groupe?.date_fin ?? null,
           groupeStatut: p.groupe?.statut ?? null,
           prix,
+          // Kept independent on purpose — a student can be personally promo'd
+          // AND belong to a promo'd group at the same time; both labels can show.
+          enPromotion,
+          prixPromotion,
+          groupEnPromotion,
+          groupPrixPromotion,
           tranches: {},
         });
       }
@@ -107,7 +119,6 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
     { label: 'Étudiants', value: stats.nbEtudiants, icon: Users, bg: 'bg-[#DCEBFA]', color: 'text-[#0369A1]' },
     { label: 'En retard', value: stats.nbEnRetard, icon: Clock, bg: 'bg-red-50', color: 'text-red-600' },
   ];
-
   const COLS = [
     { label: 'Étudiant', icon: User },
     { label: 'Numero tel', icon: User },
@@ -211,16 +222,17 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
                   <tr>
                     <td colSpan={8} className="text-center py-10 text-slate-400 bg-white">Aucun revenu trouvé.</td>
                   </tr>
-                ) : filtered.map((row, idx) => {
+                ) : filtered.map((row) => {
                   const paid = totalPaye(row);
                   const reste = resteAPayer(row);
                   const enRetard = estEnRetard(row);
+                  const rowBg = enRetard ? 'bg-red-50' : (reste != null && reste <= 0) ? 'bg-emerald-50' : 'bg-amber-50';
 
                   return (
                     <tr
                       key={row.key}
                       onClick={() => setSelectedRow(row)}
-                      className={`hover:bg-slate-50 transition cursor-pointer ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}
+                      className={`hover:opacity-80 transition cursor-pointer ${rowBg}`}
                     >
                       <td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap border-b border-l border-slate-100">
                         <span className="inline-flex items-center gap-1.5">
@@ -228,11 +240,27 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
                           {enRetard && (
                             <span title={`En retard (> ${RETARD_JOURS} j sans paiement)`} className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
                           )}
+                          {row.enPromotion && (
+                            <span title={`Promo étudiant — ${row.prixPromotion != null ? Number(row.prixPromotion).toLocaleString('fr-DZ') : '—'} DA`}
+                              className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[#0369A1] text-white whitespace-nowrap">
+                              <User size={9} /> Promo
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-slate-100">{row.telephone}</td>
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-slate-100">{row.formationNom}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-500 whitespace-nowrap border-b border-slate-100">{row.groupeNom}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-500 whitespace-nowrap border-b border-slate-100">
+                        <span className="inline-flex items-center gap-1.5 justify-end">
+                          {row.groupeNom}
+                          {row.groupEnPromotion && (
+                            <span title={`Promo groupe — ${row.groupPrixPromotion != null ? Number(row.groupPrixPromotion).toLocaleString('fr-DZ') : '—'} DA`}
+                              className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 whitespace-nowrap">
+                              <Users size={9} /> Promo
+                            </span>
+                          )}
+                        </span>
+                      </td>
                       <td className="px-3 py-2.5 text-right text-slate-500 whitespace-nowrap border-b border-slate-100">{row.professeurNom}</td>
                       <td className="px-3 py-2.5 text-right text-slate-600 whitespace-nowrap border-b border-slate-100">
                         {row.prix != null ? `${Number(row.prix).toLocaleString('fr-DZ')} DA` : '—'}

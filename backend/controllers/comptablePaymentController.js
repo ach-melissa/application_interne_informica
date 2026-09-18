@@ -27,8 +27,8 @@ const getAllPayments = async (req, res) => {
 const { data: inscriptions, error: insErr } = await supabase
   .from('inscriptions')
   .select(`
-    etudiant_id, formation_id,
-group:group_id ( nom, date_debut, date_fin, statut, teacher:teacher_id ( user:user_id ( nom, prenom ) ) )
+    etudiant_id, formation_id, en_promotion, prix_promotion,
+group:group_id ( nom, date_debut, date_fin, statut, en_promotion, prix_promotion, teacher:teacher_id ( user:user_id ( nom, prenom ) ) )
     `)
   .in('etudiant_id', etudiantIds);
 
@@ -36,14 +36,27 @@ if (insErr) console.error('INSCRIPTIONS ERROR:', insErr);
 if (!insErr) console.log('INSCRIPTIONS SAMPLE:', inscriptions?.[0]);
 
 const groupMap = new Map();
+const promoMap = new Map();
 for (const ins of inscriptions ?? []) {
-  groupMap.set(`${ins.etudiant_id}_${ins.formation_id}`, ins.group);
+  const key = `${ins.etudiant_id}_${ins.formation_id}`;
+  groupMap.set(key, ins.group);
+  // Same priority as computeStudentTotal on the group side: student promo > group promo.
+  promoMap.set(key, {
+    enPromotion: ins.en_promotion ?? false,
+    prixPromotion: ins.prix_promotion != null ? Number(ins.prix_promotion) : null,
+    groupEnPromotion: ins.group?.en_promotion ?? false,
+    groupPrixPromotion: ins.group?.prix_promotion != null ? Number(ins.group.prix_promotion) : null,
+  });
 }
 
-const enriched = data.map(p => ({
-  ...p,
-  groupe: groupMap.get(`${p.etudiant_id}_${p.formation_id}`) ?? null,
-}));
+const enriched = data.map(p => {
+  const key = `${p.etudiant_id}_${p.formation_id}`;
+  return {
+    ...p,
+    groupe: groupMap.get(key) ?? null,
+    ...(promoMap.get(key) ?? { enPromotion: false, prixPromotion: null, groupEnPromotion: false, groupPrixPromotion: null }),
+  };
+});
 
  res.json(enriched);
 };
