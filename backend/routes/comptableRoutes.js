@@ -21,6 +21,10 @@ const {
   getCategories, addCategorie, renameCategorie, removeCategorie,
 } = require('../controllers/comptableAutresRevenusController');
 
+const {
+  getCharges, getChargeCategories, createCharge, updateCharge, deleteCharge,
+} = require('../controllers/comptableChargesController');
+
 // Dashboard
 router.get('/stats',              ...auth, getStats);
 
@@ -50,5 +54,13 @@ router.get   ('/autres-revenus/categories', ...auth, getCategories);
 router.post  ('/autres-revenus/categories', ...auth, addCategorie);
 router.patch ('/autres-revenus/categories', ...auth, renameCategorie);
 router.delete('/autres-revenus/categories', ...auth, removeCategorie);
+
+
+// Charges (formation / autre)
+router.get   ('/charges/categories', ...auth, getChargeCategories);
+router.get   ('/charges',            ...auth, getCharges);
+router.post  ('/charges',            ...auth, createCharge);
+router.patch ('/charges/:id',        ...auth, updateCharge);
+router.delete('/charges/:id',        ...auth, deleteCharge);
 
 module.exports = router;
