@@ -48,11 +48,15 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
           tranches: {},
         });
       }
-      map.get(key).tranches[p.tranche] = {
-        montant: p.montant,
-        date_paiement: p.date_paiement ?? p.date ?? p.created_at,
-        statut: p.statut,
-      };
+      // Placeholder rows (student enrolled, never paid) carry tranche: null
+      // on purpose — skip them so they don't pollute row.tranches.
+      if (p.id != null && p.tranche != null) {
+        map.get(key).tranches[p.tranche] = {
+          montant: p.montant,
+          date_paiement: p.date_paiement ?? p.date ?? p.created_at,
+          statut: p.statut,
+        };
+      }
     }
     return Array.from(map.values());
   }, [paiements, formations]);

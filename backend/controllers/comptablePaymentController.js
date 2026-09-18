@@ -22,43 +22,73 @@ const getAllPayments = async (req, res) => {
     .order('date_paiement', { ascending: false });
 
   if (error) return res.status(500).json({ error: error.message });
-  const etudiantIds = [...new Set(data.map(p => p.etudiant_id))];
 
-const { data: inscriptions, error: insErr } = await supabase
-  .from('inscriptions')
-  .select(`
-    etudiant_id, formation_id, en_promotion, prix_promotion,
-group:group_id ( nom, date_debut, date_fin, statut, en_promotion, prix_promotion, teacher:teacher_id ( user:user_id ( nom, prenom ) ) )
-    `)
-  .in('etudiant_id', etudiantIds);
+  // Pull EVERY inscription (etudiant + formation pair), not just the ones
+  // tied to existing payments — a student with 0 payments still needs to
+  // show up in the recette table, owing the full price.
+  const { data: allInscriptions, error: insErr } = await supabase
+    .from('inscriptions')
+    .select(`
+      etudiant_id, formation_id, en_promotion, prix_promotion,
+      etudiant:etudiant_id ( id, nom, prenom, telephone ),
+      formation:formation_id ( id, nom ),
+      group:group_id ( nom, date_debut, date_fin, statut, en_promotion, prix_promotion, teacher:teacher_id ( user:user_id ( nom, prenom ) ) )
+    `);
 
-if (insErr) console.error('INSCRIPTIONS ERROR:', insErr);
-if (!insErr) console.log('INSCRIPTIONS SAMPLE:', inscriptions?.[0]);
+  if (insErr) console.error('INSCRIPTIONS ERROR:', insErr);
 
-const groupMap = new Map();
-const promoMap = new Map();
-for (const ins of inscriptions ?? []) {
-  const key = `${ins.etudiant_id}_${ins.formation_id}`;
-  groupMap.set(key, ins.group);
-  // Same priority as computeStudentTotal on the group side: student promo > group promo.
-  promoMap.set(key, {
-    enPromotion: ins.en_promotion ?? false,
-    prixPromotion: ins.prix_promotion != null ? Number(ins.prix_promotion) : null,
-    groupEnPromotion: ins.group?.en_promotion ?? false,
-    groupPrixPromotion: ins.group?.prix_promotion != null ? Number(ins.group.prix_promotion) : null,
+  const groupMap = new Map();
+  const promoMap = new Map();
+  const studentInfoMap = new Map();
+  for (const ins of allInscriptions ?? []) {
+    const key = `${ins.etudiant_id}_${ins.formation_id}`;
+    groupMap.set(key, ins.group);
+    // Same priority as computeStudentTotal on the group side: student promo > group promo.
+    promoMap.set(key, {
+      enPromotion: ins.en_promotion ?? false,
+      prixPromotion: ins.prix_promotion != null ? Number(ins.prix_promotion) : null,
+      groupEnPromotion: ins.group?.en_promotion ?? false,
+      groupPrixPromotion: ins.group?.prix_promotion != null ? Number(ins.group.prix_promotion) : null,
+    });
+    studentInfoMap.set(key, { etudiant: ins.etudiant, formation: ins.formation });
+  }
+
+  const enriched = data.map(p => {
+    const key = `${p.etudiant_id}_${p.formation_id}`;
+    return {
+      ...p,
+      groupe: groupMap.get(key) ?? null,
+      ...(promoMap.get(key) ?? { enPromotion: false, prixPromotion: null, groupEnPromotion: false, groupPrixPromotion: null }),
+    };
   });
-}
 
-const enriched = data.map(p => {
-  const key = `${p.etudiant_id}_${p.formation_id}`;
-  return {
-    ...p,
-    groupe: groupMap.get(key) ?? null,
-    ...(promoMap.get(key) ?? { enPromotion: false, prixPromotion: null, groupEnPromotion: false, groupPrixPromotion: null }),
-  };
-});
+  // For every inscription that has no real payment yet, inject a
+  // placeholder "empty" row so the student still appears (0 DA payé,
+  // full price restant). montant/tranche stay null so the frontend
+  // never mistakes this for a real tranche.
+  const coveredKeys = new Set(enriched.map(p => `${p.etudiant_id}_${p.formation_id}`));
+  const placeholders = [];
+  for (const ins of allInscriptions ?? []) {
+    const key = `${ins.etudiant_id}_${ins.formation_id}`;
+    if (coveredKeys.has(key)) continue;
+    coveredKeys.add(key);
+    const info = studentInfoMap.get(key);
+    placeholders.push({
+      id: null,
+      montant: null,
+      date_paiement: null,
+      tranche: null,
+      statut: null,
+      etudiant_id: ins.etudiant_id,
+      formation_id: ins.formation_id,
+      etudiants: info?.etudiant ?? null,
+      formations: info?.formation ?? null,
+      groupe: groupMap.get(key) ?? null,
+      ...(promoMap.get(key) ?? { enPromotion: false, prixPromotion: null, groupEnPromotion: false, groupPrixPromotion: null }),
+    });
+  }
 
- res.json(enriched);
+  res.json([...enriched, ...placeholders]);
 };
 
 /**
