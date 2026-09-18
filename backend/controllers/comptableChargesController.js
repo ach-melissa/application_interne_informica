@@ -3,7 +3,7 @@
 
 // ⚠️ LIGNE À REMPLACER : copiez ici l'import du client Supabase qui se trouve
 // tout en haut de comptableAutresRevenusController.js (même variable, même chemin).
-const supabase = require('../config/supabase');
+const supabase = require('../supabaseClient');
 
 // Doit rester identique à la contrainte `charges_categorie_matches_type` en base.
 const CATEGORIES = {
@@ -55,7 +55,7 @@ const getCharges = safe(async (req, res) => {
 const getChargeCategories = safe(async (req, res) => {
   const { type } = req.query;
   if (!TYPES.includes(type)) return res.status(400).json({ error: 'Type invalide.' });
-  res.json(CATEGORIES[type].map((name) => ({ name })));
+ res.json(CATEGORIES[type].map((name) => ({ name, active: true })));
 });
 
 // POST /charges

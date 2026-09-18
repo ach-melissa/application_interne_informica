@@ -299,13 +299,6 @@ const handleToggleCategory = async (name) => {
             <p className="text-sm font-bold text-[#0F2A4A]">{chargesDuMois.toLocaleString('fr-DZ')} DA</p>
           </div>
         </div>
-
-        <button
-          onClick={() => setShowCategoryManager(true)}
-          className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1] bg-white border border-[#E2E8F0] hover:bg-[#DCEBFA] px-4 py-2 rounded-full transition"
-        >
-          <Tag size={14} /> Catégories
-        </button>
         <button
           onClick={() => setShowForm((s) => !s)}
           className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1] bg-[#DCEBFA] hover:bg-[#c9e2f7] px-4 py-2 rounded-full transition"
@@ -600,10 +593,10 @@ const handleToggleCategory = async (name) => {
         <div className="overflow-x-auto">
           <table className="w-full text-xs table-fixed">
             <colgroup>
-              <col className="w-[20%]" />  {/* Catégorie */}
-              <col className="w-[42%]" />  {/* Description */}
-              <col className="w-[19%]" />  {/* Montant */}
-              <col className="w-[19%]" />  {/* Date */}
+<col className="w-[20%]" />
+<col className="w-[42%]" />
+<col className="w-[19%]" />
+<col className="w-[19%]" />
             </colgroup>
             <thead className="bg-[#DCEBFA]">
               <tr>
