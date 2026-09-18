@@ -1,9 +1,9 @@
 // PaiementDetailModal.jsx
-import { X, Calendar, User } from 'lucide-react';
-
+import { X, Calendar, User, Image as ImageIcon, ZoomIn } from 'lucide-react';
+import { useState } from 'react';
 const PaiementDetailModal = ({ row, onClose }) => {
+  const [lightboxUrl, setLightboxUrl] = useState(null);
   if (!row) return null;
-
   const trancheNumbers = Object.keys(row.tranches).map(Number).sort((a, b) => a - b);
   const paid = trancheNumbers.reduce((s, n) => s + Number(row.tranches[n].montant), 0);
   const reste = row.prix != null ? row.prix - paid : null;
@@ -26,7 +26,15 @@ const PaiementDetailModal = ({ row, onClose }) => {
 
         <div className="p-5">
           <div className="mb-4">
-            <p className="text-[11px] text-[#0369A1] font-medium">{row.formationNom} — {row.groupeNom}</p>
+            <p className="text-[11px] text-[#0369A1] font-medium inline-flex items-center gap-1.5 flex-wrap">
+  {row.formationNom}
+  {row.formationANiveaux && row.niveauNom && (
+    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
+      {row.niveauNom}
+    </span>
+  )}
+  <span>— {row.groupeNom}</span>
+</p>
             <p className="text-[10px] text-slate-400 mt-0.5">
               Début du groupe : {row.groupeDateDebut ? new Date(row.groupeDateDebut).toLocaleDateString('fr-DZ') : '—'}
               {' · '}Fin : {row.groupeDateFin ? new Date(row.groupeDateFin).toLocaleDateString('fr-DZ') : '—'}
@@ -43,10 +51,11 @@ const PaiementDetailModal = ({ row, onClose }) => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-[10px] uppercase text-[#0369A1] border-b border-slate-100">
-                  <th className="text-left py-2">Tranche</th>
-                  <th className="text-right py-2">Montant payé</th>
-                  <th className="text-right py-2">Date de paiement</th>
-                </tr>
+  <th className="text-left py-2">Tranche</th>
+  <th className="text-right py-2">Montant payé</th>
+  <th className="text-right py-2">Date de paiement</th>
+  <th className="text-right py-2">Bon</th>
+</tr>
               </thead>
               <tbody>
                 {trancheNumbers.map((n) => {
@@ -59,12 +68,24 @@ const PaiementDetailModal = ({ row, onClose }) => {
                       <td className={`py-2 text-right font-semibold ${enRetard ? 'text-red-600' : 'text-slate-700'}`}>
                         {Number(t.montant).toLocaleString('fr-DZ')} DA
                       </td>
-                      <td className={`py-2 text-right ${enRetard ? 'text-red-600' : 'text-slate-500'}`}>
-                        <span className="inline-flex items-center gap-1">
-                          <Calendar size={11} />
-                          {date ? new Date(date).toLocaleDateString('fr-DZ') : '—'}
-                        </span>
-                      </td>
+                     <td className={`py-2 text-right ${enRetard ? 'text-red-600' : 'text-slate-500'}`}>
+  <span className="inline-flex items-center gap-1">
+    <Calendar size={11} />
+    {date ? new Date(date).toLocaleDateString('fr-DZ') : '—'}
+  </span>
+</td>
+<td className="py-2 text-right">
+  {t.bon_photo ? (
+    <button onClick={() => setLightboxUrl(t.bon_photo)} className="inline-flex relative group ml-auto">
+      <img src={t.bon_photo} alt="bon" className="w-8 h-8 rounded-md object-cover border border-slate-200 group-hover:opacity-80 transition" />
+      <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+        <ZoomIn size={12} className="text-white drop-shadow" />
+      </span>
+    </button>
+  ) : (
+    <span className="text-slate-300 text-[11px]">—</span>
+  )}
+</td>
                     </tr>
                   );
                 })}
@@ -86,6 +107,17 @@ const PaiementDetailModal = ({ row, onClose }) => {
           )}
         </div>
       </div>
+
+      {lightboxUrl && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setLightboxUrl(null)}>
+          <div className="relative max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setLightboxUrl(null)} className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-lg text-slate-700 hover:text-red-400 transition z-10">
+              <X size={16} />
+            </button>
+            <img src={lightboxUrl} alt="Bon de paiement" className="w-full rounded-md shadow-2xl object-contain max-h-[80vh]" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -36,9 +36,9 @@ const PaiementsAutrePage = () => {
         setError(msg || 'Erreur ajout revenu.');
         return false;
       }
-      const created = await res.json();
+       const created = await res.json();
       setAutresRevenus((prev) => [...prev, created]);
-      return true;
+      return created;
     } catch {
       setError('Erreur réseau.');
       return false;

@@ -14,6 +14,7 @@ const getAllPayments = async (req, res) => {
   date_paiement,
   tranche,
   statut,
+  bon_photo,
   etudiant_id,
   formation_id,
   etudiants:etudiant_id ( id, nom, prenom, telephone ),

@@ -18,9 +18,9 @@ const {
 const auth = [verifyToken, requireRole('admin', 'comptable')];
 const {
   getAutresRevenus, createAutreRevenu, updateAutreRevenu, deleteAutreRevenu,
+  uploadBonRevenu, deleteBonRevenu, upload: uploadBon,
   getCategories, addCategorie, renameCategorie, removeCategorie,
 } = require('../controllers/comptableAutresRevenusController');
-
 const {
   getCharges, getChargeCategories, createCharge, updateCharge, deleteCharge,
 } = require('../controllers/comptableChargesController');
@@ -48,13 +48,16 @@ router.get('/staff',              ...auth, getStaff);
 // Autres revenus
 router.get   ('/autres-revenus',            ...auth, getAutresRevenus);
 router.post  ('/autres-revenus',            ...auth, createAutreRevenu);
-router.patch ('/autres-revenus/:id',        ...auth, updateAutreRevenu);
-router.delete('/autres-revenus/:id',        ...auth, deleteAutreRevenu);
+// IMPORTANT: specific routes (/categories) must come before /:id
 router.get   ('/autres-revenus/categories', ...auth, getCategories);
 router.post  ('/autres-revenus/categories', ...auth, addCategorie);
 router.patch ('/autres-revenus/categories', ...auth, renameCategorie);
 router.delete('/autres-revenus/categories', ...auth, removeCategorie);
-
+router.patch ('/autres-revenus/:id',        ...auth, updateAutreRevenu);
+router.delete('/autres-revenus/:id',        ...auth, deleteAutreRevenu);
+// Bons (multiple photos per autre revenu)
+router.post  ('/autres-revenus/:id/bons',      ...auth, uploadBon.single('bon'), uploadBonRevenu);
+router.delete('/autres-revenus/bons/:bonId',   ...auth, deleteBonRevenu);
 
 // Charges (formation / autre)
 router.get   ('/charges/categories', ...auth, getChargeCategories);

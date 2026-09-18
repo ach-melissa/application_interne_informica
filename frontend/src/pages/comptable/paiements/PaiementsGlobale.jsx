@@ -57,11 +57,12 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
       // Placeholder rows (student enrolled, never paid) carry tranche: null
       // on purpose — skip them so they don't pollute row.tranches.
       if (p.id != null && p.tranche != null) {
-        map.get(key).tranches[p.tranche] = {
-          montant: p.montant,
-          date_paiement: p.date_paiement ?? p.date ?? p.created_at,
-          statut: p.statut,
-        };
+      map.get(key).tranches[p.tranche] = {
+  montant: p.montant,
+  date_paiement: p.date_paiement ?? p.date ?? p.created_at,
+  statut: p.statut,
+  bon_photo: p.bon_photo ?? null,
+};
       }
     }
     return Array.from(map.values());
@@ -342,7 +343,7 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
                       onClick={() => setSelectedRow(row)}
                       className={`hover:opacity-80 transition cursor-pointer ${rowBg}`}
                     >
-                      <td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap border-b border-l border-slate-100">
+                      <td className="px-3 py-2.5 font-medium text-slate-700 border-b border-l border-slate-100 max-w-[160px] truncate">
                         <span className="inline-flex items-center gap-1.5">
                           {row.nom}
                           {enRetard && (
@@ -357,16 +358,16 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
                         </span>
                       </td>
                       <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-slate-100">{row.telephone}</td>
-                      <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-slate-100">
-                        <span className="inline-flex items-center gap-1.5">
-                          {row.formationNom}
-                          {row.formationANiveaux && row.niveauNom && (
-                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
-                              {row.niveauNom}
-                            </span>
-                          )}
-                        </span>
-                      </td>
+                     <td className="px-3 py-2.5 text-slate-500 border-b border-slate-100 max-w-[150px] truncate">
+  <span className="inline-flex items-center gap-1.5">
+    {row.formationNom}
+    {row.formationANiveaux && row.niveauNom && (
+      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
+        {row.niveauNom}
+      </span>
+    )}
+  </span>
+</td>
                       <td className="px-3 py-2.5 text-right text-slate-500 whitespace-nowrap border-b border-slate-100">
                         <span className="inline-flex items-center gap-1.5 justify-end">
                           {row.groupeNom}

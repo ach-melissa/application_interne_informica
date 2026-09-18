@@ -111,8 +111,12 @@ const Topbar = ({ onMenuClick }) => {
   // - admin        → voit les actions admin + super_admin
   // - comptable    → voit les actions comptable + super_admin
   // - super_admin  → voit tout (admin + comptable), car il partage les deux périmètres
-  const canSeeHistorique = isAdmin || isSuperAdmin;
-  const historiqueScopeLabel = 'Actions admin & super admin';
+  const canSeeHistorique = isAdmin || isSuperAdmin || isComptable;
+  const historiqueScopeLabel = isComptable
+    ? 'Actions comptable & super admin'
+    : isSuperAdmin
+      ? 'Actions admin, comptable & super admin'
+      : 'Actions admin & super admin';
   const fetchNotifications = useCallback(async () => {
     if (!isAdmin && !isProf) return;
 
