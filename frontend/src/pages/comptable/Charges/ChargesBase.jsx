@@ -600,10 +600,10 @@ const handleToggleCategory = async (name) => {
         <div className="overflow-x-auto">
           <table className="w-full text-xs table-fixed">
             <colgroup>
-              <col className="w-[20%]" />  {/* Catégorie */}
-              <col className="w-[42%]" />  {/* Description */}
-              <col className="w-[19%]" />  {/* Montant */}
-              <col className="w-[19%]" />  {/* Date */}
+<col className="w-[20%]" />
+<col className="w-[42%]" />
+<col className="w-[19%]" />
+<col className="w-[19%]" />
             </colgroup>
             <thead className="bg-[#DCEBFA]">
               <tr>

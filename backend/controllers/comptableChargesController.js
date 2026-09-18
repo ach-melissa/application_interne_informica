@@ -3,7 +3,7 @@
 
 // ⚠️ LIGNE À REMPLACER : copiez ici l'import du client Supabase qui se trouve
 // tout en haut de comptableAutresRevenusController.js (même variable, même chemin).
-const supabase = require('../config/supabase');
+const supabase = require('../supabaseClient');
 
 // Doit rester identique à la contrainte `charges_categorie_matches_type` en base.
 const CATEGORIES = {
