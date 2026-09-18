@@ -43,6 +43,10 @@ const FIELD_LABELS = {
   heure_fin: 'heure de fin',
   duree_effectuee: 'durée effectuée',
   type_seance: 'type de séance',
+  // autres revenus
+  libelle: 'libellé',
+  montant: 'montant',
+  categorie: 'catégorie',
 };
 
 const buildDiffDescription = (before, patch) => {

@@ -252,8 +252,14 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
         autresRevenus
           .filter((a) => a.categorie === oldName)
           .forEach((a) => onEdit?.(a.id, { categorie: name }));
+        setCategoryError(null);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setCategoryError(body.error || 'Erreur lors du renommage.');
       }
-    } catch { /* silent */ }
+    } catch {
+      setCategoryError('Erreur réseau.');
+    }
     setEditingCategory(null);
   };
 

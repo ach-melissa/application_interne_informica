@@ -4,6 +4,15 @@ const supabase = require('../supabaseClient');
 // GET /api/historique — liste des actions admin (+ super_admin)
 // Support optionnel : ?limit=50 (défaut 50, max 200)
 // ============================================================
+// admin        → voit les actions admin + super_admin
+// comptable    → voit les actions comptable + super_admin
+// super_admin  → voit tout (admin + comptable)
+const perimetresFor = (role) => {
+  if (role === 'super_admin') return ['admin', 'comptable', 'super_admin'];
+  if (role === 'comptable') return ['comptable', 'super_admin'];
+  return ['admin', 'super_admin'];
+};
+
 const getHistorique = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
@@ -11,7 +20,7 @@ const getHistorique = async (req, res) => {
     const { data, error } = await supabase
       .from('historique')
       .select('id, utilisateur_nom, role, action, entite, description, created_at')
-      .eq('perimetre', 'admin')
+      .in('perimetre', perimetresFor(req.user.role))
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -34,7 +43,7 @@ const getHistoriqueUnread = async (req, res) => {
   const { data: last, error } = await supabase
     .from('historique')
     .select('created_at')
-    .eq('perimetre', 'admin')
+    .in('perimetre', perimetresFor(req.user.role))
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
