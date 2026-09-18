@@ -29,9 +29,10 @@ const getAllPayments = async (req, res) => {
   const { data: allInscriptions, error: insErr } = await supabase
     .from('inscriptions')
     .select(`
-      etudiant_id, formation_id, en_promotion, prix_promotion,
+      etudiant_id, formation_id, en_promotion, prix_promotion, statut_scolarite,
       etudiant:etudiant_id ( id, nom, prenom, telephone ),
       formation:formation_id ( id, nom ),
+      niveau:niveau_id ( id, nom ),
       group:group_id ( nom, date_debut, date_fin, statut, en_promotion, prix_promotion, teacher:teacher_id ( user:user_id ( nom, prenom ) ) )
     `);
 
@@ -39,6 +40,8 @@ const getAllPayments = async (req, res) => {
 
   const groupMap = new Map();
   const promoMap = new Map();
+  const scolariteMap = new Map();
+  const niveauMap = new Map();
   const studentInfoMap = new Map();
   for (const ins of allInscriptions ?? []) {
     const key = `${ins.etudiant_id}_${ins.formation_id}`;
@@ -50,6 +53,8 @@ const getAllPayments = async (req, res) => {
       groupEnPromotion: ins.group?.en_promotion ?? false,
       groupPrixPromotion: ins.group?.prix_promotion != null ? Number(ins.group.prix_promotion) : null,
     });
+    scolariteMap.set(key, ins.statut_scolarite || 'en_cours');
+    niveauMap.set(key, ins.niveau?.nom ?? null);
     studentInfoMap.set(key, { etudiant: ins.etudiant, formation: ins.formation });
   }
 
@@ -58,6 +63,8 @@ const getAllPayments = async (req, res) => {
     return {
       ...p,
       groupe: groupMap.get(key) ?? null,
+      statutScolarite: scolariteMap.get(key) ?? 'en_cours',
+      niveauNom: niveauMap.get(key) ?? null,
       ...(promoMap.get(key) ?? { enPromotion: false, prixPromotion: null, groupEnPromotion: false, groupPrixPromotion: null }),
     };
   });
@@ -84,6 +91,8 @@ const getAllPayments = async (req, res) => {
       etudiants: info?.etudiant ?? null,
       formations: info?.formation ?? null,
       groupe: groupMap.get(key) ?? null,
+      statutScolarite: scolariteMap.get(key) ?? 'en_cours',
+      niveauNom: niveauMap.get(key) ?? null,
       ...(promoMap.get(key) ?? { enPromotion: false, prixPromotion: null, groupEnPromotion: false, groupPrixPromotion: null }),
     });
   }
