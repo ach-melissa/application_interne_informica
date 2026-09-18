@@ -230,7 +230,8 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
         setNewCategory('');
         setCategoryError(null);
       } else {
-        setCategoryError("Erreur lors de l'ajout de la catégorie.");
+        const body = await res.json().catch(() => ({}));
+        setCategoryError(body.error || "Erreur lors de l'ajout de la catégorie.");
       }
     } catch {
       setCategoryError('Erreur réseau.');
@@ -272,7 +273,8 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
         setCategories((prev) => prev.filter((c) => c !== name));
         setCategoryError(null);
       } else {
-        setCategoryError('Erreur lors de la suppression.');
+        const body = await res.json().catch(() => ({}));
+        setCategoryError(body.error || 'Erreur lors de la suppression.');
       }
     } catch {
       setCategoryError('Erreur réseau.');

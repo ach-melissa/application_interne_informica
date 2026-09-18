@@ -48,12 +48,13 @@ router.get('/staff',              ...auth, getStaff);
 // Autres revenus
 router.get   ('/autres-revenus',            ...auth, getAutresRevenus);
 router.post  ('/autres-revenus',            ...auth, createAutreRevenu);
-router.patch ('/autres-revenus/:id',        ...auth, updateAutreRevenu);
-router.delete('/autres-revenus/:id',        ...auth, deleteAutreRevenu);
+// IMPORTANT: specific routes (/categories) must come before /:id
 router.get   ('/autres-revenus/categories', ...auth, getCategories);
 router.post  ('/autres-revenus/categories', ...auth, addCategorie);
 router.patch ('/autres-revenus/categories', ...auth, renameCategorie);
 router.delete('/autres-revenus/categories', ...auth, removeCategorie);
+router.patch ('/autres-revenus/:id',        ...auth, updateAutreRevenu);
+router.delete('/autres-revenus/:id',        ...auth, deleteAutreRevenu);
 // Bons (multiple photos per autre revenu)
 router.post  ('/autres-revenus/:id/bons',      ...auth, uploadBon.single('bon'), uploadBonRevenu);
 router.delete('/autres-revenus/bons/:bonId',   ...auth, deleteBonRevenu);
