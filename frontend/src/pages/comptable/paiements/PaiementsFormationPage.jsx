@@ -1,5 +1,7 @@
+// PaiementsFormationPage.jsx
 import { useEffect, useState } from 'react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
+import { Wallet } from 'lucide-react';
 import PaiementsGlobale from './PaiementsGlobale';
 
 const PaiementsFormationPage = () => {
@@ -51,10 +53,15 @@ const PaiementsFormationPage = () => {
 
   return (
     <ComptableLayout>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Revenu — Par formation</h1>
-          <p className="text-slate-400 text-xs mt-0.5">{paiements.length} paiement(s)</p>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+            <Wallet size={22} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">Revenu  Par formation</h1>
+            <p className="text-slate-400 text-xs mt-0.5">{paiements.length} paiement(s)</p>
+          </div>
         </div>
       </div>
 

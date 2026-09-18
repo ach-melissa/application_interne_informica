@@ -1,5 +1,7 @@
+// PaiementsAutrePage.jsx
 import { useEffect, useState } from 'react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
+import { Wallet } from 'lucide-react';
 import PaiementsAutre from './PaiementsAutre';
 
 const PaiementsAutrePage = () => {
@@ -77,9 +79,14 @@ const PaiementsAutrePage = () => {
 
   return (
     <ComptableLayout>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Revenu — Autre</h1>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+            <Wallet size={22} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">Revenu  Autre</h1>
+          </div>
         </div>
       </div>
 
