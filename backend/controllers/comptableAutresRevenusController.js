@@ -66,8 +66,15 @@ const renameCategorie = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 };
+const removeCategorie = async (req, res) => {
+  const { nom } = req.body;
+  if (!nom) return res.status(400).json({ error: 'Nom requis.' });
+  const { error } = await supabase.rpc('remove_categorie_autre_revenu', { old_value: nom });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+};
 
 module.exports = {
   getAutresRevenus, createAutreRevenu, updateAutreRevenu, deleteAutreRevenu,
-  getCategories, addCategorie, renameCategorie,
+  getCategories, addCategorie, renameCategorie,removeCategorie,
 };

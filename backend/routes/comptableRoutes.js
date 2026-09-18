@@ -18,7 +18,7 @@ const {
 const auth = [verifyToken, requireRole('admin', 'comptable')];
 const {
   getAutresRevenus, createAutreRevenu, updateAutreRevenu, deleteAutreRevenu,
-  getCategories, addCategorie, renameCategorie,
+  getCategories, addCategorie, renameCategorie, removeCategorie,
 } = require('../controllers/comptableAutresRevenusController');
 
 // Dashboard
@@ -49,5 +49,6 @@ router.delete('/autres-revenus/:id',        ...auth, deleteAutreRevenu);
 router.get   ('/autres-revenus/categories', ...auth, getCategories);
 router.post  ('/autres-revenus/categories', ...auth, addCategorie);
 router.patch ('/autres-revenus/categories', ...auth, renameCategorie);
+router.delete('/autres-revenus/categories', ...auth, removeCategorie);
 
 module.exports = router;

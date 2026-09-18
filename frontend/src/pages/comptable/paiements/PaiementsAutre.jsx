@@ -35,9 +35,27 @@ useEffect(() => {
   fetch(`${import.meta.env.VITE_API_URL}/api/comptable/autres-revenus/categories`, {
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
   })
-    .then((r) => r.ok ? r.json() : [])
-    .then(setCategories)
-    .catch(() => {});
+    .then(async (r) => {
+      if (!r.ok) {
+        console.error('Erreur chargement catégories, statut HTTP:', r.status);
+        return [];
+      }
+      return r.json();
+    })
+    .then((data) => {
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.categories)
+          ? data.categories
+          : Array.isArray(data?.data)
+            ? data.data
+            : [];
+      if (!Array.isArray(data) && list.length === 0) {
+        console.warn('Réponse catégories inattendue:', data);
+      }
+      setCategories(list);
+    })
+    .catch((err) => console.error('Erreur réseau catégories:', err));
 }, []);
 
   const total = useMemo(
@@ -71,8 +89,6 @@ const handleSave = async () => {
   setForm({ libelle: '', montant: '', date: '', categorie: categories[0] });
   setEditingId(null);
   setShowForm(false);
-  const ok = await onEdit?.(editingId, form);
-if (!ok) return;
 };
 
 const handleStartEdit = (entry) => {
@@ -129,6 +145,19 @@ const handleRenameCategory = async (oldName, newName) => {
   setEditingCategory(null);
 };
 
+const handleRemoveCategory = async (name) => {
+  if (!window.confirm(`Supprimer la catégorie "${name}" ?`)) return;
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/comptable/autres-revenus/categories`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: JSON.stringify({ nom: name }),
+    });
+    if (res.ok) {
+      setCategories((prev) => prev.filter((c) => c !== name));
+    }
+  } catch { /* silent */ }
+};
   return (
     <>
       {/* Card + filter + add button */}
@@ -302,9 +331,14 @@ const handleRenameCategory = async (oldName, newName) => {
                 OK
               </button>
             ) : (
-              <button onClick={() => setEditingCategory({ old: c, value: c })} className="text-[10px] text-[#0369A1] font-medium">
-                Modifier
-              </button>
+              <>
+                <button onClick={() => setEditingCategory({ old: c, value: c })} className="text-[10px] text-[#0369A1] font-medium">
+                  Modifier
+                </button>
+                <button onClick={() => handleRemoveCategory(c)} className="text-[10px] text-red-600 font-medium">
+                  Supprimer
+                </button>
+              </>
             )}
           </div>
         ))}
