@@ -8,9 +8,9 @@ const supabase = require('../supabaseClient');
 // comptable    → voit les actions comptable + super_admin
 // super_admin  → voit tout (admin + comptable)
 const perimetresFor = (role) => {
-  if (role === 'super_admin') return ['admin', 'comptable', 'super_admin'];
-  if (role === 'comptable') return ['comptable', 'super_admin'];
-  return ['admin', 'super_admin'];
+  if (role === 'super_admin') return ['admin', 'comptable'];
+  if (role === 'comptable') return ['comptable'];
+  return ['admin'];
 };
 
 const getHistorique = async (req, res) => {
