@@ -28,13 +28,13 @@ map.set(key, {
   key,
   etudiantId: p.etudiant_id,
   formationId: p.formation_id,
-  matricule: p.etudiants?.matricule ?? p.etudiants?.numero ?? '—',
   nom: `${p.etudiants?.nom ?? ''} ${p.etudiants?.prenom ?? ''}`.trim(),
   formationNom: p.formations?.nom ?? formation?.nom ?? '—',
-  groupeNom: p.groupes?.nom ?? '—',
-  professeurNom: p.groupes?.professeur?.nom ?? p.groupes?.professeurs?.nom ?? '—',
-  groupeDateDebut: p.groupes?.date_debut ?? null,
-  groupeStatut: p.groupes?.statut ?? null,
+telephone: p.etudiants?.telephone ?? '—',
+groupeNom: p.groupe?.nom ?? '—',
+professeurNom: p.groupe?.teacher?.user ? `${p.groupe.teacher.user.nom} ${p.groupe.teacher.user.prenom}` : '—',
+groupeDateDebut: p.groupe?.date_debut ?? null,
+groupeStatut: p.groupe?.statut ?? null,
   prix,
   tranches: {},
 });
@@ -291,7 +291,7 @@ map.set(key, {
   </span>
 </td>
 <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-l border-[#E2E8F0]">
-  {row.numerotelphn}
+  {row.telephone}
 </td>
 <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
   {row.formationNom}
