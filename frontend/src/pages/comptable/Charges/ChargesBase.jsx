@@ -1,9 +1,26 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
 import {
   Search, Tag, Calendar, Plus, Receipt, CalendarDays,
   X, Pencil, Trash2, AlertTriangle,
 } from 'lucide-react';
+
+const API = import.meta.env.VITE_API_URL;
+
+const request = async (path, options = {}) => {
+  const res = await fetch(`${API}/api/comptable${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
+    },
+  });
+  if (!res.ok) {
+    const { error } = await res.json().catch(() => ({}));
+    throw new Error(error || 'Erreur serveur.');
+  }
+  return res.status === 204 ? null : res.json().catch(() => null);
+};
 
 // Palette assignée automatiquement aux catégories, dans l'ordre où elles
 // existent. Ajouter une catégorie prend simplement la couleur suivante.
@@ -69,17 +86,32 @@ const emptyForm = { categorie: '', montant: '', date: '', description: '' };
  *
  * props:
  *  - title            : titre affiché en haut de page
- *  - defaultCategories: liste de noms de catégories propres à cette page
- *  - sampleCharges    : données de test (à retirer une fois l'API branchée)
+ *  - type             : 'formation' ou 'autre' (filtre envoyé à l'API)
  */
-const ChargesBase = ({ title, defaultCategories, sampleCharges }) => {
-  // TODO: brancher sur GET/POST/PUT/DELETE /api/comptable/charges une fois
-  // l'API prête (remplacer ce useState par un fetch, comme pour paiements).
-  const [charges, setCharges] = useState(sampleCharges);
+const ChargesBase = ({ title, type }) => {
+  const [charges, setCharges] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const [categories, setCategories] = useState(
-    defaultCategories.map((name) => ({ name, active: true }))
-  );
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([
+request(`/charges?type=${type}`),
+request(`/charges/categories?type=${type}`),
+    ])
+      .then(([c, cat]) => {
+        if (cancelled) return;
+setCharges(c);
+setCategories(cat);
+        setError('');
+      })
+      .catch(() => { if (!cancelled) setError('Impossible de charger les charges.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [type]);
+
   const activeCategories = categories.filter((c) => c.active);
 
   const categoryColors = useMemo(() => {
@@ -108,12 +140,15 @@ const ChargesBase = ({ title, defaultCategories, sampleCharges }) => {
   const [newCategory, setNewCategory] = useState('');
   const [editingCategory, setEditingCategory] = useState(null);
 
-  const handleAdd = () => {
-    if (!form.categorie || !form.montant || !form.date) return;
-    setCharges((prev) => [...prev, { id: Date.now(), ...form, montant: Number(form.montant) }]);
+const handleAdd = async () => {
+  if (!form.categorie || !form.montant || !form.date) return;
+  try {
+const data = await request('/charges', { method: 'POST', body: JSON.stringify({ ...form, montant: Number(form.montant), type }) });
+    setCharges((prev) => [...prev, data]);
     setForm(emptyForm);
     setShowForm(false);
-  };
+  } catch { setError("Échec de l'ajout."); }
+};
 
   const openRow = (charge) => {
     setSelectedCharge(charge);
@@ -130,40 +165,56 @@ const ChargesBase = ({ title, defaultCategories, sampleCharges }) => {
     setEditForm(emptyForm);
   };
 
-  const handleSaveEdit = () => {
-    if (!editForm.categorie || !editForm.montant || !editForm.date) return;
-    setCharges((prev) =>
-      prev.map((c) => (c.id === selectedCharge.id ? { ...c, ...editForm, montant: Number(editForm.montant) } : c))
-    );
+const handleSaveEdit = async () => {
+  if (!editForm.categorie || !editForm.montant || !editForm.date) return;
+  try {
+const data = await request(`/charges/${selectedCharge.id}`, { method: 'PATCH', body: JSON.stringify({ ...editForm, montant: Number(editForm.montant), type }) });
+    setCharges((prev) => prev.map((c) => (c.id === selectedCharge.id ? data : c)));
     closeRow();
-  };
+  } catch { setError('Échec de la modification.'); }
+};
 
   const askDelete = () => setConfirmDeleteId(selectedCharge.id);
 
-  const confirmDelete = () => {
+const confirmDelete = async () => {
+  try {
+    await request(`/charges/${confirmDeleteId}`, { method: 'DELETE' });
     setCharges((prev) => prev.filter((c) => c.id !== confirmDeleteId));
     setConfirmDeleteId(null);
     closeRow();
-  };
+  } catch { setError('Échec de la suppression.'); }
+};
 
-  const handleAddCategory = () => {
-    const name = newCategory.trim();
-    if (!name || categories.some((c) => c.name === name)) return;
-    setCategories((prev) => [...prev, { name, active: true }]);
+const handleAddCategory = async () => {
+  const name = newCategory.trim();
+  if (!name || categories.some((c) => c.name === name)) return;
+  try {
+    const data = await request('/charges/categories', { method: 'POST', body: JSON.stringify({ type, name }) });
+    setCategories((prev) => [...prev, data]);
     setNewCategory('');
-  };
+  } catch { setError("Échec de l'ajout de la catégorie."); }
+};
 
-  const handleRenameCategory = (oldName, newName) => {
-    const name = newName.trim();
-    if (!name || name === oldName) { setEditingCategory(null); return; }
-    setCategories((prev) => prev.map((c) => (c.name === oldName ? { ...c, name } : c)));
+const handleRenameCategory = async (oldName, newName) => {
+  const name = newName.trim();
+  const cat = categories.find((c) => c.name === oldName);
+  if (!name || name === oldName || !cat) { setEditingCategory(null); return; }
+  try {
+    await request(`/charges/categories/${cat.id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+    setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, name } : c)));
     setCharges((prev) => prev.map((c) => (c.categorie === oldName ? { ...c, categorie: name } : c)));
-    setEditingCategory(null);
-  };
+  } catch { setError('Échec du renommage.'); }
+  setEditingCategory(null);
+};
 
-  const handleToggleCategory = (name) => {
-    setCategories((prev) => prev.map((c) => (c.name === name ? { ...c, active: !c.active } : c)));
-  };
+const handleToggleCategory = async (name) => {
+  const cat = categories.find((c) => c.name === name);
+  if (!cat) return;
+  try {
+    await request(`/charges/categories/${cat.id}`, { method: 'PATCH', body: JSON.stringify({ active: !cat.active }) });
+    setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, active: !c.active } : c)));
+  } catch { setError('Échec de la mise à jour.'); }
+};
 
   // --- Filtrage catégorie + période ---
   const filtered = useMemo(() => {
@@ -187,7 +238,10 @@ const ChargesBase = ({ title, defaultCategories, sampleCharges }) => {
   // filtre de catégorie/recherche choisi (indépendante de la période choisie
   // dans les filtres, puisqu'elle répond à une question différente : "et ce
   // mois-ci ?").
-  const currentMonthKey = useMemo(() => new Date().toISOString().slice(0, 7), []);
+    const currentMonthKey = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
   const chargesDuMois = useMemo(() => {
     return charges
       .filter((c) => c.date && c.date.slice(0, 7) === currentMonthKey)
@@ -217,6 +271,12 @@ const ChargesBase = ({ title, defaultCategories, sampleCharges }) => {
           <p className="text-slate-400 text-xs mt-0.5">{charges.length} charge(s)</p>
         </div>
       </div>
+{error && (
+  <div className="mb-4 flex justify-between items-center text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+    {error}
+    <button onClick={() => setError('')} className="font-bold text-red-400 hover:text-red-600">✕</button>
+  </div>
+)}
 
       {/* Cartes dynamiques */}
       <div className="flex flex-wrap gap-3 mb-5">
@@ -556,7 +616,7 @@ const ChargesBase = ({ title, defaultCategories, sampleCharges }) => {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-10 text-slate-400 bg-white">Aucune charge trouvée.</td>
+                  <td colSpan={4} className="text-center py-10 text-slate-400 bg-white">{loading ? 'Chargement…' : 'Aucune charge trouvée.'}</td>
                 </tr>
               ) : filtered.map((c, idx) => {
                 const colors = categoryColors[c.categorie] ?? { bg: 'bg-slate-50', text: 'text-slate-600' };
