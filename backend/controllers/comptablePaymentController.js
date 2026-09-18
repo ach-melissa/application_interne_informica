@@ -4,24 +4,48 @@ const supabase = require('../supabaseClient');
  * GET /api/comptable/paiements
  * Returns all payments with nested etudiant + formation info (for Vue Globale).
  */
+
 const getAllPayments = async (req, res) => {
   const { data, error } = await supabase
     .from('payments')
-    .select(`
-      id,
-      montant,
-      date_paiement,
-      tranche,
-      statut,
-      etudiant_id,
-      formation_id,
-      etudiants:etudiant_id ( id, nom, prenom ),
-      formations:formation_id ( id, nom )
-    `)
+.select(`
+  id,
+  montant,
+  date_paiement,
+  tranche,
+  statut,
+  etudiant_id,
+  formation_id,
+  etudiants:etudiant_id ( id, nom, prenom, telephone ),
+  formations:formation_id ( id, nom )
+`)
     .order('date_paiement', { ascending: false });
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  const etudiantIds = [...new Set(data.map(p => p.etudiant_id))];
+
+const { data: inscriptions, error: insErr } = await supabase
+  .from('inscriptions')
+  .select(`
+    etudiant_id, formation_id,
+group:group_id ( nom, date_debut, date_fin, statut, teacher:teacher_id ( user:user_id ( nom, prenom ) ) )
+    `)
+  .in('etudiant_id', etudiantIds);
+
+if (insErr) console.error('INSCRIPTIONS ERROR:', insErr);
+if (!insErr) console.log('INSCRIPTIONS SAMPLE:', inscriptions?.[0]);
+
+const groupMap = new Map();
+for (const ins of inscriptions ?? []) {
+  groupMap.set(`${ins.etudiant_id}_${ins.formation_id}`, ins.group);
+}
+
+const enriched = data.map(p => ({
+  ...p,
+  groupe: groupMap.get(`${p.etudiant_id}_${p.formation_id}`) ?? null,
+}));
+
+ res.json(enriched);
 };
 
 /**
@@ -95,6 +119,7 @@ const createPayment = async (req, res) => {
  *   ...
  * ]
  */
+
 const getFormationPayments = async (req, res) => {
   const { formationId } = req.params;
 

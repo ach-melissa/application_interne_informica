@@ -1,12 +1,19 @@
 import { useState, useMemo } from 'react';
-import { Search, User, GraduationCap, Users, Eye } from 'lucide-react';
+import { Search, User, GraduationCap, Users, Wallet, AlertCircle, Clock, CalendarRange } from 'lucide-react';
 import PaiementDetailModal from './PaiementDetailModal';
 
 const STATUTS = ['Non payé', 'Payé'];
 
-const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap = {}, onStatutChange }) => {
+// Un étudiant est considéré "en retard" s'il lui reste un montant à payer
+// et qu'aucun paiement n'a été enregistré depuis ce nombre de jours.
+// Pas encore de date d'échéance côté backend — seuil ajustable ici.
+const RETARD_JOURS = 30;
+
+const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
   const [search, setSearch] = useState('');
   const [formationFilter, setFormationFilter] = useState('');
+  const [periodeDebut, setPeriodeDebut] = useState('');
+  const [periodeFin, setPeriodeFin] = useState('');
   const [selectedRow, setSelectedRow] = useState(null);
 
   const rows = useMemo(() => {
@@ -17,48 +24,151 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap 
       if (!map.has(key)) {
         const formation = formations.find((f) => String(f.id) === String(p.formation_id));
         const prix = formation?.prix_etudiant ?? formation?.prix ?? formation?.tarif ?? null;
-        map.set(key, {
-          key,
-          etudiantId: p.etudiant_id,
-          formationId: p.formation_id,
-          nom: `${p.etudiants?.nom ?? ''} ${p.etudiants?.prenom ?? ''}`.trim(),
-          formationNom: p.formations?.nom ?? formation?.nom ?? '—',
-          prix,
-          tranches: {},
-        });
+map.set(key, {
+  key,
+  etudiantId: p.etudiant_id,
+  formationId: p.formation_id,
+  nom: `${p.etudiants?.nom ?? ''} ${p.etudiants?.prenom ?? ''}`.trim(),
+  formationNom: p.formations?.nom ?? formation?.nom ?? '—',
+telephone: p.etudiants?.telephone ?? '—',
+groupeNom: p.groupe?.nom ?? '—',
+professeurNom: p.groupe?.teacher?.user ? `${p.groupe.teacher.user.nom} ${p.groupe.teacher.user.prenom}` : '—',
+groupeDateDebut: p.groupe?.date_debut ?? null,
+groupeDateFin: p.groupe?.date_fin ?? null,
+groupeStatut: p.groupe?.statut ?? null,
+  prix,
+  tranches: {},
+});
       }
-      map.get(key).tranches[p.tranche] = {
-        montant: p.montant,
-        date_paiement: p.date_paiement ?? p.date ?? p.created_at,
-      };
+map.get(key).tranches[p.tranche] = {
+  montant: p.montant,
+  date_paiement: p.date_paiement ?? p.date ?? p.created_at,
+  statut: p.statut, // 'payé' | 'en_attente' — vient de payments.statut
+};
     }
     return Array.from(map.values());
   }, [paiements, formations]);
 
+  // --- Helpers de calcul, indépendants de la période (utilisés pour l'affichage du tableau) ---
+  const totalPaye = (row) =>
+    Object.values(row.tranches).reduce((s, t) => s + Number(t.montant), 0);
+
+  const resteAPayer = (row) => (row.prix != null ? row.prix - totalPaye(row) : null);
+
+  const dernierPaiement = (row) => {
+    const dates = Object.values(row.tranches)
+      .map((t) => t.date_paiement)
+      .filter(Boolean)
+      .sort();
+    return dates.length ? dates[dates.length - 1] : null;
+  };
+
+  const estEnRetard = (row) => {
+    const reste = resteAPayer(row);
+    if (reste == null || reste <= 0) return false;
+    const dernier = dernierPaiement(row);
+    if (!dernier) return true; // jamais payé alors qu'un prix est fixé
+    const jours = (Date.now() - new Date(dernier).getTime()) / (1000 * 60 * 60 * 24);
+    return jours > RETARD_JOURS;
+  };
+
+  // --- Filtre par période : une ligne est retenue si au moins une tranche a été payée dans l'intervalle ---
+  const dateDansPeriode = (dateStr) => {
+    if (!periodeDebut && !periodeFin) return true;
+    if (!dateStr) return false;
+    const d = String(dateStr).slice(0, 10);
+    if (periodeDebut && d < periodeDebut) return false;
+    if (periodeFin && d > periodeFin) return false;
+    return true;
+  };
+
+  const rowMatchPeriode = (row) => {
+    if (!periodeDebut && !periodeFin) return true;
+    return Object.values(row.tranches).some((t) => dateDansPeriode(t.date_paiement));
+  };
+
+  // Montant payé par une ligne, restreint à la période sélectionnée (utilisé pour la carte "Total payé")
+  const payeSurPeriode = (row) => {
+    if (!periodeDebut && !periodeFin) return totalPaye(row);
+    return Object.values(row.tranches)
+      .filter((t) => dateDansPeriode(t.date_paiement))
+      .reduce((s, t) => s + Number(t.montant), 0);
+  };
+
   const filtered = rows.filter((r) => {
     const matchSearch = !search || `${r.nom} ${r.formationNom}`.toLowerCase().includes(search.toLowerCase());
     const matchFormation = !formationFilter || String(r.formationId) === String(formationFilter);
-    return matchSearch && matchFormation;
+    return matchSearch && matchFormation && rowMatchPeriode(r);
   });
 
-  const totalPayeEtudiants = useMemo(
-    () => rows.reduce((s, r) => s + Object.values(r.tranches).reduce((ss, t) => ss + Number(t.montant), 0), 0),
-    [rows]
-  );
+  // --- Cartes récapitulatives : recalculées à chaque changement de filtre (recherche, formation, période) ---
+  const stats = useMemo(() => {
+    const totalPayePeriode = filtered.reduce((s, r) => s + payeSurPeriode(r), 0);
+    const totalRestant = filtered.reduce((s, r) => {
+      const reste = resteAPayer(r);
+      return s + (reste != null && reste > 0 ? reste : 0);
+    }, 0);
+    const nbEtudiants = filtered.length;
+    const nbEnRetard = filtered.filter(estEnRetard).length;
+    return { totalPayePeriode, totalRestant, nbEtudiants, nbEnRetard };
+  }, [filtered]);
+
+  const periodeActive = Boolean(periodeDebut || periodeFin);
+
+  const resetPeriode = () => {
+    setPeriodeDebut('');
+    setPeriodeFin('');
+  };
+
+  const CARDS = [
+    {
+      label: periodeActive ? 'Total payé — période' : 'Total payé — Étudiants',
+      value: `${stats.totalPayePeriode.toLocaleString('fr-DZ')} DA`,
+      icon: Wallet,
+      bg: 'bg-[#DCEBFA]',
+      color: 'text-[#0369A1]',
+    },
+    {
+      label: 'Total restant',
+      value: `${stats.totalRestant.toLocaleString('fr-DZ')} DA`,
+      icon: AlertCircle,
+      bg: 'bg-amber-50',
+      color: 'text-amber-700',
+    },
+    {
+      label: 'Étudiants',
+      value: stats.nbEtudiants,
+      icon: Users,
+      bg: 'bg-[#DCEBFA]',
+      color: 'text-[#0369A1]',
+    },
+    {
+      label: 'En retard',
+      value: stats.nbEnRetard,
+      icon: Clock,
+      bg: 'bg-red-50',
+      color: 'text-red-600',
+    },
+  ];
 
   return (
     <>
-      {/* Card */}
+      {/* Cards */}
       <div className="flex flex-wrap gap-3 mb-5">
-        <div className="flex items-center gap-3 bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] px-4 py-3 min-w-[220px]">
-          <div className="w-9 h-9 rounded-full bg-[#DCEBFA] flex items-center justify-center text-[#0369A1]">
-            <Users size={16} />
+        {CARDS.map((c) => (
+          <div
+            key={c.label}
+            className="flex items-center gap-3 bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] px-4 py-3 min-w-[200px] flex-1"
+          >
+            <div className={`w-9 h-9 rounded-full ${c.bg} flex items-center justify-center ${c.color} shrink-0`}>
+              <c.icon size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">{c.label}</p>
+              <p className="text-sm font-bold text-[#0F2A4A]">{c.value}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wide">Total payé — Étudiants</p>
-            <p className="text-sm font-bold text-[#0F2A4A]">{totalPayeEtudiants.toLocaleString('fr-DZ')} DA</p>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Filter bar */}
@@ -89,6 +199,32 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap 
           </select>
         </div>
 
+        {/* Filtre par période */}
+        <div className="flex items-center gap-1.5 bg-white border border-[#E2E8F0] rounded-full pl-3 pr-1.5 py-1.5">
+          <CalendarRange size={13} className="text-[#0369A1]" />
+          <input
+            type="date"
+            value={periodeDebut}
+            onChange={(e) => setPeriodeDebut(e.target.value)}
+            className="text-xs text-slate-500 focus:outline-none bg-transparent"
+          />
+          <span className="text-slate-300 text-xs">→</span>
+          <input
+            type="date"
+            value={periodeFin}
+            onChange={(e) => setPeriodeFin(e.target.value)}
+            className="text-xs text-slate-500 focus:outline-none bg-transparent"
+          />
+          {periodeActive && (
+            <button
+              onClick={resetPeriode}
+              className="text-[11px] text-[#0369A1] font-medium px-2 py-0.5 rounded-full hover:bg-[#DCEBFA]"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         <span className="text-[11px] text-slate-400 bg-[#F8FCFF] border border-[#E2E8F0] px-2.5 py-1 rounded-full">
           {filtered.length} / {rows.length}
         </span>
@@ -104,37 +240,40 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap 
             <table className="w-full text-xs">
               <thead className="bg-[#DCEBFA]">
                 <tr>
-                  <th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-l border-[#E2E8F0]">
+                  <th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b  border-[#E2E8F0]">
                     <span className="flex items-center gap-1.5"><User size={12} /> Étudiant</span>
+                  </th>
+                  <th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-l border-[#E2E8F0]">
+                    <span className="flex items-center gap-1.5"><User size={12} /> Numero tel </span>
                   </th>
                   <th className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0]">
                     <span className="flex items-center gap-1.5"><GraduationCap size={12} /> Formation</span>
                   </th>
                   <th className="text-right px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap">
-                    Prix total
+                    group 
                   </th>
                   <th className="text-right px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap">
-                    Total payé
+                    proffeseur
                   </th>
                   <th className="text-right px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap">
-                    Reste à payer
-                  </th>
-                  <th className="text-center px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-r border-[#E2E8F0] whitespace-nowrap">
-                    Statut
-                  </th>
+                    Prix à payer</th>
+                  <th className="text-right px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-[#E2E8F0] whitespace-nowrap">
+                    Payé</th>
+                  <th className="text-right px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] tracking-wide uppercase border-b border-r border-[#E2E8F0] whitespace-nowrap">
+                    Restant</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-slate-400 bg-white">
+                    <td colSpan={8} className="text-center py-10 text-slate-400 bg-white">
                       Aucun revenu trouvé.
                     </td>
                   </tr>
                 ) : filtered.map((row, idx) => {
-                  const paid = Object.values(row.tranches).reduce((s, t) => s + Number(t.montant), 0);
-                  const reste = row.prix != null ? row.prix - paid : null;
-                  const statut = statutMap[row.key] ?? 'Non payé';
+                  const paid = totalPaye(row);
+                  const reste = resteAPayer(row);
+                  const enRetard = estEnRetard(row);
 
                   return (
                     <tr
@@ -142,41 +281,44 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap 
                       onClick={() => setSelectedRow(row)}
                       className={`cursor-pointer hover:bg-[#DCEBFA]/30 transition ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}
                     >
-                      <td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap border-b border-l border-[#E2E8F0]">
-                        {row.nom}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
-                        {row.formationNom}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-slate-600 whitespace-nowrap border-b border-[#E2E8F0]">
-                        {row.prix != null ? `${Number(row.prix).toLocaleString('fr-DZ')} DA` : '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-slate-700 whitespace-nowrap border-b border-[#E2E8F0]">
-                        {paid.toLocaleString('fr-DZ')} DA
-                      </td>
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap border-b border-[#E2E8F0]">
-                        {reste != null ? (
-                          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                            reste <= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                          }`}>
-                            {reste.toLocaleString('fr-DZ')} DA
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-center whitespace-nowrap border-b border-r border-[#E2E8F0]">
-                        <select
-                          value={statut}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => onStatutChange?.(row.key, e.target.value)}
-                          className={`text-[11px] font-medium rounded-full px-2.5 py-1 border-none focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer ${
-                            statut === 'Payé' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
-                          }`}
-                        >
-                          {STATUTS.map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                      </td>
+<td className="px-3 py-2.5 font-medium text-slate-700 whitespace-nowrap border-b border-[#E2E8F0]">
+  <span className="inline-flex items-center gap-1.5">
+    {row.nom}
+    {enRetard && (
+      <span
+        title={`En retard (> ${RETARD_JOURS} j sans paiement)`}
+        className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"
+      />
+    )}
+  </span>
+</td>
+<td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-l border-[#E2E8F0]">
+  {row.telephone}
+</td>
+<td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
+  {row.formationNom}
+</td>
+<td className="px-3 py-2.5 text-right text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
+  {row.groupeNom}
+</td>
+<td className="px-3 py-2.5 text-right text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
+  {row.professeurNom}
+</td>
+<td className="px-3 py-2.5 text-right text-slate-600 whitespace-nowrap border-b border-[#E2E8F0]">
+  {row.prix != null ? `${Number(row.prix).toLocaleString('fr-DZ')} DA` : '—'}
+</td>
+<td className="px-3 py-2.5 text-right font-semibold text-slate-700 whitespace-nowrap border-b border-[#E2E8F0]">
+  {paid.toLocaleString('fr-DZ')} DA
+</td>
+<td className="px-3 py-2.5 text-right whitespace-nowrap border-b border-r border-[#E2E8F0]">
+  {reste != null ? (
+    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+      reste <= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+    }`}>
+      {reste.toLocaleString('fr-DZ')} DA
+    </span>
+  ) : '—'}
+</td>
                     </tr>
                   );
                 })}
@@ -191,4 +333,4 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading, statutMap 
   );
 };
 
-export default PaiementsGlobale; 
+export default PaiementsGlobale;

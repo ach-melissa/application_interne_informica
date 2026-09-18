@@ -23,7 +23,6 @@ import ArchiveFormation from './pages/admin/archive/ArchiveFormation';
 import ArchiveGroupDetail from './pages/admin/archive/ArchiveGroupDetail';
 import ProfDetail from './pages/admin/profs/ProfDetail';
 import AttestationPrintPage from './components/attestations/AttestationPrintPage';
-import Statistique from './pages/admin/statistique/Statistique';
 import Parametre from './pages/admin/parametre/Parametre';
 import EmploisEcole from './pages/admin/emplois/EmploisEcole';
 
@@ -39,11 +38,13 @@ import ProfGroups from './pages/prof/formations/ProfGroups';
 import ProfFormationNiveaux from './pages/prof/formations/ProfFormationNiveaux';
 import ProfGroupDetail from './pages/prof/formations/ProfGroupDetail';
 // ── Pages comptable (nouvelles) ─────────────────────────────
-import DashboardComptable from './pages/comptable/dashboard/DashboardComptable';
 import StatistiqueComptable from './pages/comptable/statistique/Statistique';
 import Paiements from './pages/comptable/paiements/Paiements';
-import Charges from "./pages/comptable/Charges/Charges";
-import Salaires from './pages/comptable/salaires/Salaires';
+import ChargesFormation from "./pages/comptable/Charges/ChargesFormation";
+import ChargesAutre from "./pages/comptable/Charges/ChargesAutre";
+
+import SalairesEmployes from './pages/comptable/salaires/SalairesEmployes';
+import SalairesProfesseurs from './pages/comptable/salaires/SalairesProfesseurs';
 
 // ── Super admin ── 
 import SuperAdminDashboard from "./pages/superadmin/dashboard/SuperAdminDashboard";
@@ -113,7 +114,7 @@ function App() {
           } />
           <Route path="/admin/statistique" element={
   <PrivateRoute allowedRoles={['admin']}>
-    <Statistique />
+    <StatistiqueComptable />
   </PrivateRoute>
 } />
 <Route path="/admin/parametre" element={
@@ -220,11 +221,7 @@ function App() {
 } />
 
           {/* ── Routes comptable (nouvelles) ── */}
-          <Route path="/comptable" element={
-            <PrivateRoute allowedRoles={['comptable']}>
-              <DashboardComptable />
-            </PrivateRoute>
-          } />
+
    <Route path="/comptable/statistique" element={
      <PrivateRoute allowedRoles={['comptable']}>
        <StatistiqueComptable />
@@ -235,16 +232,27 @@ function App() {
               <Paiements />
             </PrivateRoute>
           } />
-          <Route path="/comptable/charges" element={
-            <PrivateRoute allowedRoles={['comptable']}>
-              <Charges />
-            </PrivateRoute>
-          } />
-          <Route path="/comptable/salaires" element={
-            <PrivateRoute allowedRoles={['comptable']}>
-              <Salaires />
-            </PrivateRoute>
-          } />
+<Route path="/comptable/charges/formation" element={
+  <PrivateRoute allowedRoles={['comptable']}>
+    <ChargesFormation />
+  </PrivateRoute>
+} />
+<Route path="/comptable/charges/autre" element={
+  <PrivateRoute allowedRoles={['comptable']}>
+    <ChargesAutre />
+  </PrivateRoute>
+} />
+
+<Route path="/comptable/salaires/employes" element={
+  <PrivateRoute allowedRoles={['comptable']}>
+    <SalairesEmployes />
+  </PrivateRoute>
+} />
+<Route path="/comptable/salaires/professeurs" element={
+  <PrivateRoute allowedRoles={['comptable']}>
+    <SalairesProfesseurs />
+  </PrivateRoute>
+} />
 {/* ── Super admin ── */}
 <Route path="/superadmin" element={
   <PrivateRoute allowedRoles={['super_admin']}>

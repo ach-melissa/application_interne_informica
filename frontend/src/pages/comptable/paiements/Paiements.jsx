@@ -15,24 +15,7 @@ const Paiements = () => {
   // changement d'onglet. TODO: brancher sur une route API une fois validée.
   const [statutMap, setStatutMap] = useState({});
 
-  // Revenus "autres" = argent payé par des personnes qui ne sont pas des étudiants.
-  // Saisie manuelle locale, levée ici pour survivre au changement d'onglet.
-  // Données de test uniquement — à supprimer une fois vérifié visuellement
-  // (ou une fois l'API branchée).
-  const SAMPLE_AUTRES = [
-    { id: 1, libelle: 'Location salle informatique — assoc. locale', montant: 15000, date: '2026-05-10', categorie: 'Location de salle' },
-    { id: 2, libelle: 'Don entreprise partenaire TechCorp', montant: 50000, date: '2026-05-18', categorie: 'Dons / subventions' },
-    { id: 3, libelle: 'Subvention ministère de la Formation', montant: 120000, date: '2026-06-02', categorie: 'Dons / subventions' },
-    { id: 4, libelle: 'Vente de livres — promo Informatique', montant: 8600, date: '2026-06-08', categorie: 'Vente de matériel' },
-    { id: 5, libelle: 'Vente uniformes', montant: 4200, date: '2026-06-15', categorie: 'Vente de matériel' },
-    { id: 6, libelle: 'Cérémonie remise de diplômes — billetterie', montant: 22000, date: '2026-06-25', categorie: "Frais d'événements" },
-    { id: 7, libelle: 'Kermesse annuelle', montant: 17500, date: '2026-07-05', categorie: "Frais d'événements" },
-    { id: 8, libelle: 'Sponsoring — société Média Plus', montant: 60000, date: '2026-07-12', categorie: 'Partenariats / sponsoring' },
-    { id: 9, libelle: 'Location salle pour séminaire externe', montant: 9800, date: '2026-07-20', categorie: 'Location de salle' },
-    { id: 10, libelle: 'Partenariat librairie El Amal', montant: 25000, date: '2026-07-24', categorie: 'Partenariats / sponsoring' },
-  ];
-
-  const [autresRevenus, setAutresRevenus] = useState(SAMPLE_AUTRES);
+  const [autresRevenus, setAutresRevenus] = useState([]);
 
   const token = () => localStorage.getItem('token');
   const api   = import.meta.env.VITE_API_URL;
@@ -60,23 +43,82 @@ const Paiements = () => {
       if (res.ok) setFormations(await res.json());
     } catch { /* silent */ }
   };
+const fetchAutresRevenus = async () => {
+  try {
+    const res = await fetch(`${api}/api/comptable/autres-revenus`, {
+      headers: { Authorization: `Bearer ${token()}` },
+    });
+    if (res.ok) setAutresRevenus(await res.json());
+  } catch { /* silent */ }
+};
 
-  useEffect(() => {
-    fetchPaiements();
-    fetchFormations();
-  }, []);
+useEffect(() => {
+  fetchPaiements();
+  fetchFormations();
+  fetchAutresRevenus();
+}, []);
 
-  const handleStatutChange = (key, statut) => {
-    setStatutMap((prev) => ({ ...prev, [key]: statut }));
-  };
+const handleStatutChange = async (paymentId, statut) => {
+  const res = await fetch(`${api}/api/comptable/paiements/${paymentId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+    body: JSON.stringify({ statut }),
+  });
+  if (res.ok) fetchPaiements(); // recharger pour refléter le vrai statut
+};
 
-  const handleAddAutre = (entry) => {
-    setAutresRevenus((prev) => [...prev, { id: Date.now(), ...entry }]);
-  };
+const handleAddAutre = async (entry) => {
+  try {
+    const res = await fetch(`${api}/api/comptable/autres-revenus`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      body: JSON.stringify(entry),
+    });
+    if (!res.ok) {
+      const { error: msg } = await res.json().catch(() => ({}));
+      setError(msg || 'Erreur ajout revenu.');
+      return false;
+    }
+    const created = await res.json();          // ← résoudre d'abord
+    setAutresRevenus((prev) => [...prev, created]); // ← puis utiliser la valeur
+    return true;
+  } catch {
+    setError('Erreur réseau.');
+    return false;
+  }
+};
 
-  const handleRemoveAutre = (id) => {
+const handleRemoveAutre = async (id) => {
+  try {
+    const res = await fetch(`${api}/api/comptable/autres-revenus/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token()}` },
+    });
+    if (!res.ok) { setError('Erreur suppression.'); return false; }
     setAutresRevenus((prev) => prev.filter((a) => a.id !== id));
-  };
+    return true;
+  } catch {
+    setError('Erreur réseau.');
+    return false;
+  }
+};
+
+const handleEditAutre = async (id, updated) => {
+  try {
+    const res = await fetch(`${api}/api/comptable/autres-revenus/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      body: JSON.stringify(updated),
+    });
+    if (!res.ok) { setError('Erreur modification.'); return false; }
+    const updatedData = await res.json();
+    setAutresRevenus((prev) => prev.map((a) => (a.id === id ? updatedData : a)));
+    return true;
+  } catch {
+    setError('Erreur réseau.');
+    return false;
+  }
+};
 
   const TABS = [
     { key: 'globale', label: 'Formation' },
@@ -128,11 +170,12 @@ const Paiements = () => {
       )}
 
       {activeTab === 'autre' && (
-        <PaiementsAutre
-          autresRevenus={autresRevenus}
-          onAdd={handleAddAutre}
-          onRemove={handleRemoveAutre}
-        />
+<PaiementsAutre
+  autresRevenus={autresRevenus}
+  onAdd={handleAddAutre}
+  onEdit={handleEditAutre}
+  onRemove={handleRemoveAutre}
+/>
       )}
     </ComptableLayout>
   );

@@ -1,18 +1,32 @@
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, BarChart3, CreditCard, Wallet, Receipt, ChevronLeft, ChevronRight, LogOut,
+   BarChart3, CreditCard, Wallet, Receipt, ChevronLeft, ChevronRight, ChevronDown, LogOut,
 } from 'lucide-react';
 
 const navGroups = [
   {
     label: 'Gestion',
     items: [
-      { label: 'Dashboard', icon: LayoutDashboard, path: '/comptable', exact: true },
       { label: 'Statistique', icon: BarChart3, path: '/comptable/statistique' },
-      { label: 'Revenu',    icon: CreditCard,       path: '/comptable/paiements' },
-      { label: 'Charges',   icon: Receipt,          path: '/comptable/charges' },
-      { label: 'Salaires',  icon: Wallet,           path: '/comptable/salaires' },
+      { label: 'Revenu',      icon: CreditCard, path: '/comptable/paiements' },
+      {
+        label: 'Charges',
+        icon: Receipt,
+        children: [
+          { label: 'Charges de formation', path: '/comptable/charges/formation' },
+          { label: 'Autre charge',         path: '/comptable/charges/autre' },
+        ],
+      },
+      {
+        label: 'Salaires',
+        icon: Wallet,
+        children: [
+          { label: 'Salaires employés',    path: '/comptable/salaires/employes' },
+          { label: 'Salaires professeurs', path: '/comptable/salaires/professeurs' },
+        ],
+      },
     ],
   },
 ];
@@ -39,6 +53,24 @@ const SidebarComptable = ({ collapsed, setCollapsed }) => {
   const { user, logout } = useAuth();
   const initials = [user?.prenom?.[0], user?.nom?.[0]].filter(Boolean).join('').toUpperCase() || '?';
 
+  // Sous-menus ouverts, par label de groupe parent (ex: "Charges")
+  const [openSubmenus, setOpenSubmenus] = useState(() => {
+    // Ouvre automatiquement "Charges" si on est déjà sur une sous-page au chargement
+    const initial = {};
+    navGroups.forEach((group) =>
+      group.items.forEach((item) => {
+        if (item.children?.some((c) => location.pathname.startsWith(c.path))) {
+          initial[item.label] = true;
+        }
+      })
+    );
+    return initial;
+  });
+
+  const toggleSubmenu = (label) => {
+    setOpenSubmenus((prev) => ({ ...prev, [label]: !prev[label] }));
+  };
+
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
@@ -53,8 +85,58 @@ const SidebarComptable = ({ collapsed, setCollapsed }) => {
                 {group.label}
               </p>
             </div>
-            {group.items.map(({ label, icon: Icon, path, exact }) => {
-              const isActive = exact ? location.pathname === path : location.pathname.startsWith(path);
+            {group.items.map((item) => {
+              const { label, icon: Icon, path, children } = item;
+
+              // ── Élément avec sous-menu (ex: "Charges") ──
+              if (children) {
+                const isChildActive = children.some((c) => location.pathname.startsWith(c.path));
+                const isOpen = collapsed ? false : !!openSubmenus[label];
+
+                return (
+                  <div key={label}>
+                    <div className="relative group">
+                      <button
+                        onClick={() => (collapsed ? navigate(children[0].path) : toggleSubmenu(label))}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150
+                          ${collapsed ? 'justify-center' : ''}
+                          ${isChildActive ? 'text-[#0369A1] font-medium' : 'text-slate-500 hover:text-[#0369A1] hover:bg-[#F8FAFC]'}`}
+                      >
+                        <Icon size={18} className="shrink-0" />
+                        <FadeLabel collapsed={collapsed} className="text-sm flex-1 text-left">{label}</FadeLabel>
+                        {!collapsed && (
+                          <ChevronDown
+                            size={14}
+                            className={`shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                          />
+                        )}
+                      </button>
+                      {collapsed && <Tooltip label={label} />}
+                    </div>
+
+                    {!collapsed && (
+                      <div className={`overflow-hidden transition-all duration-200 ease-in-out ${isOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
+                        {children.map((child) => {
+                          const isActive = location.pathname.startsWith(child.path);
+                          return (
+<button
+  key={child.path}
+  onClick={() => navigate(child.path)}
+  className={`w-full flex items-center gap-2 pl-9 pr-2 py-2 rounded-lg text-[13px] whitespace-nowrap transition-colors duration-150
+    ${isActive ? 'text-[#0369A1] font-medium' : 'text-slate-400 hover:text-[#0369A1] hover:bg-[#F8FAFC]'}`}
+>
+  {child.label}
+</button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // ── Élément simple (comportement inchangé) ──
+              const isActive = location.pathname.startsWith(path);
               return (
                 <div key={path} className="relative group">
                   <button
