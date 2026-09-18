@@ -18,9 +18,9 @@ const {
 const auth = [verifyToken, requireRole('admin', 'comptable')];
 const {
   getAutresRevenus, createAutreRevenu, updateAutreRevenu, deleteAutreRevenu,
+  uploadBonRevenu, deleteBonRevenu, upload: uploadBon,
   getCategories, addCategorie, renameCategorie, removeCategorie,
 } = require('../controllers/comptableAutresRevenusController');
-
 const {
   getCharges, getChargeCategories, createCharge, updateCharge, deleteCharge,
 } = require('../controllers/comptableChargesController');
@@ -54,7 +54,9 @@ router.get   ('/autres-revenus/categories', ...auth, getCategories);
 router.post  ('/autres-revenus/categories', ...auth, addCategorie);
 router.patch ('/autres-revenus/categories', ...auth, renameCategorie);
 router.delete('/autres-revenus/categories', ...auth, removeCategorie);
-
+// Bons (multiple photos per autre revenu)
+router.post  ('/autres-revenus/:id/bons',      ...auth, uploadBon.single('bon'), uploadBonRevenu);
+router.delete('/autres-revenus/bons/:bonId',   ...auth, deleteBonRevenu);
 
 // Charges (formation / autre)
 router.get   ('/charges/categories', ...auth, getChargeCategories);

@@ -1,9 +1,11 @@
 const supabase = require('../supabaseClient');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 const getAutresRevenus = async (req, res) => {
   const { data, error } = await supabase
     .from('autres_revenus')
-    .select('*')
+    .select('*, bons:autres_revenus_bons(id, url)')
     .order('date', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -32,7 +34,7 @@ const updateAutreRevenu = async (req, res) => {
     .from('autres_revenus')
     .update(fields)
     .eq('id', id)
-    .select()
+    .select('*, bons:autres_revenus_bons(id, url)')
     .single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -42,6 +44,61 @@ const deleteAutreRevenu = async (req, res) => {
   const { id } = req.params;
   const { error } = await supabase.from('autres_revenus').delete().eq('id', id);
   if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+};
+
+// ============================================================
+// BONS — multiple photos per revenu
+// ============================================================
+
+const uploadBonRevenu = async (req, res) => {
+  const { id } = req.params; // autre_revenu_id
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+
+  const ext = file.mimetype.split('/')[1] || 'jpg';
+  const path = `revenus/${id}/${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('bons-paiement')
+    .upload(path, file.buffer, { contentType: file.mimetype, upsert: true });
+  if (uploadError) return res.status(500).json({ error: uploadError.message });
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('bons-paiement')
+    .getPublicUrl(path);
+
+  const { data, error } = await supabase
+    .from('autres_revenus_bons')
+    .insert({ autre_revenu_id: id, url: publicUrl })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json(data);
+};
+
+const deleteBonRevenu = async (req, res) => {
+  const { bonId } = req.params;
+
+  const { data: bon, error: fetchErr } = await supabase
+    .from('autres_revenus_bons')
+    .select('url')
+    .eq('id', bonId)
+    .single();
+  if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+
+  // Extract the storage path from the public URL to remove the file too.
+  const marker = '/bons-paiement/';
+  const idx = bon.url.indexOf(marker);
+  if (idx !== -1) {
+    const storagePath = bon.url.slice(idx + marker.length);
+    await supabase.storage.from('bons-paiement').remove([storagePath]);
+  }
+
+  const { error } = await supabase.from('autres_revenus_bons').delete().eq('id', bonId);
+  if (error) return res.status(500).json({ error: error.message });
+
   res.json({ success: true });
 };
 
@@ -66,6 +123,7 @@ const renameCategorie = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 };
+
 const removeCategorie = async (req, res) => {
   const { nom } = req.body;
   if (!nom) return res.status(400).json({ error: 'Nom requis.' });
@@ -76,5 +134,6 @@ const removeCategorie = async (req, res) => {
 
 module.exports = {
   getAutresRevenus, createAutreRevenu, updateAutreRevenu, deleteAutreRevenu,
-  getCategories, addCategorie, renameCategorie,removeCategorie,
+  uploadBonRevenu, deleteBonRevenu, upload,
+  getCategories, addCategorie, renameCategorie, removeCategorie,
 };
