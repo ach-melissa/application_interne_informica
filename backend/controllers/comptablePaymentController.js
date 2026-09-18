@@ -39,14 +39,16 @@ const getAllPayments = async (req, res) => {
 
   if (insErr) console.error('INSCRIPTIONS ERROR:', insErr);
 
-  const groupMap = new Map();
+   const groupMap = new Map();
   const promoMap = new Map();
   const scolariteMap = new Map();
   const niveauMap = new Map();
   const studentInfoMap = new Map();
+  const keysWithGroup = new Set(); // only inscriptions actually assigned to a group
   for (const ins of allInscriptions ?? []) {
     const key = `${ins.etudiant_id}_${ins.formation_id}`;
     groupMap.set(key, ins.group);
+    if (ins.group) keysWithGroup.add(key);
     // Same priority as computeStudentTotal on the group side: student promo > group promo.
     promoMap.set(key, {
       enPromotion: ins.en_promotion ?? false,
@@ -59,18 +61,20 @@ const getAllPayments = async (req, res) => {
     studentInfoMap.set(key, { etudiant: ins.etudiant, formation: ins.formation });
   }
 
-  const enriched = data.map(p => {
-    const key = `${p.etudiant_id}_${p.formation_id}`;
-    return {
-      ...p,
-      groupe: groupMap.get(key) ?? null,
-      statutScolarite: scolariteMap.get(key) ?? 'en_cours',
-      niveauNom: niveauMap.get(key) ?? null,
-      ...(promoMap.get(key) ?? { enPromotion: false, prixPromotion: null, groupEnPromotion: false, groupPrixPromotion: null }),
-    };
-  });
+  const enriched = data
+    .filter(p => keysWithGroup.has(`${p.etudiant_id}_${p.formation_id}`))
+    .map(p => {
+      const key = `${p.etudiant_id}_${p.formation_id}`;
+      return {
+        ...p,
+        groupe: groupMap.get(key) ?? null,
+        statutScolarite: scolariteMap.get(key) ?? 'en_cours',
+        niveauNom: niveauMap.get(key) ?? null,
+        ...(promoMap.get(key) ?? { enPromotion: false, prixPromotion: null, groupEnPromotion: false, groupPrixPromotion: null }),
+      };
+    });
 
-  // For every inscription that has no real payment yet, inject a
+  // For every grouped inscription that has no real payment yet, inject a
   // placeholder "empty" row so the student still appears (0 DA payé,
   // full price restant). montant/tranche stay null so the frontend
   // never mistakes this for a real tranche.
@@ -78,6 +82,7 @@ const getAllPayments = async (req, res) => {
   const placeholders = [];
   for (const ins of allInscriptions ?? []) {
     const key = `${ins.etudiant_id}_${ins.formation_id}`;
+    if (!keysWithGroup.has(key)) continue; // skip students with no group
     if (coveredKeys.has(key)) continue;
     coveredKeys.add(key);
     const info = studentInfoMap.get(key);
@@ -100,7 +105,6 @@ const getAllPayments = async (req, res) => {
 
   res.json([...enriched, ...placeholders]);
 };
-
 /**
  * PATCH /api/comptable/paiements/:id
  * Update statut (and optionally montant) of a payment.
