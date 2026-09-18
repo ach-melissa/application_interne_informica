@@ -28,8 +28,8 @@ const { data: inscriptions, error: insErr } = await supabase
   .from('inscriptions')
   .select(`
     etudiant_id, formation_id,
-    group:group_id ( nom, date_debut, statut, teacher:teacher_id ( user:user_id ( nom, prenom ) ) )
-  `)
+group:group_id ( nom, date_debut, date_fin, statut, teacher:teacher_id ( user:user_id ( nom, prenom ) ) )
+    `)
   .in('etudiant_id', etudiantIds);
 
 if (insErr) console.error('INSCRIPTIONS ERROR:', insErr);

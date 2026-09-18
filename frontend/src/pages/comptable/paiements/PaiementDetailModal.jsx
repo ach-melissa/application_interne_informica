@@ -25,13 +25,13 @@ const PaiementDetailModal = ({ row, onClose }) => {
     <p className="text-[11px] text-[#0369A1]">{row.formationNom} — {row.groupeNom}</p>
     <p className="text-[10px] text-slate-400 mt-0.5">
       Début du groupe : {row.groupeDateDebut ? new Date(row.groupeDateDebut).toLocaleDateString('fr-DZ') : '—'}
-      {' · '}
-      <span className={row.groupeStatut === 'termine' ? 'text-slate-500' : 'text-emerald-600 font-medium'}>
+{' · '}Fin : {row.groupeDateFin ? new Date(row.groupeDateFin).toLocaleDateString('fr-DZ') : '—'}
+{' · '}
+<span className={row.groupeStatut === 'termine' ? 'text-slate-500' : 'text-emerald-600 font-medium'}>
         {row.groupeStatut === 'termine' ? 'Terminé' : 'En cours'}
       </span>
     </p>
   </div>
-  // ajouter aussi fin de group et le statut de group 
   <button onClick={onClose} className="text-[#0369A1] hover:text-[#0F2A4A]">
     <X size={18} />
   </button>
@@ -53,7 +53,7 @@ const PaiementDetailModal = ({ row, onClose }) => {
 {trancheNumbers.map((n) => {
   const t = row.tranches[n];
   const date = t.date_paiement ?? t.date ?? t.created_at ?? null;
-  const enRetard = !date && prevu != null; // à affiner selon logique retard voulue
+const enRetard = t.statut === 'en_attente'; // à confirmer : valeurs exactes de l'enum payment_status
   return (
     <tr key={n} className="border-b border-[#E2E8F0] last:border-0">
       <td className="py-2 font-medium text-slate-700">{n}ère Tranche</td>

@@ -23,7 +23,6 @@ import ArchiveFormation from './pages/admin/archive/ArchiveFormation';
 import ArchiveGroupDetail from './pages/admin/archive/ArchiveGroupDetail';
 import ProfDetail from './pages/admin/profs/ProfDetail';
 import AttestationPrintPage from './components/attestations/AttestationPrintPage';
-import Statistique from './pages/admin/statistique/Statistique';
 import Parametre from './pages/admin/parametre/Parametre';
 import EmploisEcole from './pages/admin/emplois/EmploisEcole';
 
@@ -115,7 +114,7 @@ function App() {
           } />
           <Route path="/admin/statistique" element={
   <PrivateRoute allowedRoles={['admin']}>
-    <Statistique />
+    <StatistiqueComptable />
   </PrivateRoute>
 } />
 <Route path="/admin/parametre" element={

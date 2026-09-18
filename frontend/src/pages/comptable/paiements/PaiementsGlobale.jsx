@@ -34,15 +34,17 @@ telephone: p.etudiants?.telephone ?? '—',
 groupeNom: p.groupe?.nom ?? '—',
 professeurNom: p.groupe?.teacher?.user ? `${p.groupe.teacher.user.nom} ${p.groupe.teacher.user.prenom}` : '—',
 groupeDateDebut: p.groupe?.date_debut ?? null,
+groupeDateFin: p.groupe?.date_fin ?? null,
 groupeStatut: p.groupe?.statut ?? null,
   prix,
   tranches: {},
 });
       }
-      map.get(key).tranches[p.tranche] = {
-        montant: p.montant,
-        date_paiement: p.date_paiement ?? p.date ?? p.created_at,
-      };
+map.get(key).tranches[p.tranche] = {
+  montant: p.montant,
+  date_paiement: p.date_paiement ?? p.date ?? p.created_at,
+  statut: p.statut, // 'payé' | 'en_attente' — vient de payments.statut
+};
     }
     return Array.from(map.values());
   }, [paiements, formations]);

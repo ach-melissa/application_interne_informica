@@ -16,6 +16,10 @@ const {
 } = require('../controllers/comptablePaymentController');
 
 const auth = [verifyToken, requireRole('admin', 'comptable')];
+const {
+  getAutresRevenus, createAutreRevenu, updateAutreRevenu, deleteAutreRevenu,
+  getCategories, addCategorie, renameCategorie,
+} = require('../controllers/comptableAutresRevenusController');
 
 // Dashboard
 router.get('/stats',              ...auth, getStats);
@@ -36,5 +40,14 @@ router.patch('/salaires/:id',     ...auth, updateSalaire);
 router.get('/etudiants',          ...auth, getEtudiants);
 router.get('/formations',         ...auth, getFormations);
 router.get('/staff',              ...auth, getStaff);
+
+// Autres revenus
+router.get   ('/autres-revenus',            ...auth, getAutresRevenus);
+router.post  ('/autres-revenus',            ...auth, createAutreRevenu);
+router.patch ('/autres-revenus/:id',        ...auth, updateAutreRevenu);
+router.delete('/autres-revenus/:id',        ...auth, deleteAutreRevenu);
+router.get   ('/autres-revenus/categories', ...auth, getCategories);
+router.post  ('/autres-revenus/categories', ...auth, addCategorie);
+router.patch ('/autres-revenus/categories', ...auth, renameCategorie);
 
 module.exports = router;

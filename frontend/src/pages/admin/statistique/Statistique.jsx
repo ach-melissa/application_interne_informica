@@ -134,7 +134,17 @@ const computeStats = (data, toutesLesFormations, tousLesRapporteurs = []) => {
     wilayaData, ageData, topApporteurs, sourceData, monthlyData, topFormations, formationPieData,
   };
 };
-
+useEffect(() => {
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/comptable/autres-revenus/categories`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (res.ok) setCategories(await res.json());
+    } catch { /* silent */ }
+  };
+  fetchCategories();
+}, []);
 
 // ────────────────────────────────────────────────────────────
 // COMPOSANTS UTILITAIRES

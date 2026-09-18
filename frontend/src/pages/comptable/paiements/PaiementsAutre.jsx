@@ -1,28 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Wallet, Plus, X, Calendar, Tag, Pencil, TrendingUp } from 'lucide-react';
 
-const DEFAULT_CATEGORIES = [
-  'Location de salle',
-  'Dons / subventions',
-  'Vente de matériel',
-  "Frais d'événements",
-  'Partenariats / sponsoring',
-];
-
-const DEFAULT_CATEGORY_COLORS = {
-  'Location de salle': { bg: 'bg-[#DCEBFA]', text: 'text-[#0369A1]' },
-  'Dons / subventions': { bg: 'bg-emerald-50', text: 'text-emerald-700' },
-  'Vente de matériel': { bg: 'bg-violet-50', text: 'text-violet-700' },
-  "Frais d'événements": { bg: 'bg-amber-50', text: 'text-amber-700' },
-  'Partenariats / sponsoring': { bg: 'bg-rose-50', text: 'text-rose-700' },
-};
-
-const COLOR_PALETTE = [
-  { bg: 'bg-sky-50', text: 'text-sky-700' },
-  { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700' },
-  { bg: 'bg-lime-50', text: 'text-lime-700' },
-  { bg: 'bg-orange-50', text: 'text-orange-700' },
-];
 
 const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
   const [showForm, setShowForm] = useState(false);
@@ -31,8 +9,7 @@ const [dateDebut, setDateDebut] = useState('');
 const [dateFin, setDateFin] = useState('');
 const [montantMin, setMontantMin] = useState('');
 const [montantMax, setMontantMax] = useState('');
-const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
-const [categoryColors, setCategoryColors] = useState(DEFAULT_CATEGORY_COLORS);
+const [categories, setCategories] = useState([]);
 const [form, setForm] = useState({ libelle: '', montant: '', date: '', categorie: categories[0] });
 
 const [showCategoryManager, setShowCategoryManager] = useState(false);
@@ -54,6 +31,15 @@ if (dateFin && new Date(a.date) > new Date(dateFin)) return false;
   [autresRevenus, categoryFilter, dateDebut, dateFin, montantMin, montantMax]
 );
 
+useEffect(() => {
+  fetch(`${import.meta.env.VITE_API_URL}/api/comptable/autres-revenus/categories`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+  })
+    .then((r) => r.ok ? r.json() : [])
+    .then(setCategories)
+    .catch(() => {});
+}, []);
+
   const total = useMemo(
     () => filtered.reduce((s, a) => s + Number(a.montant || 0), 0),
     [filtered]
@@ -70,19 +56,23 @@ if (dateFin && new Date(a.date) > new Date(dateFin)) return false;
   return entries.reduce((max, curr) => (curr[1] > max[1] ? curr : max));
 }, [filtered]);
 
-const handleSave = () => {
+const handleSave = async () => {
   if (!form.libelle || !form.montant) return;
 
   if (editingId) {
     if (!window.confirm('Confirmer la modification de cette ligne ?')) return;
-    onEdit?.(editingId, form);
+    const ok = await onEdit?.(editingId, form);
+    if (!ok) return;
   } else {
-    onAdd?.(form);
+    const ok = await onAdd?.(form);
+    if (!ok) return;
   }
 
   setForm({ libelle: '', montant: '', date: '', categorie: categories[0] });
   setEditingId(null);
   setShowForm(false);
+  const ok = await onEdit?.(editingId, form);
+if (!ok) return;
 };
 
 const handleStartEdit = (entry) => {
@@ -96,46 +86,49 @@ const handleStartEdit = (entry) => {
   setShowForm(true);
 };
 
-const handleRemove = (id) => {
+const handleRemove = async (id) => {
   if (!window.confirm('Supprimer cette ligne de revenu ? Cette action est irréversible.')) return;
-  onRemove?.(id);
+  const ok = await onRemove?.(id);
+  if (!ok) return;
   setEditingId(null);
   setShowForm(false);
 };
 
-const handleAddCategory = () => {
+const handleAddCategory = async () => {
   const name = newCategory.trim();
   if (!name || categories.includes(name)) return;
-  setCategories((prev) => [...prev, name]);
-  setCategoryColors((prev) => ({
-    ...prev,
-    [name]: COLOR_PALETTE[Object.keys(prev).length % COLOR_PALETTE.length],
-  }));
-  setNewCategory('');
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/comptable/autres-revenus/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: JSON.stringify({ nom: name }),
+    });
+    if (res.ok) {
+      setCategories((prev) => [...prev, name]);
+      setNewCategory('');
+    }
+  } catch { /* silent */ }
 };
 
-const handleRenameCategory = (oldName, newName) => {
+const handleRenameCategory = async (oldName, newName) => {
   const name = newName.trim();
   if (!name || name === oldName) { setEditingCategory(null); return; }
-  setCategories((prev) => prev.map((c) => (c === oldName ? name : c)));
-  setCategoryColors((prev) => {
-    const { [oldName]: color, ...rest } = prev;
-    return { ...rest, [name]: color };
-  });
-  autresRevenus
-    .filter((a) => a.categorie === oldName)
-    .forEach((a) => onEdit?.(a.id, { categorie: name }));
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/comptable/autres-revenus/categories`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: JSON.stringify({ ancien: oldName, nouveau: name }),
+    });
+    if (res.ok) {
+      setCategories((prev) => prev.map((c) => (c === oldName ? name : c)));
+      autresRevenus
+        .filter((a) => a.categorie === oldName)
+        .forEach((a) => onEdit?.(a.id, { categorie: name }));
+    }
+  } catch { /* silent */ }
   setEditingCategory(null);
 };
 
-const handleDeleteCategory = (name) => {
-  const enUsage = autresRevenus.some((a) => a.categorie === name);
-  const msg = enUsage
-    ? `Supprimer "${name}" ? Des revenus existants utilisent cette catégorie et la garderont, mais elle ne sera plus proposée dans le formulaire.`
-    : `Supprimer la catégorie "${name}" ?`;
-  if (!window.confirm(msg)) return;
-  setCategories((prev) => prev.filter((c) => c !== name));
-};
   return (
     <>
       {/* Card + filter + add button */}
@@ -313,9 +306,6 @@ const handleDeleteCategory = (name) => {
                 Modifier
               </button>
             )}
-            <button onClick={() => handleDeleteCategory(c)} className="text-slate-300 hover:text-red-500">
-              <X size={13} />
-            </button>
           </div>
         ))}
       </div>
@@ -360,7 +350,7 @@ const handleDeleteCategory = (name) => {
             </thead>
             <tbody>
               {filtered.map((a, idx) => {
-                const colors = categoryColors[a.categorie] ?? { bg: 'bg-slate-50', text: 'text-slate-600' };
+const colors = { bg: 'bg-[#DCEBFA]', text: 'text-[#0369A1]' };
                 return (
                  <tr
   key={a.id}
