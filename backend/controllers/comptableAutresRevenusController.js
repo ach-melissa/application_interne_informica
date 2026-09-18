@@ -30,12 +30,24 @@ const updateAutreRevenu = async (req, res) => {
   for (const k of ['libelle', 'montant', 'date', 'categorie']) {
     if (req.body[k] !== undefined) fields[k] = req.body[k];
   }
-  const { data, error } = await supabase
-    .from('autres_revenus')
-    .update(fields)
-    .eq('id', id)
-    .select('*, bons:autres_revenus_bons(id, url)')
-    .single();
+
+  let data, error;
+  if (Object.keys(fields).length === 0) {
+    // Nothing to update (e.g. a refresh-only call after a bon upload) — just re-fetch the row.
+    ({ data, error } = await supabase
+      .from('autres_revenus')
+      .select('*, bons:autres_revenus_bons(id, url)')
+      .eq('id', id)
+      .single());
+  } else {
+    ({ data, error } = await supabase
+      .from('autres_revenus')
+      .update(fields)
+      .eq('id', id)
+      .select('*, bons:autres_revenus_bons(id, url)')
+      .single());
+  }
+
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };

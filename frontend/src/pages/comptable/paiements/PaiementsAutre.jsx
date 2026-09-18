@@ -29,6 +29,12 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
   const [uploadingBon, setUploadingBon] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileInputRef = useRef(null);
+  const [pendingBons, setPendingBons] = useState([]); // [{ file, preview }] staged before the revenu exists
+  const [confirm, setConfirm] = useState(null); // 'save' | 'delete' | { type: 'delete-bon', bonId } | null
+  const [formError, setFormError] = useState(null);
+
+  const [categoryConfirm, setCategoryConfirm] = useState(null); // { name } | null
+  const [categoryError, setCategoryError] = useState(null);
   const filtered = useMemo(
     () => autresRevenus.filter((a) => {
       if (categoryFilter && a.categorie !== categoryFilter) return false;
@@ -94,23 +100,41 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
     setMontantMax('');
   };
 
-  const handleSave = async () => {
-    if (!form.libelle || !form.montant) return;
-
+  const requestSave = () => {
+    if (!form.libelle || !form.montant) {
+      setFormError('Libellé et montant sont obligatoires.');
+      return;
+    }
+    setFormError(null);
     if (editingId) {
-      if (!window.confirm('Confirmer la modification de cette ligne ?')) return;
+      setConfirm('save');
+    } else {
+      doSave();
+    }
+  };
+
+  const doSave = async () => {
+    setConfirm(null);
+    if (editingId) {
       const ok = await onEdit?.(editingId, form);
-      if (!ok) return;
+      if (!ok) { setFormError('Erreur lors de la modification.'); return; }
       setForm({ libelle: '', montant: '', date: '', categorie: categories[0] });
       setEditingId(null);
       setEditingEntry(null);
       setShowForm(false);
     } else {
       const created = await onAdd?.(form);
-      if (!created) return;
+      if (!created) { setFormError('Erreur lors de la création.'); return; }
       // Stay open, flip into "edit" mode so the user can attach bons right away.
       setEditingId(created.id);
       setEditingEntry({ ...created, bons: created.bons || [] });
+
+      // Upload any photos the user staged before the revenu existed.
+      for (const { file } of pendingBons) {
+        await uploadBon(created.id, file);
+      }
+      pendingBons.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPendingBons([]);
     }
   };
 
@@ -123,14 +147,19 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
     });
     setEditingId(entry.id);
     setEditingEntry(entry);
+    setFormError(null);
+    setConfirm(null);
     setShowForm(true);
   };
 
-  const handleRemove = async (id) => {
-    if (!window.confirm('Supprimer cette ligne de revenu ? Cette action est irréversible.')) return;
-    const ok = await onRemove?.(id);
-    if (!ok) return;
+  const requestRemove = () => setConfirm('delete');
+
+  const doRemove = async () => {
+    setConfirm(null);
+    const ok = await onRemove?.(editingId);
+    if (!ok) { setFormError('Erreur lors de la suppression.'); return; }
     setEditingId(null);
+    setEditingEntry(null);
     setShowForm(false);
   };
   const uploadBon = async (autreRevenuId, file) => {
@@ -148,7 +177,7 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
       setEditingEntry((prev) => prev ? { ...prev, bons: [...(prev.bons || []), data] } : prev);
       onEdit?.(autreRevenuId, {}); // trigger parent refresh so the list stays in sync, no field change needed
     } catch (err) {
-      alert(err.message);
+      setFormError(err.message);
     } finally {
       setUploadingBon(false);
     }
@@ -156,13 +185,26 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
-    if (!file || !editingId) return;
-    uploadBon(editingId, file);
+    if (!file) return;
+    if (editingId) {
+      uploadBon(editingId, file);
+    } else {
+      setPendingBons((prev) => [...prev, { file, preview: URL.createObjectURL(file) }]);
+    }
     e.target.value = '';
   };
 
-  const handleDeleteBon = async (bonId) => {
-    if (!window.confirm('Supprimer cette photo de bon ?')) return;
+  const handleRemovePendingBon = (idx) => {
+    setPendingBons((prev) => {
+      URL.revokeObjectURL(prev[idx].preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const requestDeleteBon = (bonId) => setConfirm({ type: 'delete-bon', bonId });
+
+  const doDeleteBon = async (bonId) => {
+    setConfirm(null);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/comptable/autres-revenus/bons/${bonId}`, {
         method: 'DELETE',
@@ -171,7 +213,7 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
       if (!res.ok) throw new Error('Erreur suppression');
       setEditingEntry((prev) => prev ? { ...prev, bons: (prev.bons || []).filter((b) => b.id !== bonId) } : prev);
     } catch (err) {
-      alert(err.message);
+      setFormError(err.message);
     }
   };
   const handleAddCategory = async () => {
@@ -186,8 +228,13 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
       if (res.ok) {
         setCategories((prev) => [...prev, name]);
         setNewCategory('');
+        setCategoryError(null);
+      } else {
+        setCategoryError("Erreur lors de l'ajout de la catégorie.");
       }
-    } catch { /* silent */ }
+    } catch {
+      setCategoryError('Erreur réseau.');
+    }
   };
 
   const handleRenameCategory = async (oldName, newName) => {
@@ -209,8 +256,12 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
     setEditingCategory(null);
   };
 
-  const handleRemoveCategory = async (name) => {
-    if (!window.confirm(`Supprimer la catégorie "${name}" ?`)) return;
+  const requestRemoveCategory = (name) => setCategoryConfirm({ name });
+
+  const doRemoveCategory = async () => {
+    const name = categoryConfirm?.name;
+    setCategoryConfirm(null);
+    if (!name) return;
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/comptable/autres-revenus/categories`, {
         method: 'DELETE',
@@ -219,8 +270,13 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
       });
       if (res.ok) {
         setCategories((prev) => prev.filter((c) => c !== name));
+        setCategoryError(null);
+      } else {
+        setCategoryError('Erreur lors de la suppression.');
       }
-    } catch { /* silent */ }
+    } catch {
+      setCategoryError('Erreur réseau.');
+    }
   };
 
   return (
@@ -296,14 +352,15 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
       </div>
 
       <div className="flex flex-wrap gap-2 justify-end mb-5">
-        <button
-          onClick={() => setShowCategoryManager(true)}
+          <button
+          onClick={() => { setShowCategoryManager(true); setCategoryError(null); setCategoryConfirm(null); }}
           className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1] bg-[#DCEBFA] hover:bg-[#c9e2f7] px-3.5 py-2 rounded-md transition"
         >
           <Tag size={14} /> Catégories
         </button>
         <button
-          onClick={() => { setEditingId(null); setForm({ libelle: '', montant: '', date: '', categorie: categories[0] }); setShowForm(true); }}
+          onClick={() => { setEditingId(null); setForm({ libelle: '', montant: '', date: '', categorie: categories[0] }); setFormError(null); setConfirm(null); setShowForm(true); }}
+
           className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3.5 py-2 rounded-md text-xs font-medium shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all"
         >
           <Plus size={14} /> Ajouter un revenu
@@ -314,10 +371,9 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
       {showForm && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
-          onClick={() => { setShowForm(false); setEditingEntry(null); setEditingId(null); }}
+          onClick={() => { setShowForm(false); setEditingEntry(null); setEditingId(null); setFormError(null); setConfirm(null); pendingBons.forEach((p) => URL.revokeObjectURL(p.preview)); setPendingBons([]); }}
         >
           <div className="bg-white rounded-md shadow-xl w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-
             <div className="sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
               <div className="flex items-center justify-between px-5 py-4">
                 <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
@@ -326,10 +382,39 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
                   </span>
                   {editingId ? 'Modifier le revenu' : 'Ajouter un revenu'}
                 </h2>
-                <button onClick={() => { setShowForm(false); setEditingEntry(null); setEditingId(null); }} className="text-slate-300 hover:text-slate-600">
+                <button onClick={() => { setShowForm(false); setEditingEntry(null); setEditingId(null); setFormError(null); setConfirm(null); pendingBons.forEach((p) => URL.revokeObjectURL(p.preview)); setPendingBons([]); }} className="text-slate-300 hover:text-slate-600">
                   <X size={16} />
                 </button>
               </div>
+
+              {formError && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 mx-5 mb-3 rounded-md">{formError}</p>}
+              {confirm === 'save' && (
+                <div className="flex items-center justify-between gap-3 mx-5 mb-3 rounded-md p-3 bg-[#DCEBFA]/50 text-[#0369A1]">
+                  <p className="text-xs">Confirmer la modification de cette ligne ?</p>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+                    <button onClick={doSave} className="text-xs px-3 py-1.5 rounded-md text-white bg-[#0F2A4A] hover:bg-[#16385f]">Oui</button>
+                  </div>
+                </div>
+              )}
+              {confirm === 'delete' && (
+                <div className="flex items-center justify-between gap-3 mx-5 mb-3 rounded-md p-3 bg-red-50 text-red-600">
+                  <p className="text-xs">Supprimer cette ligne de revenu ? Action irréversible.</p>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+                    <button onClick={doRemove} className="text-xs px-3 py-1.5 rounded-md text-white bg-red-500 hover:bg-red-600">Oui</button>
+                  </div>
+                </div>
+              )}
+              {confirm?.type === 'delete-bon' && (
+                <div className="flex items-center justify-between gap-3 mx-5 mb-3 rounded-md p-3 bg-red-50 text-red-600">
+                  <p className="text-xs">Supprimer cette photo de bon ?</p>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+                    <button onClick={() => doDeleteBon(confirm.bonId)} className="text-xs px-3 py-1.5 rounded-md text-white bg-red-500 hover:bg-red-600">Oui</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-5 space-y-4">
@@ -374,56 +459,71 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
                 </div>
               </div>
 
-              {editingId ? (
-                <div>
-                  <Label icon={ImageIcon} text="Bons (photos)" />
-                  <div className="flex flex-wrap gap-2">
-                    {(editingEntry?.bons || []).map((b) => (
-                      <div key={b.id} className="relative group">
-                        <button type="button" onClick={() => setLightboxUrl(b.url)}>
-                          <img src={b.url} alt="bon" className="w-14 h-14 rounded-md object-cover border border-slate-200 group-hover:opacity-80 transition" />
-                          <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                            <ZoomIn size={14} className="text-white drop-shadow" />
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteBon(b.id)}
-                          className="absolute -top-1.5 -right-1.5 bg-white rounded-full p-0.5 shadow text-slate-400 hover:text-red-500 transition"
-                        >
-                          <X size={11} />
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingBon}
-                      className="w-14 h-14 rounded-md border border-dashed border-slate-300 hover:border-[#0369A1]/50 flex items-center justify-center text-slate-400 hover:text-[#0369A1] transition disabled:opacity-40"
-                    >
-                      {uploadingBon ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-                    </button>
-                  </div>
-                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+              <div>
+                <Label icon={ImageIcon} text="Bons (photos)" />
+                <div className="flex flex-wrap gap-2">
+                  {editingId
+                    ? (editingEntry?.bons || []).map((b) => (
+                        <div key={b.id} className="relative group">
+                          <button type="button" onClick={() => setLightboxUrl(b.url)}>
+                            <img src={b.url} alt="bon" className="w-14 h-14 rounded-md object-cover border border-slate-200 group-hover:opacity-80 transition" />
+                            <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                              <ZoomIn size={14} className="text-white drop-shadow" />
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => requestDeleteBon(b.id)}
+                            className="absolute -top-1.5 -right-1.5 bg-white rounded-full p-0.5 shadow text-slate-400 hover:text-red-500 transition"
+                          >
+                            <X size={11} />
+                          </button>
+                        </div>
+                      ))
+                    : pendingBons.map((p, idx) => (
+                        <div key={idx} className="relative group">
+                          <button type="button" onClick={() => setLightboxUrl(p.preview)}>
+                            <img src={p.preview} alt="bon" className="w-14 h-14 rounded-md object-cover border border-slate-200 group-hover:opacity-80 transition" />
+                            <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                              <ZoomIn size={14} className="text-white drop-shadow" />
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePendingBon(idx)}
+                            className="absolute -top-1.5 -right-1.5 bg-white rounded-full p-0.5 shadow text-slate-400 hover:text-red-500 transition"
+                          >
+                            <X size={11} />
+                          </button>
+                        </div>
+                      ))
+                  }
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingBon}
+                    className="w-14 h-14 rounded-md border border-dashed border-slate-300 hover:border-[#0369A1]/50 flex items-center justify-center text-slate-400 hover:text-[#0369A1] transition disabled:opacity-40"
+                  >
+                    {uploadingBon ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                  </button>
                 </div>
-              ) : (
-                <p className="text-[11px] text-slate-400 italic">Vous pourrez ajouter des photos de bon juste après l'enregistrement.</p>
-              )}
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+              </div>
 
               <div className="flex justify-end gap-2 pt-1">
                 {editingId && (
                   <button
-                    onClick={() => handleRemove(editingId)}
+                    onClick={requestRemove}
                     className="text-xs px-3 py-1.5 rounded-md text-red-600 bg-red-50 hover:bg-red-100 mr-auto font-medium"
                   >
                     Supprimer
                   </button>
                 )}
-                <button onClick={() => { setShowForm(false); setEditingEntry(null); setEditingId(null); }} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">
+                <button onClick={() => { setShowForm(false); setEditingEntry(null); setEditingId(null); setFormError(null); setConfirm(null); pendingBons.forEach((p) => URL.revokeObjectURL(p.preview)); setPendingBons([]); }} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">
                   Annuler
                 </button>
                 <button
-                  onClick={handleSave}
+                  onClick={requestSave}
                   className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium flex items-center gap-1"
                 >
                   <Plus size={12} />
@@ -439,7 +539,7 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
       {showCategoryManager && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
-          onClick={() => setShowCategoryManager(false)}
+          onClick={() => { setShowCategoryManager(false); setCategoryError(null); setCategoryConfirm(null); }}
         >
           <div className="bg-white rounded-md shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
 
@@ -451,10 +551,21 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
                   </span>
                   Gérer les catégories
                 </h2>
-                <button onClick={() => setShowCategoryManager(false)} className="text-slate-300 hover:text-slate-600">
+                <button onClick={() => { setShowCategoryManager(false); setCategoryError(null); setCategoryConfirm(null); }} className="text-slate-300 hover:text-slate-600">
                   <X size={16} />
                 </button>
               </div>
+
+              {categoryError && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 mx-5 mb-3 rounded-md">{categoryError}</p>}
+              {categoryConfirm && (
+                <div className="flex items-center justify-between gap-3 mx-5 mb-3 rounded-md p-3 bg-red-50 text-red-600">
+                  <p className="text-xs">Supprimer la catégorie "{categoryConfirm.name}" ?</p>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => setCategoryConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+                    <button onClick={doRemoveCategory} className="text-xs px-3 py-1.5 rounded-md text-white bg-red-500 hover:bg-red-600">Oui</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-5 space-y-4">
@@ -482,7 +593,7 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
                         <button onClick={() => setEditingCategory({ old: c, value: c })} className="text-slate-400 hover:text-[#0369A1]">
                           <Pencil size={12} />
                         </button>
-                        <button onClick={() => handleRemoveCategory(c)} className="text-slate-400 hover:text-red-500">
+                          <button onClick={() => requestRemoveCategory(c)} className="text-slate-400 hover:text-red-500">
                           <X size={13} />
                         </button>
                       </>
