@@ -177,7 +177,7 @@ const getFormations = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('formations')
-      .select('id, nom, prix, prix_etudiant')
+      .select('id, nom, prix, prix_etudiant, a_niveaux')
       .eq('statut', 'active')
       .order('nom');
     if (error) return res.status(500).json({ message: error.message });
