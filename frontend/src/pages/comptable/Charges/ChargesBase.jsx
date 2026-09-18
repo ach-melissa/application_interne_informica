@@ -144,7 +144,9 @@ const handleAdd = async () => {
   if (!form.categorie || !form.montant || !form.date) return;
   try {
 const data = await request('/charges', { method: 'POST', body: JSON.stringify({ ...form, montant: Number(form.montant), type }) });
-    setCharges((prev) => [...prev, data]);
+    setCharges((prev) =>
+  [...prev, data].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+);
     setForm(emptyForm);
     setShowForm(false);
   } catch { setError("Échec de l'ajout."); }
@@ -169,7 +171,9 @@ const handleSaveEdit = async () => {
   if (!editForm.categorie || !editForm.montant || !editForm.date) return;
   try {
 const data = await request(`/charges/${selectedCharge.id}`, { method: 'PATCH', body: JSON.stringify({ ...editForm, montant: Number(editForm.montant), type }) });
-    setCharges((prev) => prev.map((c) => (c.id === selectedCharge.id ? data : c)));
+    setCharges((prev) =>
+  prev.map((c) => (c.id === selectedCharge.id ? data : c)).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+);
     closeRow();
   } catch { setError('Échec de la modification.'); }
 };
