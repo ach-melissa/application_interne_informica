@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Tag, Calendar, Plus, Receipt, CalendarDays } from 'lucide-react';
+import { Search, Tag, Calendar, Plus, Receipt, CalendarDays, X } from 'lucide-react';
 import { ChargeFormModal, CategoryManagerModal } from './ChargesModals';
 
 const API = import.meta.env.VITE_API_URL;
@@ -161,22 +161,31 @@ const ChargesBase = ({ type }) => {
           <input type="text" placeholder="Description…" value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40" />
         </div>
-        <div className="relative flex items-center">
+       <div className="w-px h-5 bg-[#E2E8F0]" />
+<div className="relative flex items-center">
           <Tag size={13} className="absolute left-2.5 text-[#0369A1] pointer-events-none z-10" />
           <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
             className={`appearance-none pl-8 pr-7 py-1.5 text-xs rounded-full bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer min-w-[190px] ${categoryFilter ? 'text-[#0369A1] font-medium' : 'text-slate-500'}`}>
             <option value="">Toutes les catégories</option>
             {activeCategories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-          </select>
+         </select>
+{categoryFilter && (
+  <button onClick={() => setCategoryFilter('')} className="absolute right-2 text-slate-300 hover:text-red-400">
+    <X size={11} />
+  </button>
+)}
         </div>
-        <div className="flex items-center gap-1.5 bg-white border border-[#E2E8F0] rounded-full pl-3 pr-1.5 py-1.5">
+        <div className="w-px h-5 bg-[#E2E8F0]" />
+<div className="flex items-center gap-1.5 bg-white border border-[#E2E8F0] rounded-full pl-3 pr-1.5 py-1.5">
           <Calendar size={13} className="text-[#0369A1]" />
           <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="text-xs text-slate-500 focus:outline-none bg-transparent w-[110px]" />
           <span className="text-slate-300 text-xs">→</span>
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="text-xs text-slate-500 focus:outline-none bg-transparent w-[110px]" />
         </div>
         {activeFilterCount > 0 && (
-          <button onClick={clearFilters} className="text-[11px] text-red-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50">Tout effacer</button>
+         <button onClick={clearFilters} className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50">
+  <X size={11} /> Tout effacer
+</button>
         )}
         <span className="text-[11px] text-slate-400 bg-[#F8FCFF] border border-[#E2E8F0] px-2.5 py-1 rounded-full">{filtered.length} / {charges.length}</span>
       </div>
@@ -203,7 +212,7 @@ const ChargesBase = ({ type }) => {
         newCategory={newCategory} setNewCategory={setNewCategory} onAdd={handleAddCategory}
       />
 
-      <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden mb-5">
+<div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden mb-5">
         <div className="overflow-x-auto">
           <table className="w-full text-xs table-fixed">
             <colgroup><col className="w-[20%]" /><col className="w-[42%]" /><col className="w-[19%]" /><col className="w-[19%]" /></colgroup>
@@ -218,13 +227,16 @@ const ChargesBase = ({ type }) => {
               {filtered.length === 0 ? (
                 <tr><td colSpan={4} className="text-center py-10 text-slate-400 bg-white">{loading ? 'Chargement…' : 'Aucune charge trouvée.'}</td></tr>
               ) : filtered.map((c, idx) => {
-                const colors = categoryColors[c.categorie] ?? { bg: 'bg-slate-50', text: 'text-slate-600' };
+                const colors = { bg: 'bg-[#DCEBFA]', text: 'text-[#0369A1]' };
                 return (
-                  <tr key={c.id} onClick={() => openEdit(c)} className={`cursor-pointer hover:bg-[#DCEBFA]/30 transition ${idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}>
+                  <tr key={c.id} onClick={() => openEdit(c)} className={`cursor-pointer hover:bg-slate-50/60 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                     <td className="px-3 py-2.5 whitespace-nowrap border-b border-l border-[#E2E8F0]"><span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>{c.categorie}</span></td>
                     <td className="px-3 py-2.5 font-medium text-slate-700 border-b border-[#E2E8F0]">{c.description}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-slate-700 whitespace-nowrap border-b border-[#E2E8F0]">{Number(c.montant).toLocaleString('fr-DZ')} DA</td>
-                    <td className="px-3 py-2.5 text-right text-slate-500 whitespace-nowrap border-b border-r border-[#E2E8F0]">{c.date ? new Date(c.date).toLocaleDateString('fr-DZ') : '—'}</td>
+                    <td className="px-3 py-2.5 text-right text-slate-500 whitespace-nowrap border-b border-r border-[#E2E8F0]"><span className="inline-flex items-center gap-1">
+  <Calendar size={11} />
+  {c.date ? new Date(c.date).toLocaleDateString('fr-DZ') : '—'}
+</span></td>
                   </tr>
                 );
               })}
