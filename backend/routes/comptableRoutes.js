@@ -59,7 +59,9 @@ router.post  ('/autres-revenus/:id/bons',      ...auth, uploadBon.single('bon'),
 router.delete('/autres-revenus/bons/:bonId',   ...auth, deleteBonRevenu);
 
 // Charges (formation / autre)
+
 router.get   ('/charges/categories', ...auth, getChargeCategories);
+router.get   ('/charges/formations', ...auth, getChargeFormations);
 router.get   ('/charges',            ...auth, getCharges);
 router.post  ('/charges',            ...auth, createCharge);
 router.patch ('/charges/:id',        ...auth, updateCharge);
