@@ -1,6 +1,6 @@
 // PaiementsGlobale.jsx
 import { useState, useMemo } from 'react';
-import { Search, User, GraduationCap, Wallet, AlertCircle, Users, Clock, CalendarRange, X } from 'lucide-react';
+import { Search, User, GraduationCap, Wallet, AlertCircle, Users, Clock, CalendarRange, X, Layers } from 'lucide-react';
 import PaiementDetailModal from './PaiementDetailModal';
 
 const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
@@ -307,8 +307,8 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
                       <td className="px-3 py-2.5 font-medium text-slate-700 border-b border-l border-slate-100 max-w-[160px] truncate">
                         <span className="inline-flex items-center gap-1.5">
                           {row.nom}
-                          {enRetard && (
-                            <span title={`En retard (> ${RETARD_JOURS} j sans paiement)`} className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
+                                                 {enRetard && (
+                            <span title="En retard — échéance dépassée" className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
                           )}
                           {row.enPromotion && (
                             <span title={`Promo étudiant — ${row.prixPromotion != null ? Number(row.prixPromotion).toLocaleString('fr-DZ') : '—'} DA`}
@@ -337,6 +337,17 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
                               
                               className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 whitespace-nowrap">
                               <Users size={9} /> Promo
+                            </span>
+                          )}
+                          {row.groupeStatut && (
+                            <span title={`Statut du groupe — ${row.groupeStatut}`}
+                              className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                                row.groupeStatut === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                                row.groupeStatut === 'termine' ? 'bg-slate-200 text-slate-600' :
+                                row.groupeStatut === 'suspendu' ? 'bg-red-100 text-red-600' :
+                                'bg-blue-100 text-blue-700'
+                              }`}>
+                              <Layers size={9} /> {row.groupeStatut}
                             </span>
                           )}
                         </span>

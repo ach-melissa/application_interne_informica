@@ -56,9 +56,8 @@ const [
     if (allGroupIds.length) {
       const { data: groupsData } = await supabase
         .from('groups')
-        .select('id, nom, formation_id, niveau_id, en_promotion, prix_promotion, date_debut, use_default_periods, formation:formation_id(prix, prix_etudiant, prix_uniforme), niveau:niveau_id(prix)')
+        .select('id, nom, statut, formation_id, niveau_id, en_promotion, prix_promotion, date_debut, use_default_periods, formation:formation_id(prix, prix_etudiant, prix_uniforme), niveau:niveau_id(prix)')
         .in('id', allGroupIds);
-
       (groupsData ?? []).forEach((g) => { groupMap[g.id] = g; });
 
       const relevantFormationIds = [...new Set((groupsData ?? []).map((g) => g.formation_id))];
@@ -135,6 +134,7 @@ const [
           formationNom: i.formation?.nom ?? group?.formation?.nom ?? '',
           groupId: i.group_id,
           groupNom: group?.nom ?? '—',
+          groupStatut: group?.statut ?? null,
           total,
           paid,
           remaining: total - paid,

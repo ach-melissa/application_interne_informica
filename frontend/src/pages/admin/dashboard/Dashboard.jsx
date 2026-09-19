@@ -174,6 +174,17 @@ Pré inscriptions en attente
                       <p className="text-sm font-medium text-[#1E293B] flex items-center gap-1.5">
                         <Layers size={13} className="text-[#94A3B8]" />
                         {g.group?.nom}
+                        {g.group?.statut && (
+                          <span title={`Statut du groupe — ${g.group.statut}`}
+                            className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                              g.group.statut === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                              g.group.statut === 'termine' ? 'bg-slate-200 text-slate-600' :
+                              g.group.statut === 'suspendu' ? 'bg-red-100 text-red-600' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
+                            {g.group.statut}
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-[#94A3B8] flex items-center gap-1.5 mt-0.5">
                         <BookOpen size={12} />
@@ -236,7 +247,22 @@ onClick={() => p.groupId && navigate(`/admin/formations/${p.formationId}/groups/
                     >
                       <td className="px-3 py-2 border-b border-l border-[#E2E8F0] font-medium text-slate-700 whitespace-nowrap">{p.nom}</td>
                       <td className="px-3 py-2 border-b border-[#E2E8F0] text-slate-600 whitespace-nowrap">{p.formationNom}</td>
-                      <td className="px-3 py-2 border-b border-[#E2E8F0] text-slate-600 whitespace-nowrap">{p.groupNom}</td>
+                      <td className="px-3 py-2 border-b border-[#E2E8F0] text-slate-600 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5">
+                          {p.groupNom}
+                          {p.groupStatut && (
+                            <span title={`Statut du groupe — ${p.groupStatut}`}
+                              className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                                p.groupStatut === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                                p.groupStatut === 'termine' ? 'bg-slate-200 text-slate-600' :
+                                p.groupStatut === 'suspendu' ? 'bg-red-100 text-red-600' :
+                                'bg-blue-100 text-blue-700'
+                              }`}>
+                              {p.groupStatut}
+                            </span>
+                          )}
+                        </span>
+                      </td>
                       <td className="px-3 py-2 border-b border-[#E2E8F0] font-medium text-slate-700 whitespace-nowrap">{p.remaining.toLocaleString('fr-FR')} DA</td>
                       <td className="px-3 py-2 border-b border-[#E2E8F0] whitespace-nowrap">
                         {p.prochaineEcheance ? (
