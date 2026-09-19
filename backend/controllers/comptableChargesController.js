@@ -114,5 +114,13 @@ const deleteCharge = safe(async (req, res) => {
   if (!data || data.length === 0) return res.status(404).json({ error: 'Charge introuvable.' });
   res.status(204).send();
 });
+// GET /charges/formations → [{ id, nom, groupes: [{ id, nom }] }]
+const getChargeFormations = safe(async (req, res) => {
+  const { data, error } = await supabase
+    .from('formations')
+    .select('id, nom, groupes(id, nom)')
+    .order('nom', { ascending: true });
 
-module.exports = { getCharges, getChargeCategories, createCharge, updateCharge, deleteCharge };
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});module.exports = { getCharges, getChargeCategories, getChargeFormations, createCharge, updateCharge, deleteCharge };

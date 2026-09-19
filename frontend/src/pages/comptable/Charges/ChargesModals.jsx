@@ -8,10 +8,11 @@ const Label = ({ icon: Icon, text, required }) => (
 );
 
 export const ChargeFormModal = ({
-  show, type, onClose, activeCategories, form, setForm, editingId,
+  show, type, formations = [], onClose, activeCategories, form, setForm, editingId,
   confirm, setConfirm, formError, onRequestSave, onSave, onRequestDelete, onDelete,
 }) => {
   if (!show) return null;
+  const groupesDisponibles = formations.find((f) => f.nom === form.formation)?.groupes ?? [];
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={onClose}>
       <div className="bg-white rounded-md shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -54,15 +55,21 @@ export const ChargeFormModal = ({
               {activeCategories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
             </select>
           </div>
-          {type === 'formation' && (
+ {type === 'formation' && (
   <>
     <div>
       <Label icon={GraduationCap} text="Formation" required />
-      <input type="text" value={form.formation} onChange={(e) => setForm((f) => ({ ...f, formation: e.target.value }))} className={inp} placeholder="Ex: Développement web" />
+      <select value={form.formation} onChange={(e) => setForm((f) => ({ ...f, formation: e.target.value, groupe: '' }))} className={inp}>
+        <option value="">Sélectionner</option>
+        {formations.map((f) => <option key={f.id} value={f.nom}>{f.nom}</option>)}
+      </select>
     </div>
     <div>
       <Label icon={Users} text="Groupe" />
-      <input type="text" value={form.groupe} onChange={(e) => setForm((f) => ({ ...f, groupe: e.target.value }))} className={inp} placeholder="Ex: Groupe A" />
+      <select value={form.groupe} onChange={(e) => setForm((f) => ({ ...f, groupe: e.target.value }))} disabled={!form.formation} className={`${inp} disabled:bg-slate-50 disabled:text-slate-400`}>
+        <option value="">{form.formation ? 'Aucun groupe' : "Choisir une formation d'abord"}</option>
+        {groupesDisponibles.map((g) => <option key={g.id} value={g.nom}>{g.nom}</option>)}
+      </select>
     </div>
   </>
 )}

@@ -21,6 +21,7 @@ const emptyForm = { categorie: '', montant: '', date: '', description: '', forma
 const ChargesBase = ({ type }) => {
   const [charges, setCharges] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [formations, setFormations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -33,6 +34,10 @@ const ChargesBase = ({ type }) => {
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [type]);
+  useEffect(() => {
+  if (type !== 'formation') return;
+  request('/charges/formations').then(setFormations).catch(() => setError('Impossible de charger les formations.'));
+}, [type]);
 
   const activeCategories = categories.filter((c) => c.active);
   const categoryColors = useMemo(() => {
@@ -117,8 +122,7 @@ const [formationFilter, setFormationFilter] = useState('');
     } catch { setError('Échec de la mise à jour.'); }
   };
 
-const formationOptions = useMemo(() => [...new Set(charges.map((c) => c.formation).filter(Boolean))].sort(), [charges]);
-
+const formationOptions = formations.map((f) => f.nom);
 const filtered = useMemo(() => charges.filter((c) => {
   const matchSearch = !search || c.description.toLowerCase().includes(search.toLowerCase());
   const matchCategory = !categoryFilter || c.categorie === categoryFilter;
@@ -226,7 +230,7 @@ const headers = isFormation
       </div>
 
       <ChargeFormModal
-        show={showForm} type={type} onClose={closeForm} activeCategories={activeCategories}
+        show={showForm} type={type} formations={formations} onClose={closeForm} activeCategories={activeCategories}
         form={form} setForm={setForm} editingId={editingId}
         confirm={confirm} setConfirm={setConfirm} formError={formError}
         onRequestSave={requestSave} onSave={doSave} onRequestDelete={requestDelete} onDelete={doDelete}
