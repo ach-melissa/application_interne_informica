@@ -13,18 +13,21 @@ const CATEGORIES = {
 const TYPES = Object.keys(CATEGORIES);
 
 // Colonnes renvoyées au frontend (même forme que les anciennes données de test)
-const COLUMNS = 'id, date, description, montant, categorie';
-
-const validate = ({ type, categorie, montant, date }) => {
+const COLUMNS = 'id, date, description, montant, categorie, formation, groupe';
+const validate = ({ type, categorie, montant, date, formation }) => {
   if (!TYPES.includes(type)) return 'Type invalide.';
   if (!CATEGORIES[type].includes(categorie)) return 'Catégorie invalide pour ce type.';
+  if (type === 'formation' && (typeof formation !== 'string' || !formation.trim())) return 'Formation obligatoire.';
   if (montant === '' || montant == null || !Number.isFinite(Number(montant)) || Number(montant) < 0) {
     return 'Montant invalide.';
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Date invalide.';
   return null;
 };
-
+const extraFields = ({ type, formation, groupe }) =>
+  type === 'formation'
+    ? { formation: formation.trim(), groupe: groupe?.trim() || null }
+    : { formation: null, groupe: null };
 // Évite une requête qui reste bloquée si une exception inattendue survient
 const safe = (fn) => async (req, res) => {
   try {
@@ -61,32 +64,31 @@ const getChargeCategories = safe(async (req, res) => {
 // POST /charges
 const createCharge = safe(async (req, res) => {
   const { type, categorie, montant, date, description } = req.body;
-  const invalid = validate({ type, categorie, montant, date });
+  const invalid = validate(req.body);
   if (invalid) return res.status(400).json({ error: invalid });
 
   const { data, error } = await supabase
     .from('charges')
-    .insert({ type, categorie, montant: Number(montant), date, description: description ?? '' })
+    .insert({ type, categorie, montant: Number(montant), date, description: description ?? '', ...extraFields(req.body) })
     .select(COLUMNS)
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
   res.status(201).json(data);
 });
-
 // PATCH /charges/:id
 const updateCharge = safe(async (req, res) => {
   const { id } = req.params;
   if (!/^\d+$/.test(id)) return res.status(400).json({ error: 'Identifiant invalide.' });
 
   const { type, categorie, montant, date, description } = req.body;
-  const invalid = validate({ type, categorie, montant, date });
+  const invalid = validate(req.body);
   if (invalid) return res.status(400).json({ error: invalid });
 
   // .eq('type', type) : une page "formation" ne peut pas modifier une charge "autre"
   const { data, error } = await supabase
     .from('charges')
-    .update({ categorie, montant: Number(montant), date, description: description ?? '' })
+    .update({ categorie, montant: Number(montant), date, description: description ?? '', ...extraFields(req.body) })
     .eq('id', id)
     .eq('type', type)
     .select(COLUMNS)

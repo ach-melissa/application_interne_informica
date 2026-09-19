@@ -1,6 +1,5 @@
 // ChargesModals.jsx
-import { Receipt, Tag, Wallet, Calendar, FileText, Trash2, Pencil, X, Plus } from 'lucide-react';
-
+import { Receipt, Tag, Wallet, Calendar, FileText, Trash2, Pencil, X, Plus, GraduationCap, Users } from 'lucide-react';
 const inp = 'w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors';
 const Label = ({ icon: Icon, text, required }) => (
   <p className="flex items-center gap-1 text-[10px] text-slate-600 uppercase tracking-wide mb-0.5">
@@ -9,7 +8,7 @@ const Label = ({ icon: Icon, text, required }) => (
 );
 
 export const ChargeFormModal = ({
-  show, onClose, activeCategories, form, setForm, editingId,
+  show, type, onClose, activeCategories, form, setForm, editingId,
   confirm, setConfirm, formError, onRequestSave, onSave, onRequestDelete, onDelete,
 }) => {
   if (!show) return null;
@@ -55,6 +54,18 @@ export const ChargeFormModal = ({
               {activeCategories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
             </select>
           </div>
+          {type === 'formation' && (
+  <>
+    <div>
+      <Label icon={GraduationCap} text="Formation" required />
+      <input type="text" value={form.formation} onChange={(e) => setForm((f) => ({ ...f, formation: e.target.value }))} className={inp} placeholder="Ex: Développement web" />
+    </div>
+    <div>
+      <Label icon={Users} text="Groupe" />
+      <input type="text" value={form.groupe} onChange={(e) => setForm((f) => ({ ...f, groupe: e.target.value }))} className={inp} placeholder="Ex: Groupe A" />
+    </div>
+  </>
+)}
           <div>
             <Label icon={Wallet} text="Montant (DA)" required />
             <input type="number" value={form.montant} onChange={(e) => setForm((f) => ({ ...f, montant: e.target.value }))} className={inp} />
