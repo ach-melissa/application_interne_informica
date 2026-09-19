@@ -22,7 +22,10 @@ const {
   getCategories, addCategorie, renameCategorie, removeCategorie,
 } = require('../controllers/comptableAutresRevenusController');
 const {
-  getCharges, getChargeCategories, getChargeFormations, createCharge, updateCharge, deleteCharge,
+  getCharges, createCharge, updateCharge, deleteCharge,
+  uploadBonCharge, deleteBonCharge, upload: uploadChargeBon,
+  getChargeCategories, addChargeCategory, updateChargeCategory,
+  getChargeFormations,
 } = require('../controllers/comptableChargesController');
 // Dashboard
 router.get('/stats',              ...auth, getStats);
@@ -59,12 +62,14 @@ router.post  ('/autres-revenus/:id/bons',      ...auth, uploadBon.single('bon'),
 router.delete('/autres-revenus/bons/:bonId',   ...auth, deleteBonRevenu);
 
 // Charges (formation / autre)
-
-router.get   ('/charges/categories', ...auth, getChargeCategories);
-router.get   ('/charges/formations', ...auth, getChargeFormations);
-router.get   ('/charges',            ...auth, getCharges);
-router.post  ('/charges',            ...auth, createCharge);
-router.patch ('/charges/:id',        ...auth, updateCharge);
-router.delete('/charges/:id',        ...auth, deleteCharge);
-
+router.get   ('/charges/formations',        ...auth, getChargeFormations);
+router.get   ('/charges/categories',        ...auth, getChargeCategories);
+router.post  ('/charges/categories',        ...auth, addChargeCategory);
+router.patch ('/charges/categories/:id',    ...auth, updateChargeCategory);
+router.get   ('/charges',                   ...auth, getCharges);
+router.post  ('/charges',                   ...auth, createCharge);
+router.post  ('/charges/:id/bons',          ...auth, uploadChargeBon.single('bon'), uploadBonCharge);
+router.delete('/charges/bons/:bonId',       ...auth, deleteBonCharge);
+router.patch ('/charges/:id',               ...auth, updateCharge);
+router.delete('/charges/:id',               ...auth, deleteCharge);
 module.exports = router;

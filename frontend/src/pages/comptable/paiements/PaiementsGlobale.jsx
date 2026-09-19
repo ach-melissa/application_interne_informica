@@ -304,7 +304,7 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
                       onClick={() => setSelectedRow(row)}
                       className={`hover:opacity-80 transition cursor-pointer ${rowBg}`}
                     >
-                      <td className="px-3 py-2.5 font-medium text-slate-700 border-b border-l border-slate-100 max-w-[160px] truncate">
+<td className="px-3 py-2.5 font-medium text-slate-700 text-[11px] border-b border-l border-slate-100">
                         <span className="inline-flex items-center gap-1.5">
                           {row.nom}
                                                  {enRetard && (

@@ -47,6 +47,8 @@ const FIELD_LABELS = {
   libelle: 'libellé',
   montant: 'montant',
   categorie: 'catégorie',
+  // charges
+  description: 'description',
 };
 
 const buildDiffDescription = (before, patch) => {
