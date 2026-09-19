@@ -76,7 +76,7 @@ const PaymentsTab = ({ groupId, onSelectStudent, refreshKey }) => {
   };
 
   const handleConfirmPromo = () => {
-    if (!promoPrice || Number(promoPrice) <= 0) {
+    if (promoPrice === '' || Number.isNaN(Number(promoPrice)) || Number(promoPrice) < 0) {
       alert('Le prix de la promotion est obligatoire.');
       return;
     }
