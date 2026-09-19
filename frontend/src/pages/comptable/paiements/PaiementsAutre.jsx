@@ -44,7 +44,7 @@ const PaiementsAutre = ({ autresRevenus = [], onAdd, onEdit, onRemove }) => {
       if (montantMin && m < Number(montantMin)) return false;
       if (montantMax && m > Number(montantMax)) return false;
       return true;
-    }),
+    }).sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')) || String(b.id).localeCompare(String(a.id), undefined, { numeric: true })),
     [autresRevenus, categoryFilter, dateDebut, dateFin, montantMin, montantMax]
   );
 
