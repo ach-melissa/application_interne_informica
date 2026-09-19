@@ -175,6 +175,7 @@ export const ChargeFormModal = ({
 export const CategoryManagerModal = ({
   show, onClose, categories, editingCategory, setEditingCategory,
   onRename, onToggle, newCategory, setNewCategory, onAdd, categoryError,
+  categoryConfirm, onRequestRemove, onConfirmRemove, onCancelRemove,
 }) => {
   if (!show) return null;
   return (
@@ -189,6 +190,15 @@ export const CategoryManagerModal = ({
             <button onClick={onClose} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
           </div>
           {categoryError && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 mx-5 mb-3 rounded-md">{categoryError}</p>}
+          {categoryConfirm && (
+            <div className="flex items-center justify-between gap-3 mx-5 mb-3 rounded-md p-3 bg-red-50 text-red-600">
+              <p className="text-xs">Supprimer la catégorie "{categoryConfirm.name}" ?</p>
+              <div className="flex gap-2 shrink-0">
+                <button onClick={onCancelRemove} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+                <button onClick={onConfirmRemove} className="text-xs px-3 py-1.5 rounded-md text-white bg-red-500 hover:bg-red-600">Oui</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="p-5 space-y-4">
@@ -210,6 +220,9 @@ export const CategoryManagerModal = ({
                 )}
                 <button onClick={() => onToggle(c.name)} className={`text-[10px] font-medium ${c.active ? 'text-red-500' : 'text-emerald-600'}`}>
                   {c.active ? 'Désactiver' : 'Réactiver'}
+                </button>
+                <button onClick={() => onRequestRemove(c.name)} className="text-slate-400 hover:text-red-500">
+                  <X size={13} />
                 </button>
               </div>
             ))}

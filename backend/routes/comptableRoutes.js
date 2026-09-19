@@ -24,7 +24,7 @@ const {
 const {
   getCharges, createCharge, updateCharge, deleteCharge,
   uploadBonCharge, deleteBonCharge, upload: uploadChargeBon,
-  getChargeCategories, addChargeCategory, updateChargeCategory,
+  getChargeCategories, addChargeCategory, updateChargeCategory, deleteChargeCategory,
   getChargeFormations,
 } = require('../controllers/comptableChargesController');
 // Dashboard
@@ -66,6 +66,7 @@ router.get   ('/charges/formations',        ...auth, getChargeFormations);
 router.get   ('/charges/categories',        ...auth, getChargeCategories);
 router.post  ('/charges/categories',        ...auth, addChargeCategory);
 router.patch ('/charges/categories/:id',    ...auth, updateChargeCategory);
+router.delete('/charges/categories/:id',    ...auth, deleteChargeCategory);
 router.get   ('/charges',                   ...auth, getCharges);
 router.post  ('/charges',                   ...auth, createCharge);
 router.post  ('/charges/:id/bons',          ...auth, uploadChargeBon.single('bon'), uploadBonCharge);

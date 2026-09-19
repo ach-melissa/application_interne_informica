@@ -327,7 +327,39 @@ const updateChargeCategory = safe(async (req, res) => {
 
   res.json(data);
 });
+const deleteChargeCategory = safe(async (req, res) => {
+  const { id } = req.params;
 
+  const { data: cat } = await supabase
+    .from('charge_categories')
+    .select('type, name')
+    .eq('id', id)
+    .single();
+  if (!cat) return res.status(404).json({ error: 'Catégorie introuvable.' });
+
+  const { count, error: countErr } = await supabase
+    .from('charges')
+    .select('id', { count: 'exact', head: true })
+    .eq('type', cat.type)
+    .eq('categorie', cat.name);
+  if (countErr) return res.status(500).json({ error: countErr.message });
+
+  if (count > 0) {
+    return res.status(409).json({
+      error: `Impossible de supprimer : ${count} charge(s) utilisent encore la catégorie "${cat.name}".`,
+    });
+  }
+
+  const { error } = await supabase.from('charge_categories').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+
+  await logHistorique({
+    req, perimetre: 'comptable', action: 'suppression', entite: 'categorie_charge', entite_id: id,
+    description: `a supprimé la catégorie "${cat.name}" (charges ${TYPE_LABEL[cat.type]})`,
+  });
+
+  res.json({ success: true });
+});
 // GET /charges/formations → [{ id, nom, groupes: [{ id, nom }] }]
 const getChargeFormations = safe(async (req, res) => {
   const { data, error } = await supabase
@@ -342,6 +374,6 @@ const getChargeFormations = safe(async (req, res) => {
 module.exports = {
   getCharges, createCharge, updateCharge, deleteCharge,
   uploadBonCharge, deleteBonCharge, upload,
-  getChargeCategories, addChargeCategory, updateChargeCategory,
+  getChargeCategories, addChargeCategory, updateChargeCategory, deleteChargeCategory,
   getChargeFormations,
 };

@@ -55,7 +55,7 @@ const ChargesBase = ({ type }) => {
   const [newCategory, setNewCategory] = useState('');
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryError, setCategoryError] = useState(null);
-
+  const [categoryConfirm, setCategoryConfirm] = useState(null); // { id, name } | null
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setFormationFilter('');
@@ -205,14 +205,23 @@ const ChargesBase = ({ type }) => {
     setEditingCategory(null);
   };
 
-  const handleToggleCategory = async (name) => {
+  const requestRemoveCategory = (name) => {
     const cat = categories.find((c) => c.name === name);
     if (!cat) return;
+    setCategoryConfirm({ id: cat.id, name: cat.name });
+  };
+
+  const doRemoveCategory = async () => {
+    if (!categoryConfirm) return;
+    const { id, name } = categoryConfirm;
+    setCategoryConfirm(null);
     try {
-      await request(`/charges/categories/${cat.id}`, { method: 'PATCH', body: JSON.stringify({ active: !cat.active }) });
-      setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, active: !c.active } : c)));
+      await request(`/charges/categories/${id}`, { method: 'DELETE' });
+      setCategories((prev) => prev.filter((c) => c.id !== id));
       setCategoryError(null);
-    } catch (err) { setCategoryError(err.message || 'Échec de la mise à jour.'); }
+    } catch (err) {
+      setCategoryError(err.message || 'Échec de la suppression.');
+    }
   };
 
   const filtered = useMemo(() => charges.filter((c) => {
@@ -332,11 +341,12 @@ const ChargesBase = ({ type }) => {
         lightboxUrl={lightboxUrl} setLightboxUrl={setLightboxUrl}
       />
       <CategoryManagerModal
-        show={showCategoryManager} onClose={() => setShowCategoryManager(false)}
+        show={showCategoryManager} onClose={() => { setShowCategoryManager(false); setCategoryConfirm(null); }}
         categories={categories} editingCategory={editingCategory} setEditingCategory={setEditingCategory}
         onRename={handleRenameCategory} onToggle={handleToggleCategory}
         newCategory={newCategory} setNewCategory={setNewCategory} onAdd={handleAddCategory}
         categoryError={categoryError}
+        categoryConfirm={categoryConfirm} onRequestRemove={requestRemoveCategory} onConfirmRemove={doRemoveCategory} onCancelRemove={() => setCategoryConfirm(null)}
       />
 
       <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden mb-5">
