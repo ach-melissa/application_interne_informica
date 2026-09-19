@@ -13,21 +13,22 @@ const CATEGORIES = {
 const TYPES = Object.keys(CATEGORIES);
 
 // Colonnes renvoyées au frontend (même forme que les anciennes données de test)
-const COLUMNS = 'id, date, description, montant, categorie, formation, groupe';
-const validate = ({ type, categorie, montant, date, formation }) => {
+const COLUMNS = 'id, date, description, montant, categorie, formation_id, group_id, formation:formation_id(nom), groupe:group_id(nom)';
+const validate = ({ type, categorie, montant, date, formation_id }) => {
   if (!TYPES.includes(type)) return 'Type invalide.';
   if (!CATEGORIES[type].includes(categorie)) return 'Catégorie invalide pour ce type.';
-  if (type === 'formation' && (typeof formation !== 'string' || !formation.trim())) return 'Formation obligatoire.';
+  if (type === 'formation' && !formation_id) return 'Formation obligatoire.';
   if (montant === '' || montant == null || !Number.isFinite(Number(montant)) || Number(montant) < 0) {
     return 'Montant invalide.';
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Date invalide.';
   return null;
 };
-const extraFields = ({ type, formation, groupe }) =>
+
+const extraFields = ({ type, formation_id, group_id }) =>
   type === 'formation'
-    ? { formation: formation.trim(), groupe: groupe?.trim() || null }
-    : { formation: null, groupe: null };
+    ? { formation_id, group_id: group_id || null }
+    : { formation_id: null, group_id: null };
 // Évite une requête qui reste bloquée si une exception inattendue survient
 const safe = (fn) => async (req, res) => {
   try {
@@ -118,7 +119,7 @@ const deleteCharge = safe(async (req, res) => {
 const getChargeFormations = safe(async (req, res) => {
   const { data, error } = await supabase
     .from('formations')
-    .select('id, nom, groupes(id, nom)')
+        .select('id, nom, groupes:groups(id, nom)')
     .order('nom', { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });

@@ -12,7 +12,7 @@ export const ChargeFormModal = ({
   confirm, setConfirm, formError, onRequestSave, onSave, onRequestDelete, onDelete,
 }) => {
   if (!show) return null;
-  const groupesDisponibles = formations.find((f) => f.nom === form.formation)?.groupes ?? [];
+  const groupesDisponibles = formations.find((f) => f.id === form.formation_id)?.groupes ?? [];
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={onClose}>
       <div className="bg-white rounded-md shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -55,24 +55,26 @@ export const ChargeFormModal = ({
               {activeCategories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
             </select>
           </div>
- {type === 'formation' && (
+
+{type === 'formation' && (
   <>
     <div>
       <Label icon={GraduationCap} text="Formation" required />
-      <select value={form.formation} onChange={(e) => setForm((f) => ({ ...f, formation: e.target.value, groupe: '' }))} className={inp}>
+      <select value={form.formation_id} onChange={(e) => setForm((f) => ({ ...f, formation_id: e.target.value, group_id: '' }))} className={inp}>
         <option value="">Sélectionner</option>
-        {formations.map((f) => <option key={f.id} value={f.nom}>{f.nom}</option>)}
+        {formations.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
       </select>
     </div>
     <div>
       <Label icon={Users} text="Groupe" />
-      <select value={form.groupe} onChange={(e) => setForm((f) => ({ ...f, groupe: e.target.value }))} disabled={!form.formation} className={`${inp} disabled:bg-slate-50 disabled:text-slate-400`}>
-        <option value="">{form.formation ? 'Aucun groupe' : "Choisir une formation d'abord"}</option>
-        {groupesDisponibles.map((g) => <option key={g.id} value={g.nom}>{g.nom}</option>)}
+      <select value={form.group_id} onChange={(e) => setForm((f) => ({ ...f, group_id: e.target.value }))} disabled={!form.formation_id} className={`${inp} disabled:bg-slate-50 disabled:text-slate-400`}>
+        <option value="">{form.formation_id ? 'Aucun groupe' : "Choisir une formation d'abord"}</option>
+        {groupesDisponibles.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
       </select>
     </div>
   </>
 )}
+
           <div>
             <Label icon={Wallet} text="Montant (DA)" required />
             <input type="number" value={form.montant} onChange={(e) => setForm((f) => ({ ...f, montant: e.target.value }))} className={inp} />

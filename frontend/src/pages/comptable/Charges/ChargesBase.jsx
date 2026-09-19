@@ -17,7 +17,7 @@ const COLOR_PALETTE = [
   { bg: 'bg-violet-50', text: 'text-violet-700' }, { bg: 'bg-emerald-50', text: 'text-emerald-700' },
   { bg: 'bg-rose-50', text: 'text-rose-700' }, { bg: 'bg-cyan-50', text: 'text-cyan-700' },
 ];
-const emptyForm = { categorie: '', montant: '', date: '', description: '', formation: '', groupe: '' };
+const emptyForm = { categorie: '', montant: '', date: '', description: '', formation_id: '', group_id: '' };
 const ChargesBase = ({ type }) => {
   const [charges, setCharges] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -62,12 +62,12 @@ const [formationFilter, setFormationFilter] = useState('');
   const [editingCategory, setEditingCategory] = useState(null);
 
   const openAdd = () => { setEditingId(null); setForm(emptyForm); setFormError(null); setConfirm(null); setShowForm(true); };
-  const openEdit = (c) => { setEditingId(c.id); setForm({ categorie: c.categorie, montant: c.montant, date: c.date, description: c.description, formation: c.formation ?? '', groupe: c.groupe ?? '' }); setFormError(null); setConfirm(null); setShowForm(true); };
+ const openEdit = (c) => { setEditingId(c.id); setForm({ categorie: c.categorie, montant: c.montant, date: c.date, description: c.description, formation_id: c.formation_id ?? '', group_id: c.group_id ?? '' }); setFormError(null); setConfirm(null); setShowForm(true); };
   const closeForm = () => { setShowForm(false); setEditingId(null); setFormError(null); setConfirm(null); };
 
   const requestSave = () => {
   if (!form.categorie || !form.montant || !form.date) { setFormError('Catégorie, montant et date sont obligatoires.'); return; }
-  if (type === 'formation' && !form.formation.trim()) { setFormError('La formation est obligatoire.'); return; }
+  if (type === 'formation' && !form.formation_id) { setFormError('La formation est obligatoire.'); return; }
   setFormError(null);
   editingId ? setConfirm('save') : doSave();
 };
@@ -122,13 +122,13 @@ const [formationFilter, setFormationFilter] = useState('');
     } catch { setError('Échec de la mise à jour.'); }
   };
 
-const formationOptions = formations.map((f) => f.nom);
+
 const filtered = useMemo(() => charges.filter((c) => {
   const matchSearch = !search || c.description.toLowerCase().includes(search.toLowerCase());
   const matchCategory = !categoryFilter || c.categorie === categoryFilter;
   const matchFrom = !dateFrom || c.date >= dateFrom;
   const matchTo = !dateTo || c.date <= dateTo;
-  const matchFormation = !formationFilter || c.formation === formationFilter;
+    const matchFormation = !formationFilter || c.formation_id === formationFilter;
   return matchSearch && matchCategory && matchFrom && matchTo && matchFormation;
 }), [charges, search, categoryFilter, dateFrom, dateTo, formationFilter]);
 
@@ -137,7 +137,7 @@ const filtered = useMemo(() => charges.filter((c) => {
  const chargesDuMois = useMemo(() => charges
   .filter((c) => c.date?.slice(0, 7) === currentMonthKey)
   .filter((c) => !categoryFilter || c.categorie === categoryFilter)
-  .filter((c) => !formationFilter || c.formation === formationFilter)
+   .filter((c) => !formationFilter || c.formation_id === formationFilter)
   .filter((c) => !search || c.description.toLowerCase().includes(search.toLowerCase()))
   .reduce((s, c) => s + Number(c.montant || 0), 0), [charges, categoryFilter, formationFilter, search, currentMonthKey]);
 
@@ -195,7 +195,7 @@ const headers = isFormation
         <select value={formationFilter} onChange={(e) => setFormationFilter(e.target.value)}
           className={`appearance-none pl-8 pr-7 py-1.5 text-xs rounded-full bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer min-w-[200px] ${formationFilter ? 'text-[#0369A1] font-medium' : 'text-slate-500'}`}>
           <option value="">Toutes les formations</option>
-          {formationOptions.map((f) => <option key={f} value={f}>{f}</option>)}
+          {formations.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
         </select>
         {formationFilter && (
           <button onClick={() => setFormationFilter('')} className="absolute right-2 text-slate-300 hover:text-red-400"><X size={11} /></button>
@@ -262,8 +262,8 @@ const headers = isFormation
             </td>
             {isFormation && (
               <>
-                <td className="px-3 py-2.5 font-medium text-slate-700 border-b border-[#E2E8F0]">{c.formation || '—'}</td>
-                <td className="px-3 py-2.5 text-slate-500 border-b border-[#E2E8F0]">{c.groupe || '—'}</td>
+                <td className="px-3 py-2.5 font-medium text-slate-700 border-b border-[#E2E8F0]">{c.formation?.nom || '—'}</td>
+                <td className="px-3 py-2.5 text-slate-500 border-b border-[#E2E8F0]">{c.groupe?.nom || '—'}</td>
               </>
             )}
             <td className="px-3 py-2.5 font-medium text-slate-700 border-b border-[#E2E8F0]">{c.description}</td>
