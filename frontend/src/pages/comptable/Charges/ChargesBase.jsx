@@ -204,7 +204,15 @@ const ChargesBase = ({ type }) => {
     } catch (err) { setCategoryError(err.message || 'Échec du renommage.'); }
     setEditingCategory(null);
   };
-
+  const handleToggleCategory = async (name) => {
+    const cat = categories.find((c) => c.name === name);
+    if (!cat) return;
+    try {
+      await request(`/charges/categories/${cat.id}`, { method: 'PATCH', body: JSON.stringify({ active: !cat.active }) });
+      setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, active: !c.active } : c)));
+      setCategoryError(null);
+    } catch (err) { setCategoryError(err.message || 'Échec de la mise à jour.'); }
+  };
   const requestRemoveCategory = (name) => {
     const cat = categories.find((c) => c.name === name);
     if (!cat) return;

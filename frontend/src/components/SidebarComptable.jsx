@@ -12,13 +12,13 @@ const navGroups = [
     label: 'Gestion',
     items: [
       { label: 'Statistique', icon: BarChart3, path: '/comptable/statistique' },
-     {
-  label: 'Revenu', icon: CreditCard,
-  children: [
-    { label: 'Par formation', path: '/comptable/paiements/formation' },
-    { label: 'Autre revenu', path: '/comptable/paiements/autre' },
-  ],
-},
+      {
+        label: 'Revenu', icon: CreditCard,
+        children: [
+          { label: 'Par formation', path: '/comptable/paiements/formation' },
+          { label: 'Autre revenu', path: '/comptable/paiements/autre' },
+        ],
+      },
       {
         label: 'Charges', icon: Receipt,
         children: [
@@ -37,6 +37,7 @@ const navGroups = [
   },
 ];
 
+// Small label shown to the right of a collapsed icon
 const Tooltip = ({ label, anchorRect }) =>
   createPortal(
     <div
@@ -44,6 +45,27 @@ const Tooltip = ({ label, anchorRect }) =>
       className="hidden lg:block px-2.5 py-1.5 bg-[#0369A1] text-white text-xs rounded-lg whitespace-nowrap pointer-events-none z-[9999] shadow-md"
     >
       {label}
+    </div>,
+    document.body
+  );
+
+// Floating panel with the sub-pages, shown when a collapsed dropdown icon is hovered
+const Flyout = ({ item, anchorRect, pathname, goTo }) =>
+  createPortal(
+    <div style={{ position: 'fixed', top: anchorRect.top, left: anchorRect.right }} className="hidden lg:block pl-2 z-[9999]">
+      <div className="min-w-[170px] bg-white border border-[#E2E8F0] rounded-lg shadow-xl p-1.5">
+        <p className="px-2 pt-1 pb-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-wide">{item.label}</p>
+        {item.children.map((c) => (
+          <button
+            key={c.path}
+            onClick={() => goTo(c.path)}
+            className={`w-full text-left px-2 py-1.5 rounded-md text-xs whitespace-nowrap transition-colors duration-150
+              ${pathname.startsWith(c.path) ? 'text-[#0369A1] font-medium bg-[#DCEBFA]/50' : 'text-slate-500 hover:text-[#0369A1] hover:bg-[#F8FAFC]'}`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
     </div>,
     document.body
   );
@@ -58,7 +80,7 @@ const FadeLabel = ({ collapsed, children, className = '' }) => (
   </span>
 );
 
-const NavItem = ({ label, Icon, isActive, collapsed, onClick, children }) => {
+const NavItem = ({ label, Icon, isActive, collapsed, onClick, children, tooltip = true }) => {
   const [rect, setRect] = useState(null);
   return (
     <div
@@ -76,7 +98,7 @@ const NavItem = ({ label, Icon, isActive, collapsed, onClick, children }) => {
         <FadeLabel collapsed={collapsed} className="text-xs flex-1 text-left">{label}</FadeLabel>
         {children}
       </button>
-      {collapsed && rect && <Tooltip label={label} anchorRect={rect} />}
+      {collapsed && tooltip && rect && <Tooltip label={label} anchorRect={rect} />}
     </div>
   );
 };
@@ -84,11 +106,15 @@ const NavItem = ({ label, Icon, isActive, collapsed, onClick, children }) => {
 // One component for every dropdown, so they are always identical
 const Dropdown = ({ item, open, collapsed, pathname, onToggle, goTo }) => {
   const { label, icon: Icon, children } = item;
+  const [rect, setRect] = useState(null);
   const isActive = children.some((c) => pathname.startsWith(c.path));
 
   return (
-    <div>
-      <NavItem label={label} Icon={Icon} collapsed={collapsed} isActive={collapsed && isActive} onClick={onToggle}>
+    <div
+      onMouseEnter={(e) => collapsed && setRect(e.currentTarget.getBoundingClientRect())}
+      onMouseLeave={() => setRect(null)}
+    >
+      <NavItem label={label} Icon={Icon} collapsed={collapsed} isActive={collapsed && isActive} onClick={onToggle} tooltip={false}>
         <ChevronDown
           size={14}
           className={`shrink-0 transition-transform duration-200 ${collapsed ? 'lg:hidden' : ''} ${open ? 'rotate-180' : ''}`}
@@ -109,6 +135,10 @@ const Dropdown = ({ item, open, collapsed, pathname, onToggle, goTo }) => {
           </button>
         ))}
       </div>
+
+      {collapsed && rect && (
+        <Flyout item={item} anchorRect={rect} pathname={pathname} goTo={(p) => { setRect(null); goTo(p); }} />
+      )}
     </div>
   );
 };
@@ -120,8 +150,7 @@ const SidebarComptable = ({ collapsed, setCollapsed, mobileOpen, onMobileClose }
   const initials = [user?.prenom?.[0], user?.nom?.[0]].filter(Boolean).join('').toUpperCase() || '?';
 
   const findActive = (path) =>
-    navGroups.flatMap((g) => g.items)
-      .find((i) => i.children?.some((c) => path.startsWith(c.path)));
+    navGroups.flatMap((g) => g.items).find((i) => i.children?.some((c) => path.startsWith(c.path)));
 
   const [open, setOpen] = useState(() => {
     let saved = {};
@@ -130,12 +159,12 @@ const SidebarComptable = ({ collapsed, setCollapsed, mobileOpen, onMobileClose }
     return a ? { ...saved, [a.label]: true } : saved;
   });
 
-  // Save which menus are open, so they survive a page change
+  // Remember which menus are open across page changes
   useEffect(() => {
     localStorage.setItem('comptable_sidebar_open', JSON.stringify(open));
   }, [open]);
 
-  // Make sure the menu of the current page is open. Never closes another one.
+  // Open the menu of the current page. Never closes another one.
   useEffect(() => {
     const a = findActive(pathname);
     if (a) setOpen((o) => ({ ...o, [a.label]: true }));
@@ -145,10 +174,12 @@ const SidebarComptable = ({ collapsed, setCollapsed, mobileOpen, onMobileClose }
   const handleLogout = () => { logout(); navigate('/login'); onMobileClose?.(); };
   const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
 
+  // Collapsed on desktop: clicking the icon opens the first sub-page
   const toggle = (item) =>
     collapsed && isDesktop()
       ? goTo(item.children[0].path)
       : setOpen((o) => ({ ...o, [item.label]: !o[item.label] }));
+
   return (
     <>
       {mobileOpen && <div onClick={onMobileClose} className="fixed inset-0 bg-black/40 z-30 lg:hidden" />}
