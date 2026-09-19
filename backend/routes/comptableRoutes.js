@@ -22,9 +22,8 @@ const {
   getCategories, addCategorie, renameCategorie, removeCategorie,
 } = require('../controllers/comptableAutresRevenusController');
 const {
-  getCharges, getChargeCategories, createCharge, updateCharge, deleteCharge,
+  getCharges, getChargeCategories, getChargeFormations, createCharge, updateCharge, deleteCharge,
 } = require('../controllers/comptableChargesController');
-
 // Dashboard
 router.get('/stats',              ...auth, getStats);
 
