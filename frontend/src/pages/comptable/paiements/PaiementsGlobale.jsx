@@ -3,8 +3,6 @@ import { useState, useMemo } from 'react';
 import { Search, User, GraduationCap, Wallet, AlertCircle, Users, Clock, CalendarRange, X } from 'lucide-react';
 import PaiementDetailModal from './PaiementDetailModal';
 
-const RETARD_JOURS = 30;
-
 const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
   const [search, setSearch] = useState('');
   const [formationFilter, setFormationFilter] = useState('');
@@ -15,59 +13,34 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
   const [periodeFin, setPeriodeFin] = useState('');
   const [selectedRow, setSelectedRow] = useState(null);
   const rows = useMemo(() => {
-    const map = new Map();
-    for (const p of paiements) {
-      if (!p.etudiant_id) continue;
-      const key = `${p.etudiant_id}_${p.formation_id}`;
-      if (!map.has(key)) {
-        const formation = formations.find((f) => String(f.id) === String(p.formation_id));
-        const prixBase = formation?.prix_etudiant ?? formation?.prix ?? formation?.tarif ?? null;
-        const formationANiveaux = formation?.a_niveaux ?? false;
-        const enPromotion = p.enPromotion ?? false;
-        const prixPromotion = p.prixPromotion ?? null;
-        const groupEnPromotion = p.groupEnPromotion ?? false;
-        const groupPrixPromotion = p.groupPrixPromotion ?? null;
-        // Price still follows priority: a student's own override beats the group's.
-        const prix = enPromotion ? prixPromotion : groupEnPromotion ? groupPrixPromotion : prixBase;
-        map.set(key, {
-          key,
-          etudiantId: p.etudiant_id,
-          formationId: p.formation_id,
-          nom: `${p.etudiants?.nom ?? ''} ${p.etudiants?.prenom ?? ''}`.trim(),
-          formationNom: p.formations?.nom ?? formation?.nom ?? '—',
-          telephone: p.etudiants?.telephone ?? '—',
-          groupeNom: p.groupe?.nom ?? '—',
-          professeurNom: p.groupe?.teacher?.user ? `${p.groupe.teacher.user.nom} ${p.groupe.teacher.user.prenom}` : '—',
-          groupeDateDebut: p.groupe?.date_debut ?? null,
-          groupeDateFin: p.groupe?.date_fin ?? null,
-          groupeStatut: p.groupe?.statut ?? null,
-          statutScolarite: p.statutScolarite ?? 'en_cours',
-          niveauNom: p.niveauNom ?? null,
-          formationANiveaux,
-          prix,
-          // Kept independent on purpose — a student can be personally promo'd
-          // AND belong to a promo'd group at the same time; both labels can show.
-          enPromotion,
-          prixPromotion,
-          groupEnPromotion,
-          groupPrixPromotion,
-          tranches: {},
-        });
-      }
-      // Placeholder rows (student enrolled, never paid) carry tranche: null
-      // on purpose — skip them so they don't pollute row.tranches.
-      if (p.id != null && p.tranche != null) {
-      map.get(key).tranches[p.tranche] = {
-  montant: p.montant,
-  date_paiement: p.date_paiement ?? p.date ?? p.created_at,
-  statut: p.statut,
-  bon_photo: p.bon_photo ?? null,
-};
-      }
-    }
-    return Array.from(map.values());
-  }, [paiements, formations]);
-
+    return (paiements ?? [])
+      .filter((p) => p.etudiant_id)
+      .map((p) => ({
+        key: `${p.etudiant_id}_${p.formation_id}`,
+        etudiantId: p.etudiant_id,
+        formationId: p.formation_id,
+        nom: `${p.etudiants?.nom ?? ''} ${p.etudiants?.prenom ?? ''}`.trim(),
+        formationNom: p.formations?.nom ?? '—',
+        telephone: p.etudiants?.telephone ?? '—',
+        groupeNom: p.groupe?.nom ?? '—',
+        professeurNom: p.professeurNom ?? '—',
+        groupeDateDebut: p.groupe?.date_debut ?? null,
+        groupeDateFin: p.groupe?.date_fin ?? null,
+        groupeStatut: p.groupe?.statut ?? null,
+        statutScolarite: p.statutScolarite ?? 'en_cours',
+        niveauNom: p.niveauNom ?? null,
+        formationANiveaux: p.formationANiveaux ?? false,
+        prix: p.total,
+        paid: p.paid,
+        reste: p.remaining,
+        enRetard: p.isOverdue,
+        enPromotion: p.enPromotion,
+        prixPromotion: p.prixPromotion,
+        groupEnPromotion: p.groupEnPromotion,
+        groupPrixPromotion: p.groupPrixPromotion,
+        tranches: p.tranches ?? {},
+      }));
+  }, [paiements]);
   const groupesDisponibles = useMemo(() => {
     const scoped = formationFilter
       ? rows.filter((r) => String(r.formationId) === String(formationFilter))
@@ -91,21 +64,9 @@ const PaiementsGlobale = ({ paiements = [], formations = [], loading }) => {
     return Array.from(noms).sort((a, b) => a.localeCompare(b));
   }, [rows, formationFilter, formationSelectionneeANiveaux]);
 
-  const totalPaye = (row) => Object.values(row.tranches).reduce((s, t) => s + Number(t.montant), 0);
-  const resteAPayer = (row) => (row.prix != null ? row.prix - totalPaye(row) : null);
-  const dernierPaiement = (row) => {
-    const dates = Object.values(row.tranches).map((t) => t.date_paiement).filter(Boolean).sort();
-    return dates.length ? dates[dates.length - 1] : null;
-  };
-
-  const estEnRetard = (row) => {
-    const reste = resteAPayer(row);
-    if (reste == null || reste <= 0) return false;
-    const dernier = dernierPaiement(row);
-    if (!dernier) return true;
-    const jours = (Date.now() - new Date(dernier).getTime()) / (1000 * 60 * 60 * 24);
-    return jours > RETARD_JOURS;
-  };
+  const totalPaye = (row) => row.paid ?? 0;
+  const resteAPayer = (row) => row.reste ?? null;
+  const estEnRetard = (row) => !!row.enRetard;
 
   // 'complet' | 'en_retard' | 'en_attente' — same buckets as the row color logic.
   const statutPaiement = (row) => {

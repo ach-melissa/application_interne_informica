@@ -1,109 +1,136 @@
 const supabase = require('../supabaseClient');
-
+const { resolveGroupPeriods, computeStudentTotal } = require('../utils/periods');
 /**
  * GET /api/comptable/paiements
  * Returns all payments with nested etudiant + formation info (for Vue Globale).
  */
 
 const getAllPayments = async (req, res) => {
-  const { data, error } = await supabase
-    .from('payments')
-.select(`
-  id,
-  montant,
-  date_paiement,
-  tranche,
-  statut,
-  bon_photo,
-  etudiant_id,
-  formation_id,
-  etudiants:etudiant_id ( id, nom, prenom, telephone ),
-  formations:formation_id ( id, nom )
-`)
-    .order('date_paiement', { ascending: false });
-
-  if (error) return res.status(500).json({ error: error.message });
-
-  // Pull EVERY inscription (etudiant + formation pair), not just the ones
-  // tied to existing payments — a student with 0 payments still needs to
-  // show up in the recette table, owing the full price.
-  const { data: allInscriptions, error: insErr } = await supabase
+  // ALL inscriptions, no statut/archived/abandonné filter — Comptable shows everyone.
+  const { data: inscriptions, error: insErr } = await supabase
     .from('inscriptions')
     .select(`
-      etudiant_id, formation_id, en_promotion, prix_promotion, statut_scolarite,
+      id, etudiant_id, formation_id, group_id, en_promotion, prix_promotion, statut_scolarite,
       etudiant:etudiant_id ( id, nom, prenom, telephone ),
-      formation:formation_id ( id, nom ),
-      niveau:niveau_id ( id, nom ),
-      group:group_id ( nom, date_debut, date_fin, statut, en_promotion, prix_promotion, teacher:teacher_id ( user:user_id ( nom, prenom ) ) )
+      formation:formation_id ( id, nom, prix, prix_etudiant, prix_uniforme, a_niveaux ),
+      niveau:niveau_id ( id, nom, prix ),
+      group:group_id ( id, nom, formation_id, niveau_id, date_debut, date_fin, statut,
+                        use_default_periods, en_promotion, prix_promotion,
+                        teacher:teacher_id ( user:user_id ( nom, prenom ) ) )
     `);
+  if (insErr) return res.status(500).json({ error: insErr.message });
 
-  if (insErr) console.error('INSCRIPTIONS ERROR:', insErr);
+  const { data: payments, error: payErr } = await supabase
+    .from('payments')
+    .select('id, etudiant_id, formation_id, montant, tranche, date_paiement, statut, bon_photo');
+  if (payErr) return res.status(500).json({ error: payErr.message });
 
-   const groupMap = new Map();
-  const promoMap = new Map();
-  const scolariteMap = new Map();
-  const niveauMap = new Map();
-  const studentInfoMap = new Map();
-  const keysWithGroup = new Set(); // only inscriptions actually assigned to a group
-  for (const ins of allInscriptions ?? []) {
-    const key = `${ins.etudiant_id}_${ins.formation_id}`;
-    groupMap.set(key, ins.group);
-    if (ins.group) keysWithGroup.add(key);
-    // Same priority as computeStudentTotal on the group side: student promo > group promo.
-    promoMap.set(key, {
-      enPromotion: ins.en_promotion ?? false,
-      prixPromotion: ins.prix_promotion != null ? Number(ins.prix_promotion) : null,
-      groupEnPromotion: ins.group?.en_promotion ?? false,
-      groupPrixPromotion: ins.group?.prix_promotion != null ? Number(ins.group.prix_promotion) : null,
-    });
-    scolariteMap.set(key, ins.statut_scolarite || 'en_cours');
-    niveauMap.set(key, ins.niveau?.nom ?? null);
-    studentInfoMap.set(key, { etudiant: ins.etudiant, formation: ins.formation });
+  const paymentsByKey = new Map();
+  for (const p of payments) {
+    const key = `${p.etudiant_id}_${p.formation_id}`;
+    if (!paymentsByKey.has(key)) paymentsByKey.set(key, []);
+    paymentsByKey.get(key).push(p);
   }
 
-  const enriched = data
-    .filter(p => keysWithGroup.has(`${p.etudiant_id}_${p.formation_id}`))
-    .map(p => {
-      const key = `${p.etudiant_id}_${p.formation_id}`;
-      return {
-        ...p,
-        groupe: groupMap.get(key) ?? null,
-        statutScolarite: scolariteMap.get(key) ?? 'en_cours',
-        niveauNom: niveauMap.get(key) ?? null,
-        ...(promoMap.get(key) ?? { enPromotion: false, prixPromotion: null, groupEnPromotion: false, groupPrixPromotion: null }),
-      };
-    });
+  // Show a student if they're in a group OR already have a payment — regardless of archived/abandonné.
+  const relevant = inscriptions.filter((i) => {
+    const key = `${i.etudiant_id}_${i.formation_id}`;
+    return i.group_id != null || paymentsByKey.has(key);
+  });
 
-  // For every grouped inscription that has no real payment yet, inject a
-  // placeholder "empty" row so the student still appears (0 DA payé,
-  // full price restant). montant/tranche stay null so the frontend
-  // never mistakes this for a real tranche.
-  const coveredKeys = new Set(enriched.map(p => `${p.etudiant_id}_${p.formation_id}`));
-  const placeholders = [];
-  for (const ins of allInscriptions ?? []) {
-    const key = `${ins.etudiant_id}_${ins.formation_id}`;
-    if (!keysWithGroup.has(key)) continue; // skip students with no group
-    if (coveredKeys.has(key)) continue;
-    coveredKeys.add(key);
-    const info = studentInfoMap.get(key);
-    placeholders.push({
-      id: null,
-      montant: null,
-      date_paiement: null,
-      tranche: null,
-      statut: null,
-      etudiant_id: ins.etudiant_id,
-      formation_id: ins.formation_id,
-      etudiants: info?.etudiant ?? null,
-      formations: info?.formation ?? null,
-      groupe: groupMap.get(key) ?? null,
-      statutScolarite: scolariteMap.get(key) ?? 'en_cours',
-      niveauNom: niveauMap.get(key) ?? null,
-      ...(promoMap.get(key) ?? { enPromotion: false, prixPromotion: null, groupEnPromotion: false, groupPrixPromotion: null }),
-    });
+  const groupIds = [...new Set(relevant.map((i) => i.group?.id).filter(Boolean))];
+  let allFormationPeriods = [], allGroupPeriods = [];
+  if (groupIds.length) {
+    const formationIds = [...new Set(relevant.map((i) => i.group?.formation_id).filter(Boolean))];
+    const { data: fp } = await supabase
+      .from('formation_payment_periods')
+      .select('formation_id, niveau_id, numero, jours_offset, montant')
+      .in('formation_id', formationIds.length ? formationIds : ['00000000-0000-0000-0000-000000000000']);
+    allFormationPeriods = fp ?? [];
+
+    const customGroupIds = relevant.filter((i) => i.group && !i.group.use_default_periods).map((i) => i.group.id);
+    if (customGroupIds.length) {
+      const { data: gp } = await supabase
+        .from('group_payment_periods')
+        .select('group_id, numero, jours_offset, montant')
+        .in('group_id', customGroupIds);
+      allGroupPeriods = gp ?? [];
+    }
   }
 
-  res.json([...enriched, ...placeholders]);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const EPSILON = 0.01;
+
+  const rows = relevant.map((i) => {
+    const key = `${i.etudiant_id}_${i.formation_id}`;
+    const studentPayments = paymentsByKey.get(key) ?? [];
+    const paid = studentPayments.reduce((s, p) => s + Number(p.montant), 0);
+    const tranches = {};
+    studentPayments.forEach((p) => {
+      if (p.tranche != null) {
+        tranches[p.tranche] = { montant: p.montant, date_paiement: p.date_paiement, statut: p.statut, bon_photo: p.bon_photo };
+      }
+    });
+
+    let total, isOverdue = false;
+    const group = i.group;
+
+    if (group) {
+      const baseTotal = i.formation?.prix_uniforme === false
+        ? Number(i.niveau?.prix ?? 0)
+        : Number(i.formation?.prix_etudiant ?? i.formation?.prix ?? 0);
+
+      const periodsForFormation = allFormationPeriods.filter((p) => p.formation_id === group.formation_id);
+      const periodsForNiveau = group.niveau_id
+        ? periodsForFormation.filter((p) => p.niveau_id === group.niveau_id)
+        : periodsForFormation.filter((p) => p.niveau_id === null);
+      const formationPeriods = periodsForNiveau.length > 0 ? periodsForNiveau : periodsForFormation.filter((p) => p.niveau_id === null);
+      const groupPeriods = allGroupPeriods.filter((p) => p.group_id === group.id);
+      const resolvedPeriods = resolveGroupPeriods(group, formationPeriods, groupPeriods);
+      const scheduleTotal = resolvedPeriods.reduce((s, p) => s + Number(p.montant), 0);
+
+      total = computeStudentTotal(baseTotal, i, group);
+
+      const lastPeriod = resolvedPeriods[resolvedPeriods.length - 1];
+      const isPastFinalDueDate = !!lastPeriod?.due_date && lastPeriod.due_date <= todayStr;
+      let running = 0, nextDue = null;
+      for (const per of resolvedPeriods) {
+        running += Number(per.montant);
+        const expectedAtPeriod = scheduleTotal > 0 ? total * (running / scheduleTotal) : 0;
+        if (paid < expectedAtPeriod - EPSILON) { nextDue = per.due_date; break; }
+      }
+      const isPastNextDue = !!nextDue && nextDue <= todayStr;
+      const hasPaidNothing = paid <= EPSILON;
+      const isAbandonne = i.statut_scolarite === 'abandonne';
+      isOverdue = !isAbandonne && (
+        (isPastFinalDueDate && paid < total - EPSILON) ||
+        (isPastNextDue && hasPaidNothing)
+      );
+    } else {
+      total = Number(i.formation?.prix_etudiant ?? i.formation?.prix ?? 0);
+      isOverdue = false; // no group → no schedule → can't be judged "late"
+    }
+
+    return {
+      etudiant_id: i.etudiant_id,
+      formation_id: i.formation_id,
+      etudiants: i.etudiant,
+      formations: i.formation,
+      groupe: group ?? null,
+      professeurNom: group?.teacher?.user ? `${group.teacher.user.nom} ${group.teacher.user.prenom}` : '—',
+      statutScolarite: i.statut_scolarite || 'en_cours',
+      niveauNom: i.niveau?.nom ?? null,
+      formationANiveaux: i.formation?.a_niveaux ?? false,
+      enPromotion: i.en_promotion ?? false,
+      prixPromotion: i.prix_promotion != null ? Number(i.prix_promotion) : null,
+      groupEnPromotion: group?.en_promotion ?? false,
+      groupPrixPromotion: group?.prix_promotion != null ? Number(group.prix_promotion) : null,
+      total, paid, remaining: total - paid, isOverdue,
+      tranches,
+    };
+  });
+
+  res.json(rows);
 };
 /**
  * PATCH /api/comptable/paiements/:id
