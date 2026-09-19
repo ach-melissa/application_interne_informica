@@ -79,7 +79,7 @@ const [formationFilter, setFormationFilter] = useState('');
         ? await request(`/charges/${editingId}`, { method: 'PATCH', body })
         : await request('/charges', { method: 'POST', body });
       setCharges((prev) => (editingId ? prev.map((c) => (c.id === editingId ? data : c)) : [...prev, data])
-        .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id));
+               .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id));
       closeForm();
     } catch { setFormError('Échec de l\'enregistrement.'); }
   };

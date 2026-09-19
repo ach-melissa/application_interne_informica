@@ -48,9 +48,8 @@ const getCharges = safe(async (req, res) => {
     .from('charges')
     .select(COLUMNS)
     .eq('type', type)
-    .order('date', { ascending: true })
-    .order('id', { ascending: true });
-
+    .order('date', { ascending: false })
+    .order('id', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
