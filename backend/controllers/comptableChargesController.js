@@ -109,7 +109,35 @@ const updateCharge = safe(async (req, res) => {
   if (!data) return res.status(404).json({ error: 'Charge introuvable.' });
 
   if (before) {
-    const changes = buildDiffDescription(before, patch);
+    // Resolve formation_id / group_id to readable names before diffing,
+    // so the log shows "formation : X → Y" instead of raw UUIDs.
+    const beforeReadable = { ...before };
+    const patchReadable = { ...patch };
+
+    const formationIds = [before.formation_id, patch.formation_id].filter(Boolean);
+    const groupIds = [before.group_id, patch.group_id].filter(Boolean);
+
+    if (formationIds.length) {
+      const { data: formationsData } = await supabase
+        .from('formations')
+        .select('id, nom')
+        .in('id', [...new Set(formationIds)]);
+      const formationNameById = Object.fromEntries((formationsData ?? []).map((f) => [f.id, f.nom]));
+      if (before.formation_id) beforeReadable.formation_id = formationNameById[before.formation_id] ?? before.formation_id;
+      if (patch.formation_id) patchReadable.formation_id = formationNameById[patch.formation_id] ?? patch.formation_id;
+    }
+
+    if (groupIds.length) {
+      const { data: groupsData } = await supabase
+        .from('groups')
+        .select('id, nom')
+        .in('id', [...new Set(groupIds)]);
+      const groupNameById = Object.fromEntries((groupsData ?? []).map((g) => [g.id, g.nom]));
+      if (before.group_id) beforeReadable.group_id = groupNameById[before.group_id] ?? before.group_id;
+      if (patch.group_id) patchReadable.group_id = groupNameById[patch.group_id] ?? patch.group_id;
+    }
+
+    const changes = buildDiffDescription(beforeReadable, patchReadable);
     if (changes.length > 0) {
       await logHistorique({
         req, perimetre: 'comptable', action: 'modification', entite: `charge_${type}`, entite_id: id,
