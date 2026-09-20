@@ -1,352 +1,232 @@
-import { useState, useMemo } from 'react';
-import {
-  Plus, Search, User, Wallet, Briefcase, ShieldCheck, X, Pencil,
-  Tag, CalendarDays, Percent, Clock, Users2, Calendar,
-} from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Wallet, Tag, Users2, Calendar, Clock, Percent, ChevronRight, ChevronDown, X, GraduationCap, Plus, Phone } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
 
-const MONTHS = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-];
-const currentMonth = new Date().getMonth() + 1;
-const currentYear = new Date().getFullYear();
+/* ------------------------------------------------------------------ */
+/*  Helpers (exportés : utilisés aussi par DetailProfesseur)           */
+/* ------------------------------------------------------------------ */
+
+export const TYPES_SALAIRE = ['Fixe', "À l'heure", 'Pourcentage'];
 
 const STATUT_STYLES = {
-  payé: 'bg-emerald-50 text-emerald-700',
-  en_attente: 'bg-amber-50 text-amber-700',
+  payé: 'bg-emerald-50 text-emerald-600',
+  en_attente: 'bg-amber-50 text-amber-600',
   à_saisir: 'bg-slate-100 text-slate-500',
 };
 
-const TYPES_SALAIRE = ['Fixe', "À l'heure", 'Pourcentage'];
+export const fmt = (n) => n.toLocaleString('fr-DZ') + ' DA';
 
-// --- static mock data (à remplacer par l'API plus tard) ---
-const PROFESSEURS_INITIAL = [
-  {
-    id: 1, nom: 'Karim Traoré', poste: 'Formateur', categorie: 'Comptabilité',
-    typeSalaire: "À l'heure", montant: 2000, montantPeriode: 2000 * 40,
-    dateDebut: '2023-09-01', statut: 'en_attente',
-  },
-  {
-    id: 2, nom: 'Amina Diallo', poste: 'Formatrice', categorie: 'Marketing',
-    typeSalaire: "À l'heure", montant: 2200, montantPeriode: 2200 * 10,
-    dateDebut: '2024-02-01', statut: 'payé',
-  },
-  {
-    id: 3, nom: 'Fatou Ndiaye', poste: 'Formatrice', categorie: 'Informatique',
-    typeSalaire: 'Fixe', montant: 90000, montantPeriode: 90000,
-    dateDebut: '2022-10-01', statut: 'à_saisir',
-  },
-  {
-    id: 4, nom: 'Nadia Cherif', poste: 'Coordinatrice pédagogique', categorie: 'Langues',
-    typeSalaire: 'Pourcentage', montant: 10, montantPeriode: 28000,
-    dateDebut: '2025-01-15', statut: 'en_attente',
-  },
-];
-
-const fmt = (n) => n.toLocaleString('fr-DZ') + ' DA';
-
-const montantLabel = (p) => {
-  if (p.typeSalaire === 'Fixe') return fmt(p.montant) + ' / mois';
-  if (p.typeSalaire === "À l'heure") return fmt(p.montant) + ' / h';
-  return p.montant + ' %';
+// montantLabel s'applique maintenant à UNE formation (elle porte son propre type/montant)
+export const montantLabel = (f) => {
+  if (!f.typeSalaire) return null;
+  if (f.typeSalaire === 'Fixe') return fmt(f.montant) + ' / mois';
+  if (f.typeSalaire === "À l'heure") return fmt(f.montant) + ' / h';
+  return f.montant + ' %';
 };
 
-const Badge = ({ statut }) => (
-  <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${STATUT_STYLES[statut] ?? 'bg-slate-100 text-slate-500'}`}>
-    {statut.replace('_', ' ')}
-  </span>
-);
-
-const StatCard = ({ label, value, accent, icon: Icon }) => (
-  <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] px-4 py-3">
-    <p className="text-[11px] text-slate-400 mb-1 flex items-center gap-1.5">
-      {Icon && <Icon size={12} />} {label}
-    </p>
-    <p className={`text-lg font-bold ${accent ?? 'text-slate-700'}`}>{value}</p>
-  </div>
-);
-
-const typeIcon = (type) => {
+export const typeIcon = (type) => {
   if (type === "À l'heure") return Clock;
   if (type === 'Pourcentage') return Percent;
   return Wallet;
 };
 
-// --- Modal partagé Ajout / Modification ---
-const ProfesseurModal = ({ mode, professeur, onClose, onSave }) => {
-  const isEdit = mode === 'edit';
-  const [form, setForm] = useState({
-    nom: professeur?.nom ?? '',
-    poste: professeur?.poste ?? '',
-    categorie: professeur?.categorie ?? '',
-    typeSalaire: professeur?.typeSalaire ?? 'Fixe',
-    montant: professeur?.montant ?? '',
-    dateDebut: professeur?.dateDebut ?? '',
-  });
+export const initiales = (nom = '') =>
+  nom.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
-  const update = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+export const formatDate = (d) =>
+  d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
 
-  const montantSuffix = form.typeSalaire === 'Fixe' ? 'DA / mois'
-    : form.typeSalaire === "À l'heure" ? 'DA / heure'
-    : '%';
+export const Badge = ({ statut }) => (
+  <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap ${STATUT_STYLES[statut] ?? 'bg-slate-100 text-slate-500'}`}>
+    {statut.replace('_', ' ')}
+  </span>
+);
 
-  const handleSubmit = () => {
-    if (!form.nom || !form.poste || !form.montant) return;
-    onSave({
-      ...(professeur ?? { id: Date.now(), statut: 'en_attente', montantPeriode: 0 }),
-      ...form,
-      montant: Number(form.montant),
-    });
-    onClose();
+export const StatTile = ({ icon: Icon, label, value, color = 'blue' }) => {
+  const colors = {
+    blue: 'bg-[#DCEBFA] text-[#0369A1]',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    amber: 'bg-amber-50 text-amber-600',
   };
-
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-slate-800">
-            {isEdit ? 'Modifier le professeur' : 'Ajouter un professeur'}
-          </h2>
-          <button onClick={onClose}><X size={16} className="text-slate-400" /></button>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5 mb-1">
-              <User size={13} className="text-[#0369A1]" /> Nom
-            </label>
-            <input
-              value={form.nom} onChange={update('nom')}
-              className="w-full border border-[#E2E8F0] rounded-xl px-3 py-2 text-sm"
-              placeholder="Karim Traoré"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5 mb-1">
-              <Briefcase size={13} className="text-[#0369A1]" /> Poste
-            </label>
-            <input
-              value={form.poste} onChange={update('poste')}
-              className="w-full border border-[#E2E8F0] rounded-xl px-3 py-2 text-sm"
-              placeholder="Formateur"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5 mb-1">
-              <Tag size={13} className="text-[#0369A1]" /> Catégorie
-            </label>
-            <input
-              value={form.categorie} onChange={update('categorie')}
-              className="w-full border border-[#E2E8F0] rounded-xl px-3 py-2 text-sm"
-              placeholder="Comptabilité"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5 mb-1">
-              <ShieldCheck size={13} className="text-[#0369A1]" /> Type de salaire
-            </label>
-            <select
-              value={form.typeSalaire} onChange={update('typeSalaire')}
-              className="w-full border border-[#E2E8F0] rounded-xl px-3 py-2 text-sm"
-            >
-              {TYPES_SALAIRE.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5 mb-1">
-              <Wallet size={13} className="text-[#0369A1]" /> Montant ou tarif
-            </label>
-            <div className="relative">
-              <input
-                type="number" value={form.montant} onChange={update('montant')}
-                className="w-full border border-[#E2E8F0] rounded-xl px-3 py-2 text-sm pr-20"
-                placeholder="0"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">
-                {montantSuffix}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5 mb-1">
-              <CalendarDays size={13} className="text-[#0369A1]" /> Date de début
-            </label>
-            <input
-              type="date" value={form.dateDebut} onChange={update('dateDebut')}
-              className="w-full border border-[#E2E8F0] rounded-xl px-3 py-2 text-sm"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 border border-[#E2E8F0] text-slate-600 text-sm font-medium py-2.5 rounded-xl hover:bg-slate-50">
-            Annuler
-          </button>
-          <button onClick={handleSubmit} className="flex-1 bg-[#0F2A4A] text-white text-sm font-medium py-2.5 rounded-xl hover:bg-[#16385f]">
-            Enregistrer
-          </button>
-        </div>
+    <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] px-4 py-3 flex items-center gap-3">
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${colors[color]}`}>
+        <Icon size={16} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] text-slate-400 uppercase tracking-wide truncate">{label}</p>
+        <p className="text-sm font-bold text-[#0F2A4A]">{value}</p>
       </div>
     </div>
   );
 };
 
+/* ------------------------------------------------------------------ */
+/*  Données                                                            */
+/* ------------------------------------------------------------------ */
+
+const BASE_PATH = '/comptable/salaires/professeurs';
+
+// Un professeur donne une ou plusieurs formations, et CHAQUE formation a
+// son propre mode de paiement (typeSalaire) et montant — un même professeur
+// peut donc être payé au fixe pour une formation et à l'heure pour une autre.
+// typeSalaire === null → aucun salaire configuré pour cette formation.
+export const PROFESSEURS_INITIAL = [
+  { id: 1, nom: 'Karim Traoré', poste: 'Formateur', telephone: '0555 11 22 33', statut: 'en_attente', formations: [
+    { nom: 'Comptabilité', typeSalaire: "À l'heure", montant: 2000, montantPeriode: 2000 * 40 },
+    { nom: 'Fiscalité', typeSalaire: 'Fixe', montant: 30000, montantPeriode: 30000 },
+  ] },
+  { id: 2, nom: 'Amina Diallo', poste: 'Formatrice', statut: 'payé', formations: [
+    { nom: 'Marketing', typeSalaire: "À l'heure", montant: 2200, montantPeriode: 2200 * 10 },
+  ] },
+  { id: 3, nom: 'Fatou Ndiaye', poste: 'Formatrice', statut: 'à_saisir', formations: [
+    { nom: 'Informatique', typeSalaire: 'Fixe', montant: 90000, montantPeriode: 90000 },
+    { nom: 'Bureautique', typeSalaire: 'Pourcentage', montant: 8, montantPeriode: 12000 },
+  ] },
+  { id: 4, nom: 'Nadia Cherif', poste: 'Coordinatrice pédagogique', statut: 'en_attente', formations: [
+    { nom: 'Langues', typeSalaire: 'Pourcentage', montant: 10, montantPeriode: 28000 },
+  ] },
+  { id: 5, nom: 'Yacine Belkacem', poste: 'Formateur', statut: 'à_saisir', formations: [
+    { nom: 'Informatique', typeSalaire: null, montant: 0, montantPeriode: 0 },
+  ] },
+];
+export const totalProfesseur = (p) => p.formations.reduce((s, f) => s + f.montantPeriode, 0);
+/* ------------------------------------------------------------------ */
+/*  Une carte = un professeur                                          */
+/* ------------------------------------------------------------------ */
+
+const ProfesseurCard = ({ professeur, onOpen }) => {
+  const total = totalProfesseur(professeur);
+
+  return (
+    <div onClick={onOpen} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onOpen()}
+      className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition flex flex-col h-full cursor-pointer">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-10 h-10 bg-[#DCEBFA] rounded-full flex items-center justify-center text-sm font-bold text-[#0369A1] shrink-0">
+          {initiales(professeur.nom)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-slate-800 font-semibold text-base truncate">{professeur.nom}</h2>
+          <p className="text-xs text-slate-400 truncate">{professeur.poste}</p>
+          {professeur.telephone && <p className="text-xs text-slate-400 flex items-center gap-1 truncate"><Phone size={11} className="text-[#0369A1] shrink-0" /> {professeur.telephone}</p>}
+        </div>
+      </div>
+
+      {/* Une ligne par formation : nom + son propre mode de paiement */}
+      <div className="space-y-1.5 mb-5 flex-1">
+        {professeur.formations.map((f, i) => {
+          const TypeIcon = f.typeSalaire ? typeIcon(f.typeSalaire) : Plus;
+          return (
+            <div key={i} className="flex items-center justify-between gap-2 text-xs">
+              <span className="flex items-center gap-1.5 min-w-0 text-slate-600 font-medium">
+                <Tag size={12} className="text-[#0369A1] shrink-0" /> <span className="truncate">{f.nom}</span>
+              </span>
+              {f.typeSalaire ? (
+                <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#F0F7FE] text-[#0369A1] whitespace-nowrap">
+                  <TypeIcon size={10} /> {f.typeSalaire}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 whitespace-nowrap">
+                  Non défini
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-between mt-auto pt-3 border-t border-[#F1F5F9]">
+        <span className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1]">
+          <GraduationCap size={13} /> Voir les détails <ChevronRight size={13} />
+        </span>
+        {total > 0 && <span className="text-sm font-bold text-slate-700">{fmt(total)}</span>}
+      </div>
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
+
 const SalairesProfesseurs = () => {
-  const [professeurs, setProfesseurs] = useState(PROFESSEURS_INITIAL);
+  const navigate = useNavigate();
+  const professeurs = PROFESSEURS_INITIAL; // TODO API
+
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [search, setSearch] = useState('');
-  const [categorieFiltre, setCategorieFiltre] = useState('toutes');
-  const [typeFiltre, setTypeFiltre] = useState('tous');
-  const [modal, setModal] = useState(null); // { mode: 'add' | 'edit', professeur? }
-
-  const categories = useMemo(
-    () => ['toutes', ...new Set(professeurs.map((p) => p.categorie))],
-    [professeurs]
-  );
+  const [typeFiltre, setTypeFiltre] = useState('');
 
   const filtered = professeurs.filter((p) =>
     p.nom.toLowerCase().includes(search.toLowerCase()) &&
-    (categorieFiltre === 'toutes' || p.categorie === categorieFiltre) &&
-    (typeFiltre === 'tous' || p.typeSalaire === typeFiltre)
+    (!typeFiltre || p.formations.some((f) => f.typeSalaire === typeFiltre))
   );
 
-  const totalSalaires = filtered.reduce((s, p) => s + p.montantPeriode, 0);
-  const salairesPayes = filtered.filter((p) => p.statut === 'payé').reduce((s, p) => s + p.montantPeriode, 0);
+  const totalSalaires = filtered.reduce((s, p) => s + totalProfesseur(p), 0);
+  const salairesPayes = filtered.filter((p) => p.statut === 'payé').reduce((s, p) => s + totalProfesseur(p), 0);
   const salairesRestants = totalSalaires - salairesPayes;
 
-  const handleSave = (professeur) => {
-    setProfesseurs((prev) => {
-      const exists = prev.some((p) => p.id === professeur.id);
-      return exists ? prev.map((p) => (p.id === professeur.id ? professeur : p)) : [...prev, professeur];
-    });
-  };
+  const openDetail = (professeur) => navigate(`${BASE_PATH}/${professeur.id}`, { state: { professeur, professeurs: filtered } });
+  const hasFilters = search || typeFiltre || dateDebut || dateFin;
+  const clearFilters = () => { setSearch(''); setTypeFiltre(''); setDateDebut(''); setDateFin(''); };
 
   return (
     <ComptableLayout>
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Salaires des professeurs</h1>
-        </div>
-        <div className="flex items-center gap-1 bg-white rounded-full border border-[#E2E8F0] px-3 py-1.5 text-xs text-slate-500">
-          <Calendar size={13} className="text-[#0369A1]" />
-          <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="outline-none text-xs w-[110px]" />
-          <span>→</span>
-          <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className="outline-none text-xs w-[110px]" />
-        </div>
-      </div>
-
-      {/* Cartes — se recalculent selon les filtres actifs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Total des salaires" value={fmt(totalSalaires)} icon={Wallet} />
-        <StatCard label="Nombre de professeurs" value={filtered.length} icon={Users2} />
-        <StatCard label="Salaires payés" value={fmt(salairesPayes)} accent="text-emerald-600" icon={ShieldCheck} />
-        <StatCard label="Salaires restants" value={fmt(salairesRestants)} accent="text-amber-600" icon={ShieldCheck} />
-      </div>
-
-      {/* Recherche + filtres (catégorie, type de salaire — la période est gérée par mois/année ci-dessus) */}
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative max-w-[220px]">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0369A1]" />
-            <input
-              type="text" placeholder="Rechercher…" value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
-            />
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0"><GraduationCap size={22} className="text-white" /></div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">Salaires des professeurs</h1>
+            <p className="text-slate-400 text-xs mt-0.5">{filtered.length} / {professeurs.length} professeur(s)</p>
           </div>
-          <select
-            value={categorieFiltre}
-            onChange={(e) => setCategorieFiltre(e.target.value)}
-            className="text-xs rounded-full py-1.5 px-3 bg-white border border-[#E2E8F0] text-[#0369A1] font-medium"
-          >
-            {categories.map((c) => (
-              <option key={c} value={c}>{c === 'toutes' ? 'Toutes les catégories' : c}</option>
-            ))}
-          </select>
-          <select
-            value={typeFiltre}
-            onChange={(e) => setTypeFiltre(e.target.value)}
-            className="text-xs rounded-full py-1.5 px-3 bg-white border border-[#E2E8F0] text-[#0369A1] font-medium"
-          >
-            <option value="tous">Tous les types</option>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <StatTile icon={Wallet} label="Total des salaires" value={fmt(totalSalaires)} color="blue" />
+        <StatTile icon={Users2} label="Nombre de professeurs" value={filtered.length} color="blue" />
+        <StatTile icon={Wallet} label="Salaires payés" value={fmt(salairesPayes)} color="emerald" />
+        <StatTile icon={Wallet} label="Salaires restants" value={fmt(salairesRestants)} color="amber" />
+      </div>
+
+      <div className="mb-6 flex flex-wrap gap-2 items-center">
+        <div className="relative min-w-[160px] flex-1 max-w-[220px]">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#0369A1] pointer-events-none" />
+          <input placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-8 pr-3 py-1.5 rounded-full text-xs bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40" />
+        </div>
+
+        <div className="w-px h-5 bg-[#E2E8F0]" />
+
+        <div className="relative flex items-center">
+          <Wallet size={13} className="absolute left-2.5 text-[#0369A1] pointer-events-none z-10" />
+          <select value={typeFiltre} onChange={(e) => setTypeFiltre(e.target.value)}
+            className={`appearance-none pl-8 pr-7 py-1.5 text-xs rounded-full bg-white border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer transition ${typeFiltre ? 'text-[#0369A1] font-medium' : 'text-slate-500'}`}>
+            <option value="">Type de rémunération</option>
             {TYPES_SALAIRE.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
+          {typeFiltre ? <button onClick={() => setTypeFiltre('')} className="absolute right-2 text-slate-300 hover:text-red-400"><X size={11} /></button> : <ChevronDown size={11} className="absolute right-2 text-slate-400 pointer-events-none" />}
         </div>
-        <button
-          onClick={() => setModal({ mode: 'add' })}
-          className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3 py-1.5 rounded-lg text-xs font-medium
-            shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] transition-all"
-        >
-          <Plus size={13} /> Ajouter un professeur
-        </button>
+
+        <div className="flex items-center gap-1.5 bg-white rounded-full px-3 py-1 border border-[#E2E8F0]">
+          <Calendar size={12} className="text-[#0369A1] flex-shrink-0" />
+          <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className={`text-xs bg-transparent focus:outline-none transition ${dateDebut ? 'text-[#0369A1] font-medium' : 'text-slate-400'}`} />
+          <span className="text-[#0369A1]/40 text-[10px] font-bold px-0.5">–</span>
+          <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className={`text-xs bg-transparent focus:outline-none transition ${dateFin ? 'text-[#0369A1] font-medium' : 'text-slate-400'}`} />
+        </div>
+
+        {hasFilters && <button onClick={clearFilters} className="ml-auto flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"><X size={11} /> Tout effacer</button>}
       </div>
 
-      <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
-        <table className="w-full text-xs">
-          <thead className="bg-[#DCEBFA]">
-            <tr>
-              {[
-                { label: 'Professeur', icon: User },
-                { label: 'Poste', icon: Briefcase },
-                { label: 'Type de salaire', icon: ShieldCheck },
-                { label: 'Montant', icon: Wallet },
-                { label: 'Statut', icon: ShieldCheck },
-                { label: '', icon: null },
-              ].map(({ label, icon: Icon }) => (
-                <th key={label || 'actions'} className="text-left px-3 py-2.5 text-[#0369A1] font-semibold text-[10px] uppercase border-b border-[#E2E8F0]">
-                  <span className="flex items-center gap-1.5">{Icon && <Icon size={12} />}{label}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p, i) => {
-              const TypeIcon = typeIcon(p.typeSalaire);
-              return (
-                <tr key={p.id} className={i % 2 ? 'bg-[#F8FCFF]' : 'bg-white'}>
-                  <td className="px-3 py-2.5 font-medium text-slate-700 border-b border-[#E2E8F0]">{p.nom}</td>
-                  <td className="px-3 py-2.5 text-slate-500 border-b border-[#E2E8F0]">{p.poste}</td>
-                  <td className="px-3 py-2.5 text-slate-500 border-b border-[#E2E8F0]">
-                    <span className="flex items-center gap-1.5"><TypeIcon size={12} className="text-[#0369A1]" />{p.typeSalaire}</span>
-                  </td>
-                  <td className="px-3 py-2.5 font-semibold text-slate-700 border-b border-[#E2E8F0]">{montantLabel(p)}</td>
-                  <td className="px-3 py-2.5 border-b border-[#E2E8F0]"><Badge statut={p.statut} /></td>
-                  <td className="px-3 py-2.5 border-b border-[#E2E8F0] text-right">
-                    <button
-                      onClick={() => setModal({ mode: 'edit', professeur: p })}
-                      className="text-[#0369A1] text-[11px] font-medium hover:underline flex items-center gap-1 ml-auto"
-                    >
-                      <Pencil size={11} /> Modifier
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-slate-400 text-xs">
-                  Aucun professeur ne correspond à ces filtres.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {modal && (
-        <ProfesseurModal
-          mode={modal.mode}
-          professeur={modal.professeur}
-          onClose={() => setModal(null)}
-          onSave={handleSave}
-        />
+      {filtered.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+          {filtered.map((p) => (
+            <ProfesseurCard key={p.id} professeur={p} onOpen={() => openDetail(p)} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-slate-400 text-sm">Aucun professeur ne correspond à ces filtres.</p>
       )}
     </ComptableLayout>
   );
