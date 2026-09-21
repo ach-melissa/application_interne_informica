@@ -8,6 +8,27 @@ const BASE_PATH = '/comptable/salaires/employes';
 const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
 const mkPoste = (id, poste, type, montant, extra = {}) => ({ id, poste, type, montant, joursFixes: true, jours: JOURS.slice(0, 5), nbJours: 5, heuresParJour: 8, dateDebut: '2024-01-01', ...extra });
 
+// Conversion camelCase (utilisé par EmployeModal/EmployeCard) <-> snake_case (colonnes SQL)
+const posteFromApi = (p) => ({
+  ...p,
+  joursFixes: p.jours_fixes,
+  nbJours: p.nb_jours,
+  heuresParJour: p.heures_par_jour,
+  dateDebut: p.date_debut,
+});
+const posteToApi = (p) => ({
+  id: p.id,
+  poste: p.poste,
+  type: p.type,
+  montant: p.montant,
+  jours: p.jours,
+  jours_fixes: p.joursFixes,
+  nb_jours: p.nbJours,
+  heures_par_jour: p.heuresParJour,
+  date_debut: p.dateDebut || null,
+});
+const employeFromApi = (e) => ({ ...e, postes: (e.postes || []).map(posteFromApi) });
+
 // NOTE: gardé pour l'instant uniquement comme fallback dans DetailEmploye.jsx
 // (pas encore branché sur l'API) — à supprimer une fois cette page migrée aussi.
 export const EMPLOYES_INITIAL = [
@@ -78,7 +99,7 @@ const SalairesEmployes = () => {
     setLoading(true);
     fetch(API_URL)
       .then(res => { if (!res.ok) throw new Error('Erreur lors du chargement des employés'); return res.json(); })
-      .then(data => { if (!cancelled) { setEmployes(data); setLoadError(null); } })
+      .then(data => { if (!cancelled) { setEmployes(data.map(employeFromApi)); setLoadError(null); } })
       .catch(err => { if (!cancelled) setLoadError(err.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -96,15 +117,15 @@ const SalairesEmployes = () => {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(employe),
+      body: JSON.stringify({ ...employe, postes: employe.postes.map(posteToApi) }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || "Erreur lors de l'enregistrement");
     }
-    const saved = await res.json();
-    setEmployes(prev => isEdit ? prev.map(e => e.id === saved.id ? saved : e) : [...prev, saved]);
-  };
+const saved = employeFromApi(await res.json());
+setEmployes(prev => isEdit ? prev.map(e => e.id === saved.id ? saved : e) : [...prev, saved]);
+ };
 
   const hasFilters = search || typeFiltre || dateDebut || dateFin;
   const clearFilters = () => { setSearch(''); setTypeFiltre(''); setDateDebut(''); setDateFin(''); };

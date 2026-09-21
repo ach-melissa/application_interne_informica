@@ -90,15 +90,19 @@ const EmployeModal = ({ employe, onClose, onSave }) => {
     return '';
   };
 
-  const submit = () => {
+const submit = async () => {
     const msg = validate();
     if (msg) return setError(msg);
-    onSave({
-      ...(employe ?? { id: Date.now(), statut: 'en_attente' }),
-      ...Object.fromEntries(Object.entries(infos).map(([k, v]) => [k, v.trim()])),
-      postes: postes.map(p => ({ ...p, poste: p.poste.trim(), montant: Number(p.montant), nbJours: Number(p.nbJours) || 0, heuresParJour: Number(p.heuresParJour) || 0 })),
-    });
-    onClose();
+    try {
+      await onSave({
+        ...(employe ?? { id: Date.now(), statut: 'en_attente' }),
+        ...Object.fromEntries(Object.entries(infos).map(([k, v]) => [k, v.trim()])),
+        postes: postes.map(p => ({ ...p, poste: p.poste.trim(), montant: Number(p.montant), nbJours: Number(p.nbJours) || 0, heuresParJour: Number(p.heuresParJour) || 0 })),
+      });
+      onClose();
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement");
+    }
   };
 
   const totalEstime = postes.reduce((s, p) => s + estimationMensuelle(p), 0);
