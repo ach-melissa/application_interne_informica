@@ -159,7 +159,7 @@ const getStudentPaymentHistory = async (req, res) => {
 };
 
 const createPayment = async (req, res) => {
-  const { etudiant_id, formation_id, montant } = req.body;
+  const { etudiant_id, formation_id, montant, date_paiement } = req.body;
 
   const { count, error: countErr } = await supabase
     .from('payments')
@@ -176,7 +176,7 @@ const createPayment = async (req, res) => {
       formation_id,
       montant,
       tranche: (count ?? 0) + 1,
-      date_paiement: new Date().toISOString().split('T')[0],
+      date_paiement: date_paiement || new Date().toISOString().split('T')[0],
     })
     .select()
     .single();
@@ -201,17 +201,17 @@ const createPayment = async (req, res) => {
 
 const updatePayment = async (req, res) => {
   const { id } = req.params;
-  const { montant } = req.body;
+ const { montant, date_paiement } = req.body;
 
   const { data: before } = await supabase
     .from('payments')
-    .select('montant, tranche, etudiant_id, formation_id, etudiant:etudiant_id(nom, prenom)')
+    .select('montant, tranche, date_paiement, etudiant_id, formation_id, etudiant:etudiant_id(nom, prenom)')
     .eq('id', id)
     .single();
 
   const { data, error } = await supabase
     .from('payments')
-    .update({ montant })
+    .update({ montant, date_paiement: date_paiement || before?.date_paiement })
     .eq('id', id)
     .select()
     .single();
@@ -222,7 +222,7 @@ const updatePayment = async (req, res) => {
   const contexte = await getPaymentContexte(before?.etudiant_id, before?.formation_id);
   await logHistorique({
     req, perimetre: 'admin', action: 'modification', entite: 'paiement', entite_id: id,
-    description: `a modifié le paiement (tranche ${before?.tranche}) de ${nomEtudiant} (${contexte ?? '—'}) : ${Number(before?.montant).toLocaleString('fr-FR')} DA → ${Number(montant).toLocaleString('fr-FR')} DA`,
+description: `a modifié le paiement (tranche ${before?.tranche}) de ${nomEtudiant} (${contexte ?? '—'}) : ${Number(before?.montant).toLocaleString('fr-FR')} DA → ${Number(montant).toLocaleString('fr-FR')} DA${date_paiement && date_paiement !== before?.date_paiement ? `, date ${before?.date_paiement} → ${date_paiement}` : ''}`,
   });
 
   res.json(data);
