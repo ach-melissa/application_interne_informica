@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Wallet, Pencil, Phone, Users2, Calendar, ChevronRight, ChevronDown, X } from 'lucide-react';
 
 import ComptableLayout from '../../../layouts/ComptableLayout';
 import EmployeModal, { StatTile, JOURS, TYPES, typeOf, nomComplet, tarifLabel, totalEmploye, fmt, initiales, formatDate, joursParSemaine, cap } from './EmployeModal';
 const BASE_PATH = '/comptable/salaires/employes';
+const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
 const mkPoste = (id, poste, type, montant, extra = {}) => ({ id, poste, type, montant, joursFixes: true, jours: JOURS.slice(0, 5), nbJours: 5, heuresParJour: 8, dateDebut: '2024-01-01', ...extra });
 
+// NOTE: gardé pour l'instant uniquement comme fallback dans DetailEmploye.jsx
+// (pas encore branché sur l'API) — à supprimer une fois cette page migrée aussi.
 export const EMPLOYES_INITIAL = [
   { id: 1, nom: 'Bekkar', prenom: 'Salima', telephone: '0555 12 34 56', statut: 'payé', postes: [mkPoste(101, 'Secrétaire', 'mensuel', 120000, { dateDebut: '2024-09-01' })] },
   { id: 2, nom: 'Meziane', prenom: 'Yacine', telephone: '0661 45 78 90', statut: 'en_attente', postes: [
@@ -61,18 +64,48 @@ const EmployeCard = ({ employe, onOpen, onEdit }) => (
 
 const SalairesEmployes = () => {
   const navigate = useNavigate();
-  const [employes, setEmployes] = useState(EMPLOYES_INITIAL);
+  const [employes, setEmployes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [search, setSearch] = useState('');
   const [typeFiltre, setTypeFiltre] = useState('');
   const [modal, setModal] = useState(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(API_URL)
+      .then(res => { if (!res.ok) throw new Error('Erreur lors du chargement des employés'); return res.json(); })
+      .then(data => { if (!cancelled) { setEmployes(data); setLoadError(null); } })
+      .catch(err => { if (!cancelled) setLoadError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
   const filtered = employes.filter(e => nomComplet(e).toLowerCase().includes(search.toLowerCase()) && (!typeFiltre || e.postes.some(p => p.type === typeFiltre)));
   const total = filtered.reduce((s, e) => s + totalEmploye(e), 0);
   const payes = filtered.filter(e => e.statut === 'payé').reduce((s, e) => s + totalEmploye(e), 0);
 
-  const handleSave = (employe) => setEmployes(prev => prev.some(e => e.id === employe.id) ? prev.map(e => e.id === employe.id ? employe : e) : [...prev, employe]);
+  const handleSave = async (employe) => {
+    const isEdit = employes.some(e => e.id === employe.id);
+    const url = isEdit ? `${API_URL}/${employe.id}` : API_URL;
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(employe),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Erreur lors de l'enregistrement");
+    }
+    const saved = await res.json();
+    setEmployes(prev => isEdit ? prev.map(e => e.id === saved.id ? saved : e) : [...prev, saved]);
+  };
+
   const hasFilters = search || typeFiltre || dateDebut || dateFin;
   const clearFilters = () => { setSearch(''); setTypeFiltre(''); setDateDebut(''); setDateFin(''); };
 
@@ -121,7 +154,11 @@ const SalairesEmployes = () => {
         {hasFilters && <button onClick={clearFilters} className="ml-auto flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"><X size={11} /> Tout effacer</button>}
       </div>
 
-      {filtered.length > 0 ? (
+      {loading ? (
+        <p className="text-slate-400 text-sm">Chargement des employés…</p>
+      ) : loadError ? (
+        <p className="text-red-500 text-sm">{loadError}</p>
+      ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map(e => <EmployeCard key={e.id} employe={e} onOpen={() => navigate(`${BASE_PATH}/${e.id}`, { state: { employe: e, employes: filtered } })} onEdit={() => setModal({ employe: e })} />)}
         </div>
