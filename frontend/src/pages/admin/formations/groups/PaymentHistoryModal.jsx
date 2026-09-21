@@ -16,7 +16,8 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
   const [error, setError] = useState(null);
   const [montant, setMontant] = useState('');
   const [editingId, setEditingId] = useState(null);
-  const [editMontant, setEditMontant] = useState('');
+ const [editMontant, setEditMontant] = useState('');
+const [editDatePaiement, setEditDatePaiement] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [uploadingId, setUploadingId] = useState(null);
   const [lightboxUrl, setLightboxUrl] = useState(null);
@@ -51,13 +52,13 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
       const res = await fetch(`${API}/api/payments`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ etudiant_id: student.studentId, formation_id: formationId, montant: Number(montant) }),
-      });
+body: JSON.stringify({ etudiant_id: student.studentId, formation_id: formationId, montant: Number(montant) }), 
+});
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMontant('');
-      await refresh();
-      onRefresh?.();
+setMontant('');
+await refresh();
+onRefresh?.();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -65,14 +66,14 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
     }
   };
 
-  const handleEdit = async (id) => {
-    if (!editMontant) return;
-    try {
-      const res = await fetch(`${API}/api/payments/${id}`, {
-        method: 'PUT',
-        headers: getHeaders(),
-        body: JSON.stringify({ montant: Number(editMontant) }),
-      });
+const handleEdit = async (id) => {
+  if (!editMontant) return;
+  try {
+    const res = await fetch(`${API}/api/payments/${id}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ montant: Number(editMontant), date_paiement: editDatePaiement }),
+    });
       if (!res.ok) throw new Error('Erreur modification');
       setEditingId(null);
       await refresh();
@@ -203,16 +204,22 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                 ) : (
                   history.map((p) => (
                                                                                 <li key={p.id} className="bg-[#F8FAFC] rounded-md border border-[#F1F5F9] px-3 py-2">
-                      {editingId === p.id ? (
-                        <div className="flex gap-2 items-center">
-                                                    <input
-                            type="number"
-                            className="bg-white border border-slate-200 rounded-md px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
-                            value={editMontant}
-                            onChange={e => setEditMontant(e.target.value)}
-                            placeholder="Montant"
-                            autoFocus
-                          />
+{editingId === p.id ? (
+  <div className="flex gap-2 items-center">
+    <input
+      type="number"
+      className="bg-white border border-slate-200 rounded-md px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
+      value={editMontant}
+      onChange={e => setEditMontant(e.target.value)}
+      placeholder="Montant"
+      autoFocus
+    />
+    <input
+      type="date"
+      className="bg-white border border-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors"
+      value={editDatePaiement}
+      onChange={e => setEditDatePaiement(e.target.value)}
+    />
                           <button onClick={() => handleEdit(p.id)} className="text-emerald-600 hover:text-emerald-700">
                             <Check size={15} />
                           </button>
@@ -239,7 +246,7 @@ const PaymentHistoryModal = ({ student, formationId, onClose, onRefresh, readOnl
                               {!readOnly && (
                                 <>
                                   <button
-                                    onClick={() => { setEditingId(p.id); setEditMontant(p.montant); }}
+                                    onClick={() => { setEditingId(p.id); setEditMontant(p.montant); setEditDatePaiement(p.date_paiement); }}
                                     className="text-slate-400 hover:text-[#0369A1] transition"
                                   >
                                     <Pencil size={13} />
