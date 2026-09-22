@@ -1,21 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Wallet, CalendarDays, Phone, Plus, Check, Info, RotateCcw, Image as ImageIcon } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
-import { EMPLOYES_INITIAL } from './SalairesEmployes';
-import { CARD, fmt, initiales, nomComplet, tarifLabel, typeOf, StatTile, totalEmploye, joursParSemaine, cap, formatDate } from './EmployeModal';
+import { CARD, fmt, initiales, nomComplet, tarifLabel, typeOf, StatTile, totalEmploye, joursParSemaine, cap, formatDate, employeFromApi } from './EmployeModal';
 import AjoutMouvementModal from './AjoutMouvementModal';
+
+const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
+const MOUVEMENTS_API_URL = `${import.meta.env.VITE_API_URL}/api/mouvements`;
 
 const LIST_PATH = '/comptable/salaires/employes';
 const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const TYPES_MVT = { avance: 'Avance', retenue: 'Retenue', prime: 'Prime' };
 const emptyForm = { type: 'avance', description: '', montant: '', posteId: '' };
 
-const MOCK_MOUVEMENTS = [
-  { id: 1, date: '2026-09-05', type: 'avance', description: 'Avance 1', montant: -10000, posteId: null, bons: [] },
-  { id: 2, date: '2026-09-12', type: 'avance', description: 'Avance 2', montant: -5000, posteId: null, bons: [] },
-  { id: 3, date: '2026-09-20', type: 'retenue', description: 'Absence', montant: -2000, posteId: null, bons: [] },
-];
+// Conversion snake_case (API) -> camelCase (utilisé par ce composant)
+const mouvementFromApi = (m) => ({ ...m, posteId: m.poste_id, montant: Number(m.montant) });
+
 const MOCK_HISTORIQUE = [
   { mois: 'Août 2026', jours: 20, net: 40000, paye: 20000, statut: 'partiel' },
   { mois: 'Juillet 2026', jours: 23, net: 46000, paye: 0, statut: 'non_paye' },
@@ -77,15 +77,45 @@ const DetailEmploye = () => {
   const { id } = useParams();
   const { state } = useLocation();
   const navigate = useNavigate();
-  const employes = state?.employes ?? EMPLOYES_INITIAL;
-  const employe = state?.employe ?? employes.find(e => String(e.id) === id);
-  const idx = employes.findIndex(e => e.id === employe?.id);
+  const employesListe = state?.employes ?? [];
+  const idx = employesListe.findIndex(e => String(e.id) === id);
+
+  const [employe, setEmploye] = useState(state?.employe ?? null);
+  const [loadingEmploye, setLoadingEmploye] = useState(!state?.employe);
+  const [employeError, setEmployeError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingEmploye(true);
+    fetch(`${API_URL}/${id}`)
+      .then(res => { if (!res.ok) throw new Error('Employé introuvable'); return res.json(); })
+      .then(data => { if (!cancelled) { setEmploye(employeFromApi(data)); setEmployeError(null); } })
+      .catch(err => { if (!cancelled) setEmployeError(err.message); })
+      .finally(() => { if (!cancelled) setLoadingEmploye(false); });
+    return () => { cancelled = true; };
+  }, [id]);
 
   const [periode, setPeriode] = useState(() => new Date(2026, 8, 1));
   const [showPicker, setShowPicker] = useState(false);
   const [tab, setTab] = useState('apercu');
   const [openInfo, setOpenInfo] = useState(null); // posteId dont le détail de calcul est affiché
-  const [mouvements, setMouvements] = useState(MOCK_MOUVEMENTS);
+  const [mouvements, setMouvements] = useState([]);
+  const [loadingMouvements, setLoadingMouvements] = useState(true);
+  const [mouvementsError, setMouvementsError] = useState(null);
+
+  useEffect(() => {
+    if (!employe) return;
+    let cancelled = false;
+    setLoadingMouvements(true);
+    const mois = periode.getMonth() + 1;
+    const annee = periode.getFullYear();
+    fetch(`${MOUVEMENTS_API_URL}?employe_id=${employe.id}&mois=${mois}&annee=${annee}`)
+      .then(res => { if (!res.ok) throw new Error('Erreur lors du chargement des mouvements'); return res.json(); })
+      .then(data => { if (!cancelled) { setMouvements(data.map(mouvementFromApi)); setMouvementsError(null); } })
+      .catch(err => { if (!cancelled) setMouvementsError(err.message); })
+      .finally(() => { if (!cancelled) setLoadingMouvements(false); });
+    return () => { cancelled = true; };
+  }, [employe, periode]);
 
   const [salaireOverride, setSalaireOverride] = useState(null); // null = valeur auto-calculée
   const [showFormule, setShowFormule] = useState(true);
@@ -100,9 +130,12 @@ const DetailEmploye = () => {
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const changerMois = (delta) => setPeriode(d => new Date(d.getFullYear(), d.getMonth() + delta, 1));
   const label = periode.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-  const goTo = (target) => navigate(`${LIST_PATH}/${target.id}`, { state: { employe: target, employes } });
+  const goTo = (target) => navigate(`${LIST_PATH}/${target.id}`, { state: { employe: target, employes: employesListe } });
 
-  if (!employe) {
+  if (loadingEmploye) {
+    return <ComptableLayout><div className={`${CARD} px-3 py-10 text-center text-slate-400 text-xs`}>Chargement…</div></ComptableLayout>;
+  }
+  if (employeError || !employe) {
     return <ComptableLayout><div className={`${CARD} px-3 py-10 text-center text-slate-400 text-xs`}>Cet employé est introuvable.</div></ComptableLayout>;
   }
 
@@ -141,27 +174,43 @@ const DetailEmploye = () => {
     editingId ? setConfirm('save') : doSave();
   };
 
-    const doSave = () => {
+  const doSave = async () => {
     setConfirm(null);
     const signe = form.type === 'prime' ? 1 : -1;
     const payload = {
-      id: editingId ?? Date.now(),
+      employe_id: employe.id,
+      poste_id: form.posteId || null,
       date: editingId ? mouvements.find(m => m.id === editingId).date : new Date().toISOString().slice(0, 10),
       type: form.type,
       description: form.description,
       montant: signe * Number(form.montant),
-      posteId: form.posteId || null,
-      // TODO API: remplacer par les bons réellement uploadés (via endpoint dédié, comme charges_bons / autres_revenus_bons)
-      bons: editingId ? mouvements.find(m => m.id === editingId)?.bons ?? [] : pendingBons.map((p) => ({ id: p.file.name + p.file.size, url: p.preview })),
     };
-    setMouvements(list => editingId ? list.map(m => m.id === editingId ? payload : m) : [...list, payload]);
-    if (!editingId) {
-      setEditingId(payload.id);
-      setEditingMouvement(payload);
+    try {
+      const url = editingId ? `${MOUVEMENTS_API_URL}/${editingId}` : MOUVEMENTS_API_URL;
+      const method = editingId ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Erreur lors de l'enregistrement");
+      }
+      const saved = mouvementFromApi(await res.json());
+      // TODO API bons: remplacer par les bons réellement uploadés (étape suivante, Supabase Storage)
+      saved.bons = editingId ? mouvements.find(m => m.id === editingId)?.bons ?? [] : pendingBons.map((p) => ({ id: p.file.name + p.file.size, url: p.preview }));
+      setMouvements(list => editingId ? list.map(m => m.id === editingId ? saved : m) : [...list, saved]);
+      if (!editingId) {
+        setEditingId(saved.id);
+        setEditingMouvement(saved);
+      }
+      pendingBons.forEach((p) => URL.revokeObjectURL(p.preview));
+      if (!editingId) setPendingBons([]);
+      if (editingId) closeForm();
+    } catch (err) {
+      setFormError(err.message);
     }
-    pendingBons.forEach((p) => URL.revokeObjectURL(p.preview));
-    if (!editingId) setPendingBons([]); // les "bons" sont déjà copiés dans payload.bons ci-dessus en mock
-    if (editingId) closeForm();
   };
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -192,9 +241,18 @@ const DetailEmploye = () => {
   };
   const resetSalaire = () => setSalaireOverride(null);
   const requestDelete = () => setConfirm('delete');
-  const doDelete = () => {
-    setMouvements(list => list.filter(m => m.id !== editingId));
-    closeForm();
+  const doDelete = async () => {
+    try {
+      const res = await fetch(`${MOUVEMENTS_API_URL}/${editingId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Erreur lors de la suppression');
+      }
+      setMouvements(list => list.filter(m => m.id !== editingId));
+      closeForm();
+    } catch (err) {
+      setFormError(err.message);
+    }
   };
 
   const multiPostes = employe.postes.length > 1;
@@ -214,14 +272,14 @@ const DetailEmploye = () => {
           </div>
         </div>
 
-        {idx > -1 && employes.length > 1 && (
+        {idx > -1 && employesListe.length > 1 && (
           <div className="flex items-center gap-1.5 bg-white border border-[#E2E8F0] rounded-full px-1.5 py-1">
-            <button disabled={idx === 0} onClick={() => goTo(employes[idx - 1])}
+            <button disabled={idx === 0} onClick={() => goTo(employesListe[idx - 1])}
               className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent">
               <ChevronLeft size={13} className="text-[#0369A1]" />
             </button>
-            <span className="text-[11px] text-slate-500 px-1">{idx + 1} / {employes.length}</span>
-            <button disabled={idx === employes.length - 1} onClick={() => goTo(employes[idx + 1])}
+            <span className="text-[11px] text-slate-500 px-1">{idx + 1} / {employesListe.length}</span>
+            <button disabled={idx === employesListe.length - 1} onClick={() => goTo(employesListe[idx + 1])}
               className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent">
               <ChevronRight size={13} className="text-[#0369A1]" />
             </button>
@@ -378,7 +436,11 @@ const DetailEmploye = () => {
                 </tr>
               </thead>
               <tbody>
-                {mouvements.length === 0 ? (
+                {loadingMouvements ? (
+                  <tr><td colSpan={multiPostes ? 6 : 5} className="text-center py-8 text-slate-400 bg-white">Chargement…</td></tr>
+                ) : mouvementsError ? (
+                  <tr><td colSpan={multiPostes ? 6 : 5} className="text-center py-8 text-red-500 bg-white">{mouvementsError}</td></tr>
+                ) : mouvements.length === 0 ? (
                   <tr><td colSpan={multiPostes ? 6 : 5} className="text-center py-8 text-slate-400 bg-white">Aucun mouvement.</td></tr>
                 ) : mouvements.map((m, i) => (
                   <tr key={m.id} onClick={() => openEdit(m)} className={`cursor-pointer hover:bg-slate-50/60 transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>

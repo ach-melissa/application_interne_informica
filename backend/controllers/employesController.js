@@ -19,6 +19,25 @@ const getEmployes = async (req, res) => {
 };
 
 // ============================================================
+// EMPLOYES — get one (avec ses postes)
+// ============================================================
+const getEmployeById = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('employes')
+      .select('*, postes(*)')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) return res.status(404).json({ message: 'Employé introuvable' });
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// ============================================================
 // EMPLOYES — create (employé + ses postes en une fois)
 // ============================================================
 const createEmploye = async (req, res) => {
@@ -158,4 +177,4 @@ const deleteEmploye = async (req, res) => {
   }
 };
 
-module.exports = { getEmployes, createEmploye, updateEmploye, deleteEmploye };
+module.exports = { getEmployes, getEmployeById, createEmploye, updateEmploye, deleteEmploye };
