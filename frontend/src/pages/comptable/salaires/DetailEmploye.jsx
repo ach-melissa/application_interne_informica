@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Wallet, CalendarDays, Phone, Plus, Check, Info, RotateCcw, Image as ImageIcon } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
-import { EMPLOYES_INITIAL } from './SalairesEmployes';
-import { CARD, fmt, initiales, nomComplet, tarifLabel, typeOf, StatTile, totalEmploye, joursParSemaine, cap, formatDate } from './EmployeModal';
+import { CARD, fmt, initiales, nomComplet, tarifLabel, typeOf, StatTile, totalEmploye, joursParSemaine, cap, formatDate, employeFromApi } from './EmployeModal';
 import AjoutMouvementModal from './AjoutMouvementModal';
+
+const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
 
 const LIST_PATH = '/comptable/salaires/employes';
 const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -77,9 +78,23 @@ const DetailEmploye = () => {
   const { id } = useParams();
   const { state } = useLocation();
   const navigate = useNavigate();
-  const employes = state?.employes ?? EMPLOYES_INITIAL;
-  const employe = state?.employe ?? employes.find(e => String(e.id) === id);
-  const idx = employes.findIndex(e => e.id === employe?.id);
+  const employesListe = state?.employes ?? [];
+  const idx = employesListe.findIndex(e => String(e.id) === id);
+
+  const [employe, setEmploye] = useState(state?.employe ?? null);
+  const [loadingEmploye, setLoadingEmploye] = useState(!state?.employe);
+  const [employeError, setEmployeError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingEmploye(true);
+    fetch(`${API_URL}/${id}`)
+      .then(res => { if (!res.ok) throw new Error('Employé introuvable'); return res.json(); })
+      .then(data => { if (!cancelled) { setEmploye(employeFromApi(data)); setEmployeError(null); } })
+      .catch(err => { if (!cancelled) setEmployeError(err.message); })
+      .finally(() => { if (!cancelled) setLoadingEmploye(false); });
+    return () => { cancelled = true; };
+  }, [id]);
 
   const [periode, setPeriode] = useState(() => new Date(2026, 8, 1));
   const [showPicker, setShowPicker] = useState(false);
@@ -100,9 +115,12 @@ const DetailEmploye = () => {
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const changerMois = (delta) => setPeriode(d => new Date(d.getFullYear(), d.getMonth() + delta, 1));
   const label = periode.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-  const goTo = (target) => navigate(`${LIST_PATH}/${target.id}`, { state: { employe: target, employes } });
+  const goTo = (target) => navigate(`${LIST_PATH}/${target.id}`, { state: { employe: target, employes: employesListe } });
 
-  if (!employe) {
+  if (loadingEmploye) {
+    return <ComptableLayout><div className={`${CARD} px-3 py-10 text-center text-slate-400 text-xs`}>Chargement…</div></ComptableLayout>;
+  }
+  if (employeError || !employe) {
     return <ComptableLayout><div className={`${CARD} px-3 py-10 text-center text-slate-400 text-xs`}>Cet employé est introuvable.</div></ComptableLayout>;
   }
 
@@ -214,14 +232,14 @@ const DetailEmploye = () => {
           </div>
         </div>
 
-        {idx > -1 && employes.length > 1 && (
+        {idx > -1 && employesListe.length > 1 && (
           <div className="flex items-center gap-1.5 bg-white border border-[#E2E8F0] rounded-full px-1.5 py-1">
-            <button disabled={idx === 0} onClick={() => goTo(employes[idx - 1])}
+            <button disabled={idx === 0} onClick={() => goTo(employesListe[idx - 1])}
               className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent">
               <ChevronLeft size={13} className="text-[#0369A1]" />
             </button>
-            <span className="text-[11px] text-slate-500 px-1">{idx + 1} / {employes.length}</span>
-            <button disabled={idx === employes.length - 1} onClick={() => goTo(employes[idx + 1])}
+            <span className="text-[11px] text-slate-500 px-1">{idx + 1} / {employesListe.length}</span>
+            <button disabled={idx === employesListe.length - 1} onClick={() => goTo(employesListe[idx + 1])}
               className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent">
               <ChevronRight size={13} className="text-[#0369A1]" />
             </button>

@@ -34,6 +34,27 @@ export const estimationMensuelle = (p) => {
 };
 export const totalEmploye = (e) => e.postes.reduce((s, p) => s + estimationMensuelle(p), 0);
 
+// Conversion camelCase (utilisé côté UI) <-> snake_case (colonnes SQL de l'API)
+export const posteFromApi = (p) => ({
+  ...p,
+  joursFixes: p.jours_fixes,
+  nbJours: p.nb_jours,
+  heuresParJour: p.heures_par_jour,
+  dateDebut: p.date_debut,
+});
+export const posteToApi = (p) => ({
+  id: p.id,
+  poste: p.poste,
+  type: p.type,
+  montant: p.montant,
+  jours: p.jours,
+  jours_fixes: p.joursFixes,
+  nb_jours: p.nbJours,
+  heures_par_jour: p.heuresParJour,
+  date_debut: p.dateDebut || null,
+});
+export const employeFromApi = (e) => ({ ...e, postes: (e.postes || []).map(posteFromApi) });
+
 const STAT_COLORS = { blue: { bg: 'bg-[#DCEBFA]', text: 'text-[#0369A1]' }, emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' }, amber: { bg: 'bg-amber-50', text: 'text-amber-600' } };
 export const StatTile = ({ icon: Icon, label, value, color = 'blue' }) => {
   const c = STAT_COLORS[color];
@@ -90,7 +111,7 @@ const EmployeModal = ({ employe, onClose, onSave }) => {
     return '';
   };
 
-const submit = async () => {
+  const submit = async () => {
     const msg = validate();
     if (msg) return setError(msg);
     try {
