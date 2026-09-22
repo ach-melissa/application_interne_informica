@@ -27,7 +27,8 @@ const COLS = [
   { label: 'Niveau',         Icon: GraduationCap },
   { label: 'Adresse',        Icon: MapPin },
   { label: 'Date naissance', Icon: CalendarDays },
-  { label: 'Attestation',    Icon: FileDown },   
+  { label: 'Réf. attestation', Icon: FileText },
+  { label: 'Attestation',    Icon: FileDown },
   { label: 'Statut',         Icon: CheckCircle2 },
 ];
 
@@ -42,6 +43,8 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
   const [ref, setRef] = useState('');
   const [templateUrl, setTemplateUrl] = useState(null);
   const [uploadingTemplate, setUploadingTemplate] = useState(false);
+  const [refs, setRefs] = useState({}); // local state for attestation_ref shown per row
+
   useEffect(() => {
     const fetchPayments = async () => {
       try {
@@ -74,6 +77,13 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     fetchTemplate();
   }, [formationId]);
 
+  useEffect(() => {
+    // seed local refs state from what's already saved on each inscription
+    const initial = {};
+    etudiants.forEach(i => { initial[i.id] = i.attestation_ref || ''; });
+    setRefs(initial);
+  }, [etudiants]);
+
   const handleTemplateUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -101,10 +111,10 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     attestationImprimee || justPrinted.has(inscriptionId);
 
   const isEligible = (inscription) => {
-  const p = payments.find(p => p.studentId === inscription.etudiant?.id);
-  const paid = !p || p.remaining <= 0;
-  return paid;
-};
+    const p = payments.find(p => p.studentId === inscription.etudiant?.id);
+    const paid = !p || p.remaining <= 0;
+    return paid;
+  };
 
   const toggle = (id) => {
     setSelectedIds(prev => {
@@ -123,7 +133,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
 
   const handlePrintClick = () => {
     if (selectedIds.size === 0) return;
-    setRef(String(Array.from(selectedIds)[0]));
+    setRef('');
     setShowPrintModal(true);
   };
 
@@ -131,11 +141,23 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     const idsArray = Array.from(selectedIds);
     const token = localStorage.getItem('token');
 
+    // build sequential refs starting from what was typed in the modal
+    const match = ref.match(/^(.*?)(\d+)$/);
+    const generatedRefs = {};
+    idsArray.forEach((id, idx) => {
+      if (match) {
+        const num = String(parseInt(match[2], 10) + idx).padStart(match[2].length, '0');
+        generatedRefs[id] = `${match[1]}${num}`;
+      } else {
+        generatedRefs[id] = idsArray.length > 1 ? `${ref}-${idx + 1}` : ref;
+      }
+    });
+
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ids: idsArray, periode, dateSignature, civilites, ref }),
+        body: JSON.stringify({ ids: idsArray, periode, dateSignature, civilites, refs: generatedRefs }),
       });
       if (!res.ok) throw new Error('Erreur génération');
 
@@ -151,11 +173,28 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ids: idsArray }),
       });
+
+      // reflect the new refs immediately in the table
+      setRefs(prev => ({ ...prev, ...generatedRefs }));
       setJustPrinted(prev => new Set([...prev, ...idsArray]));
       setShowPrintModal(false);
       setSelectedIds(new Set());
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  const handleRefUpdate = async (inscriptionId, value) => {
+    setRefs(prev => ({ ...prev, [inscriptionId]: value }));
+    const token = localStorage.getItem('token');
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/etudiants/${inscriptionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ attestation_ref: value }),
+      });
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -169,6 +208,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
           ? new Date(i.etudiant.date_naissance).toLocaleDateString('fr-FR')
           : '',
         Formation: formationNom ?? '',
+        'Réf. attestation': refs[i.id] || '',
       }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -224,7 +264,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                 <th className="px-3 py-2.5 w-8 border-b border-l border-[#0F2A4A]">
                   <input
                     type="checkbox"
-                      checked={selectedIds.size === etudiants.filter(i => isEligible(i)).length && etudiants.length > 0}
+                    checked={selectedIds.size === etudiants.filter(i => isEligible(i)).length && etudiants.length > 0}
                     onChange={toggleAll}
                     className="cursor-pointer accent-[#0369A1]"
                   />
@@ -247,19 +287,19 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                 const checked = selectedIds.has(i.id);
                 const eligible = isEligible(i);
                 return (
-<tr
-  key={i.id}
-  onClick={() => eligible && toggle(i.id)}
-  className={`transition ${eligible ? 'cursor-pointer hover:bg-[#DCEBFA]/30' : 'cursor-not-allowed opacity-50'} ${checked ? 'bg-[#DCEBFA]/40' : idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}
->
+                  <tr
+                    key={i.id}
+                    onClick={() => eligible && toggle(i.id)}
+                    className={`transition ${eligible ? 'cursor-pointer hover:bg-[#DCEBFA]/30' : 'cursor-not-allowed opacity-50'} ${checked ? 'bg-[#DCEBFA]/40' : idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}
+                  >
                     <td className="px-3 py-2.5 border-b border-l border-[#E2E8F0]" onClick={(e) => e.stopPropagation()}>
-<input
-  type="checkbox"
-  checked={checked}
-  disabled={!eligible}
-  onChange={() => eligible && toggle(i.id)}
-  className="cursor-pointer accent-[#0369A1] disabled:cursor-not-allowed disabled:opacity-40"
-/>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!eligible}
+                        onChange={() => eligible && toggle(i.id)}
+                        className="cursor-pointer accent-[#0369A1] disabled:cursor-not-allowed disabled:opacity-40"
+                      />
                     </td>
                     <td className="px-3 py-2.5 border-b border-[#E2E8F0]">
                       <div className="flex items-center gap-2">
@@ -280,24 +320,34 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                         <option value="M.">M.</option>
                       </select>
                     </td>
-                   <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
-  {i.etudiant?.telephone ? (
-    <a href={`tel:${i.etudiant.telephone}`} className="hover:text-[#0369A1] hover:underline">{i.etudiant.telephone}</a>
-  ) : '—'}
-</td>
+                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
+                      {i.etudiant?.telephone ? (
+                        <a href={`tel:${i.etudiant.telephone}`} className="hover:text-[#0369A1] hover:underline">{i.etudiant.telephone}</a>
+                      ) : '—'}
+                    </td>
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.email ?? '—'}</td>
                     <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">{i.etudiant?.niveau_scolaire ?? '—'}</td>
                     <td className="px-3 py-2.5 text-slate-500 max-w-[150px] truncate border-b border-[#E2E8F0]">{i.etudiant?.adresse ?? '—'}</td>
- <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
+                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]">
                       {i.etudiant?.date_naissance ? new Date(i.etudiant.date_naissance).toLocaleDateString('fr-FR') : '—'}
                     </td>
-<td className="px-3 py-2.5 border-b border-[#E2E8F0]">
-  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-    isPrinted(i.id, i.attestation_imprimee) ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-sky-600'
-  }`}>
-    {isPrinted(i.id, i.attestation_imprimee) ? 'Oui' : 'Non'}
-  </span>
-</td>
+                    <td className="px-3 py-2.5 border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        value={refs[i.id] ?? ''}
+                        placeholder="—"
+                        onChange={(e) => setRefs(prev => ({ ...prev, [i.id]: e.target.value }))}
+                        onBlur={(e) => handleRefUpdate(i.id, e.target.value)}
+                        className="text-[11px] bg-slate-50 border border-slate-200 rounded px-1.5 py-1 w-32 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40"
+                      />
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#E2E8F0]">
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                        isPrinted(i.id, i.attestation_imprimee) ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-sky-600'
+                      }`}>
+                        {isPrinted(i.id, i.attestation_imprimee) ? 'Oui' : 'Non'}
+                      </span>
+                    </td>
                     <td className="px-3 py-2.5 border-b border-[#E2E8F0]">
                       <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${sm?.cls ?? 'bg-slate-100 text-slate-500'}`}>
                         {sm?.label ?? i.statut}
@@ -311,7 +361,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
         </div>
       </div>
 
-           {showPrintModal && (
+      {showPrintModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowPrintModal(false)}>
           <div className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
@@ -331,7 +381,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
 
             <div className="p-5 space-y-4">
               <div>
-                <Label icon={FileText} text="Référence" required />
+                <Label icon={FileText} text="Référence de départ" required />
                 <input
                   type="text"
                   value={ref}
@@ -339,6 +389,11 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                   placeholder="REF-2026-001"
                   className={inp}
                 />
+                {selectedIds.size > 1 && (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Les {selectedIds.size} attestations seront numérotées à partir de cette référence.
+                  </p>
+                )}
               </div>
 
               <div>

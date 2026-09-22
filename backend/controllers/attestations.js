@@ -5,22 +5,18 @@ const Docxtemplater = require('docxtemplater');
 const civiliteToNe = (civilite) => (civilite === 'M.' ? 'né' : 'née');
 
 const generateAttestations = async (req, res) => {
-  const { ids, periode, dateSignature, civilites = {}, ref } = req.body;
+  const { ids, periode, dateSignature, civilites = {}, refs = {} } = req.body;
 
-console.log('generateAttestations called with ids:', ids);
-
-const { data: inscriptions, error } = await supabase
+  const { data: inscriptions, error } = await supabase
     .from('inscriptions')
     .select(`
       id, formation:formation_id(nom, template_attestation_url),
-      etudiant:etudiant_id(nom, prenom, sexe, date_naissance)
+      etudiant:etudiant_id(nom, prenom, date_naissance)
     `)
     .in('id', ids);
 
-console.log('supabase inscriptions result:', inscriptions);
-console.log('supabase error:', error);
+  if (error || !inscriptions?.length) return res.status(404).json({ error: 'Étudiants introuvables' });
 
-if (error || !inscriptions?.length) return res.status(404).json({ error: 'Étudiants introuvables' });
   const templateUrl = inscriptions[0].formation?.template_attestation_url;
   if (!templateUrl) return res.status(404).json({ error: 'Aucun modèle défini pour cette formation' });
 
@@ -29,10 +25,10 @@ if (error || !inscriptions?.length) return res.status(404).json({ error: 'Étudi
   const zip = new PizZip(Buffer.from(arrayBuffer));
   const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
 
-  const etudiantsData = inscriptions.map((i, idx) => {
+  const etudiantsData = inscriptions.map((i) => {
     const civilite = civilites[i.id] || 'Mme';
     return {
-      ref: inscriptions.length > 1 ? `${ref}-${idx + 1}` : ref,
+      ref: refs[i.id] || '',
       civilite,
       ne: civiliteToNe(civilite),
       nom: i.etudiant?.nom ?? '',
@@ -47,11 +43,16 @@ if (error || !inscriptions?.length) return res.status(404).json({ error: 'Étudi
   doc.render({ etudiants: etudiantsData, periode, date: dateSignature });
   const docxBuf = doc.getZip().generate({ type: 'nodebuffer' });
 
+  await Promise.all(
+    inscriptions
+      .filter(i => refs[i.id])
+      .map(i => supabase.from('inscriptions').update({ attestation_ref: refs[i.id] }).eq('id', i.id))
+  );
+
   res.setHeader('Content-Disposition', `attachment; filename=attestations.docx`);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
   res.send(docxBuf);
 };
-
 const getTemplate = async (req, res) => {
   const { formationId } = req.params;
   const { data, error } = await supabase
