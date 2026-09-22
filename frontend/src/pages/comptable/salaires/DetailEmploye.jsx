@@ -7,6 +7,7 @@ import AjoutMouvementModal from './AjoutMouvementModal';
 
 const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
 const MOUVEMENTS_API_URL = `${import.meta.env.VITE_API_URL}/api/mouvements`;
+const SALAIRES_MENSUELS_API_URL = `${import.meta.env.VITE_API_URL}/api/salaires-mensuels`;
 
 const LIST_PATH = '/comptable/salaires/employes';
 const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -125,9 +126,35 @@ const DetailEmploye = () => {
   const [editingMouvement, setEditingMouvement] = useState(null); // full row, for bons
   const [confirm, setConfirm] = useState(null);
   const [formError, setFormError] = useState(null);
-  const [pendingBons, setPendingBons] = useState([]); // [{ file, preview }] — mock only, no upload yet
-  const [uploadingBon, setUploadingBon] = useState(false); // TODO API: reflète l'état réel de l'upload
+  const [pendingBons, setPendingBons] = useState([]); // [{ file, preview }] — fichiers pas encore uploadés (mouvement pas encore créé)
+  const [uploadingBon, setUploadingBon] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState(null);
+
+  // Salaire validé du mois (table salaires_mensuels) — null tant que le mois n'a jamais été validé
+  const [salaireMensuel, setSalaireMensuel] = useState(null);
+  const [loadingSalaireMensuel, setLoadingSalaireMensuel] = useState(false);
+  const [salaireError, setSalaireError] = useState(null);
+  const [validatingSalaire, setValidatingSalaire] = useState(false);
+
+  useEffect(() => {
+    if (!employe) return;
+    let cancelled = false;
+    setLoadingSalaireMensuel(true);
+    const mois = periode.getMonth() + 1;
+    const annee = periode.getFullYear();
+    fetch(`${SALAIRES_MENSUELS_API_URL}?employe_id=${employe.id}&mois=${mois}&annee=${annee}`)
+      .then(res => { if (!res.ok) throw new Error('Erreur lors du chargement du salaire validé'); return res.json(); })
+      .then(data => {
+        if (cancelled) return;
+        setSalaireMensuel(data);
+        // si le montant validé diffère du calcul auto (ex: override saisi avant validation), on le restitue dans le champ
+        setSalaireOverride(data ? data.montant_net : null);
+        setSalaireError(null);
+      })
+      .catch(err => { if (!cancelled) setSalaireError(err.message); })
+      .finally(() => { if (!cancelled) setLoadingSalaireMensuel(false); });
+    return () => { cancelled = true; };
+  }, [employe, periode]);
   const changerMois = (delta) => setPeriode(d => new Date(d.getFullYear(), d.getMonth() + delta, 1));
   const label = periode.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
   const goTo = (target) => navigate(`${LIST_PATH}/${target.id}`, { state: { employe: target, employes: employesListe } });
@@ -147,9 +174,10 @@ const DetailEmploye = () => {
   const primes = mouvements.filter(m => m.type === 'prime').reduce((s, m) => s + m.montant, 0);
     const netCalcule = base + avances + retenues + primes;
   const net = salaireOverride ?? netCalcule;
-  const paye = 0; // TODO API
+  const paye = salaireMensuel?.montant_paye ?? 0;
   const restant = net - paye;
-  const statutMois = paye <= 0 ? 'non_paye' : paye < net ? 'partiel' : 'paye';
+  const statutMois = salaireMensuel?.statut ?? (paye <= 0 ? 'non_paye' : paye < net ? 'partiel' : 'paye');
+  const estValide = Boolean(salaireMensuel);
    const openAdd = () => {
     setEditingId(null); setEditingMouvement(null); setForm(emptyForm);
     setFormError(null); setConfirm(null); setPendingBons([]);
@@ -198,27 +226,68 @@ const DetailEmploye = () => {
         throw new Error(err.message || "Erreur lors de l'enregistrement");
       }
       const saved = mouvementFromApi(await res.json());
-      // TODO API bons: remplacer par les bons réellement uploadés (étape suivante, Supabase Storage)
-      saved.bons = editingId ? mouvements.find(m => m.id === editingId)?.bons ?? [] : pendingBons.map((p) => ({ id: p.file.name + p.file.size, url: p.preview }));
-      setMouvements(list => editingId ? list.map(m => m.id === editingId ? saved : m) : [...list, saved]);
-      if (!editingId) {
+
+      if (editingId) {
+        saved.bons = mouvements.find(m => m.id === editingId)?.bons ?? [];
+        setMouvements(list => list.map(m => m.id === editingId ? saved : m));
+        closeForm();
+      } else {
+        // le mouvement vient d'être créé : on a maintenant un id réel pour uploader les bons en attente
+        let bons = [];
+        if (pendingBons.length > 0) {
+          setUploadingBon(true);
+          try {
+            for (const p of pendingBons) {
+              const body = new FormData();
+              body.append('fichier', p.file);
+              const bonRes = await fetch(`${MOUVEMENTS_API_URL}/${saved.id}/bons`, { method: 'POST', body });
+              if (bonRes.ok) bons.push(await bonRes.json());
+            }
+          } finally {
+            setUploadingBon(false);
+          }
+          pendingBons.forEach((p) => URL.revokeObjectURL(p.preview));
+          setPendingBons([]);
+        }
+        saved.bons = bons;
+        setMouvements(list => [...list, saved]);
         setEditingId(saved.id);
         setEditingMouvement(saved);
       }
-      pendingBons.forEach((p) => URL.revokeObjectURL(p.preview));
-      if (!editingId) setPendingBons([]);
-      if (editingId) closeForm();
     } catch (err) {
       setFormError(err.message);
     }
   };
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // TODO API: si editingId existe déjà, uploader immédiatement via POST /mouvements/:id/bons
-    // et mettre à jour editingMouvement.bons avec la réponse, comme uploadBon() dans ChargesBase.jsx
-    setPendingBons((prev) => [...prev, { file, preview: URL.createObjectURL(file) }]);
     e.target.value = '';
+
+    if (!editingId) {
+      // mouvement pas encore enregistré : on garde le fichier en mémoire, upload juste après sa création
+      setPendingBons((prev) => [...prev, { file, preview: URL.createObjectURL(file) }]);
+      return;
+    }
+
+    // mouvement déjà enregistré : upload immédiat vers Supabase Storage
+    setUploadingBon(true);
+    setFormError(null);
+    try {
+      const body = new FormData();
+      body.append('fichier', file);
+      const res = await fetch(`${MOUVEMENTS_API_URL}/${editingId}/bons`, { method: 'POST', body });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Erreur lors de l'envoi du bon");
+      }
+      const bon = await res.json();
+      setEditingMouvement((prev) => prev ? { ...prev, bons: [...(prev.bons || []), bon] } : prev);
+      setMouvements((list) => list.map((m) => m.id === editingId ? { ...m, bons: [...(m.bons || []), bon] } : m));
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setUploadingBon(false);
+    }
   };
 
   const handleRemovePendingBon = (idx) => {
@@ -228,10 +297,19 @@ const DetailEmploye = () => {
     });
   };
 
-  const handleDeleteExistingBon = (bonId) => {
-    // TODO API: appeler DELETE /mouvements/bons/:bonId, puis mettre à jour editingMouvement + mouvements en state
+  const handleDeleteExistingBon = async (bonId) => {
+    const bonsAvant = editingMouvement?.bons || [];
+    // suppression optimiste, avec retour en arrière si l'appel échoue
     setEditingMouvement((prev) => prev ? { ...prev, bons: (prev.bons || []).filter((b) => b.id !== bonId) } : prev);
     setMouvements((list) => list.map((m) => m.id === editingId ? { ...m, bons: (m.bons || []).filter((b) => b.id !== bonId) } : m));
+    try {
+      const res = await fetch(`${MOUVEMENTS_API_URL}/${editingId}/bons/${bonId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+    } catch {
+      setEditingMouvement((prev) => prev ? { ...prev, bons: bonsAvant } : prev);
+      setMouvements((list) => list.map((m) => m.id === editingId ? { ...m, bons: bonsAvant } : m));
+      setFormError('Erreur lors de la suppression du bon');
+    }
   };
    const handleSalaireChange = (e) => {
     const raw = e.target.value;
@@ -240,6 +318,34 @@ const DetailEmploye = () => {
     if (!Number.isNaN(v)) setSalaireOverride(v);
   };
   const resetSalaire = () => setSalaireOverride(null);
+
+  const validerSalaire = async () => {
+    setValidatingSalaire(true);
+    setSalaireError(null);
+    try {
+      const res = await fetch(SALAIRES_MENSUELS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employe_id: employe.id,
+          mois: periode.getMonth() + 1,
+          annee: periode.getFullYear(),
+          montant_net: net,
+          montant_paye: net, // valider = marquer le mois comme payé intégralement
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Erreur lors de la validation du salaire');
+      }
+      setSalaireMensuel(await res.json());
+    } catch (err) {
+      setSalaireError(err.message);
+    } finally {
+      setValidatingSalaire(false);
+    }
+  };
+
   const requestDelete = () => setConfirm('delete');
   const doDelete = async () => {
     try {
@@ -413,8 +519,12 @@ const DetailEmploye = () => {
               <p className="text-[10px] text-slate-400 text-right -mt-0.5 mt-1">(calcul auto: {fmt(netCalcule)})</p>
             )}
             <div className="flex justify-between text-xs text-slate-400 mt-2"><span>Déjà payé</span><span>{fmt(paye)}</span></div>
-            <button className="w-full mt-4 flex items-center justify-center gap-1.5 bg-[#0F2A4A] text-white text-sm font-semibold py-2.5 rounded-lg shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
-              <Check size={14} /> Valider le salaire
+            {salaireError && <p className="text-red-500 text-[11px] bg-red-50 px-2.5 py-1.5 rounded-md mt-2">{salaireError}</p>}
+            <button
+              onClick={validerSalaire}
+              disabled={validatingSalaire || loadingSalaireMensuel}
+              className={`w-full mt-4 flex items-center justify-center gap-1.5 text-sm font-semibold py-2.5 rounded-lg shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-60 disabled:pointer-events-none ${estValide ? 'bg-emerald-600 shadow-[0_3px_0_#065F46] hover:shadow-[0_2px_0_#065F46]' : 'bg-[#0F2A4A]'} text-white`}>
+              <Check size={14} /> {validatingSalaire ? 'Validation…' : estValide ? 'Salaire validé — revalider' : 'Valider le salaire'}
             </button>
           </div>
 
