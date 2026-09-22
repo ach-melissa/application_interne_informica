@@ -66,6 +66,7 @@ const updateInscription = async (req, res) => {
     if ('formation_id' in req.body)  updates.formation_id  = req.body.formation_id || null;
   if ('niveau_id' in req.body)     updates.niveau_id     = req.body.niveau_id || null;
   if ('commentaire' in req.body)   updates.commentaire   = req.body.commentaire || null;
+  if ('attestation_ref' in req.body) updates.attestation_ref = req.body.attestation_ref || null;
   if ('statut_scolarite' in req.body) {
     updates.statut_scolarite = req.body.statut_scolarite || 'en_cours';
     updates.abandonne_at = updates.statut_scolarite === 'abandonne' ? new Date().toISOString() : null;
