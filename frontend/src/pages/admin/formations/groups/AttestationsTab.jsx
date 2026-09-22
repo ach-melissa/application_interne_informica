@@ -1,6 +1,6 @@
 // AttestationsTab.jsx
 import { useState, useEffect } from 'react';
-import { Printer, FileDown, Phone, Mail, GraduationCap, MapPin, CalendarDays, CheckCircle2, X } from 'lucide-react';
+import { Printer, FileDown, Phone, Mail, GraduationCap, MapPin, CalendarDays, CheckCircle2, X, FileText, Upload, ExternalLink } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const inp = 'w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors';
