@@ -83,38 +83,36 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     setShowPrintModal(true);
   };
 
-  const handleConfirmPrint = async () => {
+  const handleDownload = async () => {
     const idsArray = Array.from(selectedIds);
+    const token = localStorage.getItem('token');
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions/mark-printed`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/generate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ids: idsArray, periode, dateSignature }),
+      });
+      if (!res.ok) throw new Error('Erreur génération');
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'attestations.docx';
+      a.click();
+
+      await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions/mark-printed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ids: idsArray }),
       });
-
-      if (res.ok) {
-        setJustPrinted(prev => new Set([...prev, ...idsArray]));
-      }
+      setJustPrinted(prev => new Set([...prev, ...idsArray]));
+      setShowPrintModal(false);
+      setSelectedIds(new Set());
     } catch (err) {
-      console.error(err);
+      alert(err.message);
     }
-
-    const params = new URLSearchParams({
-      ids: idsArray.join(','),
-      periode,
-      dateSignature,
-    });
-    window.open(
-      `/admin/formations/${formationId}/groups/${groupId}/attestations/print?${params.toString()}`,
-      '_blank'
-    );
-    setShowPrintModal(false);
-    setSelectedIds(new Set()); 
   };
 
   const handleExportExcel = () => {
@@ -289,11 +287,11 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                   Annuler
                 </button>
                 <button
-                  onClick={handleConfirmPrint}
+                  onClick={handleDownload}
                   disabled={!periode || !dateSignature}
                   className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium flex items-center gap-1"
                 >
-                  <Printer size={12} /> Confirmer
+                  <FileDown size={12} /> Télécharger (Word)
                 </button>
               </div>
             </div>
