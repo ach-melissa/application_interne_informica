@@ -25,6 +25,7 @@ const parametreRoutes = require('./routes/parametreRoutes');
 const { runArchiveReminder } = require('./jobs/archiveReminder');
 const { runPointageReminder } = require('./jobs/pointageReminder');
 const historiqueRoutes = require('./routes/historiqueRoutes');
+const attestationRoutes = require('./routes/attestationRoutes');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -51,6 +52,7 @@ app.use('/api/statistiques', require('./routes/statistiqueRoutes'));
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/parametres', parametreRoutes);
 app.use('/api/historique', historiqueRoutes);
+app.use('/api/attestations', attestationRoutes);
 // Payment overdue alerts — runs immediately on startup, then every 2 hours.
 console.log('Running payment alerts job on startup...');
 runPaymentAlerts();

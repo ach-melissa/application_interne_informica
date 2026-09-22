@@ -21,6 +21,7 @@ const statutMeta = {
 
 const COLS = [
   { label: 'Étudiant',       Icon: null },
+  { label: 'Civilité',       Icon: null },
   { label: 'Téléphone',      Icon: Phone },
   { label: 'Email',          Icon: Mail },
   { label: 'Niveau',         Icon: GraduationCap },
@@ -37,7 +38,10 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
   const [dateSignature, setDateSignature] = useState('');
   const [payments, setPayments] = useState([]);
   const [justPrinted, setJustPrinted] = useState(new Set());
-
+  const [civilites, setCivilites] = useState({});
+  const [ref, setRef] = useState('');
+  const [templateUrl, setTemplateUrl] = useState(null);
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
   useEffect(() => {
     const fetchPayments = async () => {
       try {
@@ -53,6 +57,45 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     };
     fetchPayments();
   }, [groupId]);
+
+  useEffect(() => {
+    const fetchTemplate = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/template/${formationId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) setTemplateUrl(data.template_attestation_url);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchTemplate();
+  }, [formationId]);
+
+  const handleTemplateUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingTemplate(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('template', file);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/template/${formationId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur upload');
+      setTemplateUrl(data.template_attestation_url);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setUploadingTemplate(false);
+    }
+  };
 
   const isPrinted = (inscriptionId, attestationImprimee) =>
     attestationImprimee || justPrinted.has(inscriptionId);
@@ -80,41 +123,40 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
 
   const handlePrintClick = () => {
     if (selectedIds.size === 0) return;
+    setRef(String(Array.from(selectedIds)[0]));
     setShowPrintModal(true);
   };
 
-  const handleConfirmPrint = async () => {
+  const handleDownload = async () => {
     const idsArray = Array.from(selectedIds);
+    const token = localStorage.getItem('token');
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions/mark-printed`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/generate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ids: idsArray, periode, dateSignature, civilites, ref }),
+      });
+      if (!res.ok) throw new Error('Erreur génération');
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'attestations.docx';
+      a.click();
+
+      await fetch(`${import.meta.env.VITE_API_URL}/api/inscriptions/mark-printed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ids: idsArray }),
       });
-
-      if (res.ok) {
-        setJustPrinted(prev => new Set([...prev, ...idsArray]));
-      }
+      setJustPrinted(prev => new Set([...prev, ...idsArray]));
+      setShowPrintModal(false);
+      setSelectedIds(new Set());
     } catch (err) {
-      console.error(err);
+      alert(err.message);
     }
-
-    const params = new URLSearchParams({
-      ids: idsArray.join(','),
-      periode,
-      dateSignature,
-    });
-    window.open(
-      `/admin/formations/${formationId}/groups/${groupId}/attestations/print?${params.toString()}`,
-      '_blank'
-    );
-    setShowPrintModal(false);
-    setSelectedIds(new Set()); 
   };
 
   const handleExportExcel = () => {
@@ -137,6 +179,23 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
 
   return (
     <>
+      <div className="flex items-center justify-between mb-3 bg-white rounded-md shadow-[0_2px_10px_rgba(15,42,74,0.08)] px-4 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <FileText size={14} className="text-[#0369A1]" />
+          {templateUrl ? (
+            <a href={templateUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[#0369A1] hover:underline font-medium">
+              Voir le modèle actuel <ExternalLink size={11} />
+            </a>
+          ) : (
+            <span className="text-slate-400">Aucun modèle défini</span>
+          )}
+        </div>
+        <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-100 cursor-pointer transition">
+          <Upload size={12} /> {uploadingTemplate ? 'Envoi...' : templateUrl ? 'Remplacer le modèle' : 'Uploader un modèle'}
+          <input type="file" accept=".docx" className="hidden" onChange={handleTemplateUpload} disabled={uploadingTemplate} />
+        </label>
+      </div>
+
       <div className="flex items-center justify-between mb-3">
         <p className="text-slate-400 text-xs">{selectedIds.size} / {etudiants.length} sélectionné(s)</p>
         <div className="flex items-center gap-2">
@@ -165,7 +224,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                 <th className="px-3 py-2.5 w-8 border-b border-l border-[#0F2A4A]">
                   <input
                     type="checkbox"
-                    checked={selectedIds.size === etudiants.filter(i => isEligible(i.etudiant?.id)).length && etudiants.length > 0}
+                      checked={selectedIds.size === etudiants.filter(i => isEligible(i)).length && etudiants.length > 0}
                     onChange={toggleAll}
                     className="cursor-pointer accent-[#0369A1]"
                   />
@@ -189,6 +248,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                 const eligible = isEligible(i);
                 return (
 <tr
+  key={i.id}
   onClick={() => eligible && toggle(i.id)}
   className={`transition ${eligible ? 'cursor-pointer hover:bg-[#DCEBFA]/30' : 'cursor-not-allowed opacity-50'} ${checked ? 'bg-[#DCEBFA]/40' : idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}
 >
@@ -208,6 +268,17 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                         </div>
                         <span className="font-medium text-slate-700 whitespace-nowrap">{i.etudiant?.nom} {i.etudiant?.prenom}</span>
                       </div>
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
+                      <select
+                        value={civilites[i.id] || (i.etudiant?.sexe === 'M' ? 'M.' : 'Mme')}
+                        onChange={(e) => setCivilites(prev => ({ ...prev, [i.id]: e.target.value }))}
+                        className="text-[11px] bg-slate-50 border border-slate-200 rounded-full px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 cursor-pointer"
+                      >
+                        <option value="Mme">Mme</option>
+                        <option value="Mlle">Mlle</option>
+                        <option value="M.">M.</option>
+                      </select>
                     </td>
                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap border-b border-[#E2E8F0]" onClick={e => e.stopPropagation()}>
   {i.etudiant?.telephone ? (
@@ -260,6 +331,17 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
 
             <div className="p-5 space-y-4">
               <div>
+                <Label icon={FileText} text="Référence" required />
+                <input
+                  type="text"
+                  value={ref}
+                  onChange={(e) => setRef(e.target.value)}
+                  placeholder="REF-2026-001"
+                  className={inp}
+                />
+              </div>
+
+              <div>
                 <Label icon={CalendarDays} text="Période" required />
                 <input
                   type="text"
@@ -289,11 +371,11 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                   Annuler
                 </button>
                 <button
-                  onClick={handleConfirmPrint}
-                  disabled={!periode || !dateSignature}
+                  onClick={handleDownload}
+                  disabled={!periode || !dateSignature || !ref}
                   className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] disabled:opacity-40 font-medium flex items-center gap-1"
                 >
-                  <Printer size={12} /> Confirmer
+                  <FileDown size={12} /> Télécharger (Word)
                 </button>
               </div>
             </div>
