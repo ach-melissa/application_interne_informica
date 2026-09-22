@@ -7,7 +7,9 @@ const civiliteToNe = (civilite) => (civilite === 'M.' ? 'né' : 'née');
 const generateAttestations = async (req, res) => {
   const { ids, periode, dateSignature, civilites = {}, ref } = req.body;
 
-  const { data: inscriptions, error } = await supabase
+console.log('generateAttestations called with ids:', ids);
+
+const { data: inscriptions, error } = await supabase
     .from('inscriptions')
     .select(`
       id, formation:formation_id(nom, template_attestation_url),
@@ -15,8 +17,10 @@ const generateAttestations = async (req, res) => {
     `)
     .in('id', ids);
 
-  if (error || !inscriptions?.length) return res.status(404).json({ error: 'Étudiants introuvables' });
+console.log('supabase inscriptions result:', inscriptions);
+console.log('supabase error:', error);
 
+if (error || !inscriptions?.length) return res.status(404).json({ error: 'Étudiants introuvables' });
   const templateUrl = inscriptions[0].formation?.template_attestation_url;
   if (!templateUrl) return res.status(404).json({ error: 'Aucun modèle défini pour cette formation' });
 
