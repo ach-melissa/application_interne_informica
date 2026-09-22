@@ -1,8 +1,7 @@
 // AjoutMouvementModal.jsx
 import { useRef } from 'react';
 import { Wallet, Tag, FileText, Briefcase, Trash2, X, Plus, Camera, ZoomIn, Image as ImageIcon, Loader2 } from 'lucide-react';
-
-const TYPES_MVT = { avance: 'Avance', retenue: 'Retenue', prime: 'Prime' };
+import { MOUVEMENT_TYPES } from './EmployeModal';
 const inp = 'w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1] transition-colors';
 const Label = ({ icon: Icon, text, required }) => (
   <p className="flex items-center gap-1 text-[10px] text-slate-600 uppercase tracking-wide mb-0.5">
@@ -55,9 +54,9 @@ const AjoutMouvementModal = ({
           <div className="p-5 space-y-3">
             <div>
               <Label icon={Tag} text="Type" required />
-              <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className={inp}>
-                {Object.entries(TYPES_MVT).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-              </select>
+<select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className={inp}>
+  {MOUVEMENT_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+</select>
             </div>
 
             {postes.length > 1 && (
