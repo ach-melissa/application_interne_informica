@@ -187,6 +187,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
                 const eligible = isEligible(i);
                 return (
 <tr
+  key={i.id}
   onClick={() => eligible && toggle(i.id)}
   className={`transition ${eligible ? 'cursor-pointer hover:bg-[#DCEBFA]/30' : 'cursor-not-allowed opacity-50'} ${checked ? 'bg-[#DCEBFA]/40' : idx % 2 === 1 ? 'bg-[#F8FCFF]' : 'bg-white'}`}
 >
