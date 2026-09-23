@@ -21,6 +21,12 @@ export const TYPES = [
   { key: 'heure', label: 'Par heure', unit: '/ h', icon: Clock },
   { key: 'libre', label: 'Non fixe', unit: '(chaque mois)', icon: RotateCcw },
 ];
+export const MOUVEMENT_TYPES = [
+  { key: 'avance', label: 'Avance' },
+  { key: 'retenue', label: 'Retenue' },
+  { key: 'prime', label: 'Prime' },
+];
+export const mouvementTypeLabel = (k) => MOUVEMENT_TYPES.find(t => t.key === k)?.label ?? k;
 export const typeOf = (k) => TYPES.find(t => t.key === k) ?? TYPES[0];
 export const nomComplet = (e) => `${e.prenom ?? ''} ${e.nom ?? ''}`.trim();
 export const tarifLabel = (p) => p.type === 'libre' ? 'Montant libre (défini chaque mois)' : `${fmt(Number(p.montant) || 0)} ${typeOf(p.type).unit}`;
@@ -43,7 +49,7 @@ export const posteFromApi = (p) => ({
   dateDebut: p.date_debut,
 });
 export const posteToApi = (p) => ({
-  id: p.id,
+  id: typeof p.id === 'string' ? p.id : undefined,
   poste: p.poste,
   type: p.type,
   montant: p.montant,

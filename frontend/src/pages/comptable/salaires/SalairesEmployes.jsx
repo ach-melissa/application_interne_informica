@@ -85,7 +85,20 @@ const SalairesEmployes = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const filtered = employes.filter(e => nomComplet(e).toLowerCase().includes(search.toLowerCase()) && (!typeFiltre || e.postes.some(p => p.type === typeFiltre)));
+const dansPeriode = (e) => {
+  if (!dateDebut && !dateFin) return true;
+  return e.postes.some(p => {
+    if (!p.dateDebut) return false;
+    if (dateDebut && p.dateDebut < dateDebut) return false;
+    if (dateFin && p.dateDebut > dateFin) return false;
+    return true;
+  });
+};
+const filtered = employes.filter(e =>
+  nomComplet(e).toLowerCase().includes(search.toLowerCase()) &&
+  (!typeFiltre || e.postes.some(p => p.type === typeFiltre)) &&
+  dansPeriode(e)
+);
   const total = filtered.reduce((s, e) => s + totalEmploye(e), 0);
   const payes = filtered.filter(e => e.statut === 'payé').reduce((s, e) => s + totalEmploye(e), 0);
 

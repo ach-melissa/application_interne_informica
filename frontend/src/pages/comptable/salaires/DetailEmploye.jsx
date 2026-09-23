@@ -2,29 +2,23 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Wallet, CalendarDays, Phone, Plus, Check, Info, RotateCcw, Image as ImageIcon } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
-import { CARD, fmt, initiales, nomComplet, tarifLabel, typeOf, StatTile, totalEmploye, joursParSemaine, cap, formatDate, employeFromApi } from './EmployeModal';
+import { CARD, fmt, initiales, nomComplet, tarifLabel, typeOf, StatTile, totalEmploye, joursParSemaine, cap, formatDate, employeFromApi, MOUVEMENT_TYPES, mouvementTypeLabel } from './EmployeModal';
 import AjoutMouvementModal from './AjoutMouvementModal';
 
 const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
 const MOUVEMENTS_API_URL = `${import.meta.env.VITE_API_URL}/api/mouvements`;
 const SALAIRES_MENSUELS_API_URL = `${import.meta.env.VITE_API_URL}/api/salaires-mensuels`;
+const HISTORIQUE_API_URL = `${import.meta.env.VITE_API_URL}/api/salaires-mensuels/historique`;
 
 const LIST_PATH = '/comptable/salaires/employes';
 const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-const TYPES_MVT = { avance: 'Avance', retenue: 'Retenue', prime: 'Prime' };
-const emptyForm = { type: 'avance', description: '', montant: '', posteId: '' };
+const emptyForm = { type: MOUVEMENT_TYPES[0].key, description: '', montant: '', posteId: '' };
 
 // Conversion snake_case (API) -> camelCase (utilisé par ce composant)
 const mouvementFromApi = (m) => ({ ...m, posteId: m.poste_id, montant: Number(m.montant) });
 
-const MOCK_HISTORIQUE = [
-  { mois: 'Août 2026', jours: 20, net: 40000, paye: 20000, statut: 'partiel' },
-  { mois: 'Juillet 2026', jours: 23, net: 46000, paye: 0, statut: 'non_paye' },
-];
-const STATUT_HISTO = { paye: { label: 'Payé', cls: 'bg-emerald-50 text-emerald-600' }, partiel: { label: 'Partiel', cls: 'bg-amber-50 text-amber-600' }, non_paye: { label: 'Non payé', cls: 'bg-red-50 text-red-500' } };
-
 const JOURS_INDEX = { dimanche: 0, lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6 };
-
+const STATUT_HISTO = { paye: { label: 'Payé', cls: 'bg-emerald-50 text-emerald-600' }, partiel: { label: 'Partiel', cls: 'bg-amber-50 text-amber-600' }, non_paye: { label: 'Non payé', cls: 'bg-red-50 text-red-500' } };
 // Compte le nombre RÉEL de jours (ex: jeudis/vendredis/samedis) dans le mois de `periode`
 const joursPrevusPosteMois = (p, periode) => {
   if (p.type === 'mensuel' || p.type === 'libre') return null; // non pertinent (forfait fixe ou montant libre)
@@ -96,8 +90,8 @@ const DetailEmploye = () => {
     return () => { cancelled = true; };
   }, [id]);
 
-  const [periode, setPeriode] = useState(() => new Date(2026, 8, 1));
-  const [showPicker, setShowPicker] = useState(false);
+const [periode, setPeriode] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+const [showPicker, setShowPicker] = useState(false);
   const [tab, setTab] = useState('apercu');
   const [openInfo, setOpenInfo] = useState(null); // posteId dont le détail de calcul est affiché
   const [mouvements, setMouvements] = useState([]);
@@ -135,6 +129,21 @@ const DetailEmploye = () => {
   const [loadingSalaireMensuel, setLoadingSalaireMensuel] = useState(false);
   const [salaireError, setSalaireError] = useState(null);
   const [validatingSalaire, setValidatingSalaire] = useState(false);
+const [historique, setHistorique] = useState([]);
+const [loadingHistorique, setLoadingHistorique] = useState(false);
+const [historiqueError, setHistoriqueError] = useState(null);
+
+useEffect(() => {
+  if (!employe || tab !== 'historique') return;
+  let cancelled = false;
+  setLoadingHistorique(true);
+  fetch(`${HISTORIQUE_API_URL}?employe_id=${employe.id}`)
+    .then(res => { if (!res.ok) throw new Error("Erreur lors du chargement de l'historique"); return res.json(); })
+    .then(data => { if (!cancelled) { setHistorique(data); setHistoriqueError(null); } })
+    .catch(err => { if (!cancelled) setHistoriqueError(err.message); })
+    .finally(() => { if (!cancelled) setLoadingHistorique(false); });
+  return () => { cancelled = true; };
+}, [employe, tab]);
 
   useEffect(() => {
     if (!employe) return;
@@ -555,8 +564,8 @@ const DetailEmploye = () => {
                 ) : mouvements.map((m, i) => (
                   <tr key={m.id} onClick={() => openEdit(m)} className={`cursor-pointer hover:bg-slate-50/60 transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                     <td className="px-3 py-2 text-slate-500 border-b border-l border-slate-100">{new Date(m.date).toLocaleDateString('fr-FR')}</td>
-                    <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{TYPES_MVT[m.type]}</td>
-                    {multiPostes && <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{posteNom(m.posteId)}</td>}
+<td className="px-3 py-2 text-slate-500 border-b border-slate-100">{mouvementTypeLabel(m.type)}</td>
+{multiPostes && <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{posteNom(m.posteId)}</td>}
                     <td className="px-3 py-2 text-slate-600 border-b border-slate-100">{m.description}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap border-b border-slate-100">
                       {(m.bons?.length ?? 0) === 0 ? (
@@ -578,28 +587,33 @@ const DetailEmploye = () => {
             </table>
           </div>
         </>
-      ) : (
-        <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
-          <table className="w-full text-xs">
-            <thead className="bg-[#0F2A4A]">
-              <tr>{['Mois', 'Jours', 'Net', 'Payé', 'Statut'].map((h, i) => (
-                <th key={h} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] ${i === 0 ? 'border-l border-[#0F2A4A]' : ''}`}>{h}</th>
-              ))}</tr>
-            </thead>
-            <tbody>
-              {MOCK_HISTORIQUE.map((h, i) => (
-                <tr key={i} className={i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}>
-                  <td className="px-3 py-2 text-slate-700 font-medium border-b border-l border-slate-100">{h.mois}</td>
-                  <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{h.jours}</td>
-                  <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{fmt(h.net)}</td>
-                  <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{fmt(h.paye)}</td>
-                  <td className="px-3 py-2 border-b border-slate-100"><span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUT_HISTO[h.statut].cls}`}>{STATUT_HISTO[h.statut].label}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+) : (
+  <div className="bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)] overflow-hidden">
+    <table className="w-full text-xs">
+      <thead className="bg-[#0F2A4A]">
+        <tr>{['Mois', 'Net', 'Payé', 'Statut'].map((h, i) => (
+          <th key={h} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] ${i === 0 ? 'border-l border-[#0F2A4A]' : ''}`}>{h}</th>
+        ))}</tr>
+      </thead>
+      <tbody>
+        {loadingHistorique ? (
+          <tr><td colSpan={4} className="text-center py-8 text-slate-400 bg-white">Chargement…</td></tr>
+        ) : historiqueError ? (
+          <tr><td colSpan={4} className="text-center py-8 text-red-500 bg-white">{historiqueError}</td></tr>
+        ) : historique.length === 0 ? (
+          <tr><td colSpan={4} className="text-center py-8 text-slate-400 bg-white">Aucun mois validé pour l'instant.</td></tr>
+        ) : historique.map((h, i) => (
+          <tr key={h.id} className={i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}>
+            <td className="px-3 py-2 text-slate-700 font-medium border-b border-l border-slate-100">{MOIS[h.mois - 1]} {h.annee}</td>
+            <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{fmt(h.montant_net)}</td>
+            <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{fmt(h.montant_paye)}</td>
+            <td className="px-3 py-2 border-b border-slate-100"><span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUT_HISTO[h.statut].cls}`}>{STATUT_HISTO[h.statut].label}</span></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)}
 
       <AjoutMouvementModal
         show={showForm} postes={employe.postes} onClose={closeForm}

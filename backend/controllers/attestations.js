@@ -1,7 +1,7 @@
 const supabase = require('../supabaseClient');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
-
+const DocxMerger = require('docx-merger');
 const civiliteToNe = (civilite) => (civilite === 'M.' ? 'né' : 'née');
 
 const generateAttestations = async (req, res) => {
@@ -22,15 +22,14 @@ const generateAttestations = async (req, res) => {
 
   const fileRes = await fetch(templateUrl);
   const arrayBuffer = await fileRes.arrayBuffer();
-  const zip = new PizZip(Buffer.from(arrayBuffer));
- const doc = new Docxtemplater(zip, {
-  paragraphLoop: true,
-  linebreaks: true,
-  nullGetter: () => '',
-});
-  const etudiantsData = inscriptions.map((i) => {
+  const templateBuffer = Buffer.from(arrayBuffer);
+
+  const buffers = inscriptions.map((i) => {
     const civilite = civilites[i.id] || 'Mme';
-    return {
+    const zip = new PizZip(templateBuffer);
+    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, nullGetter: () => '' });
+
+    doc.render({
       ref: refs[i.id] || '',
       civilite,
       ne: civiliteToNe(civilite),
@@ -40,11 +39,17 @@ const generateAttestations = async (req, res) => {
         ? new Date(i.etudiant.date_naissance).toLocaleDateString('fr-FR')
         : '',
       formation_nom: i.formation?.nom ?? '',
-    };
+      periode,
+      date: dateSignature,
+    });
+
+    return doc.getZip().generate({ type: 'nodebuffer' });
   });
 
-  doc.render({ etudiants: etudiantsData, periode, date: dateSignature });
-  const docxBuf = doc.getZip().generate({ type: 'nodebuffer' });
+  const merger = new DocxMerger({}, buffers);
+  const docxBuf = await new Promise((resolve, reject) => {
+    merger.save('nodebuffer', (data) => resolve(data));
+  });
 
   await Promise.all(
     inscriptions

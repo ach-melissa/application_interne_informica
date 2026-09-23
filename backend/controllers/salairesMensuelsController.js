@@ -34,6 +34,7 @@ const getSalaireMensuel = async (req, res) => {
   }
 };
 
+
 // ============================================================
 // SALAIRES MENSUELS — valider / mettre à jour (upsert)
 // ============================================================
@@ -75,4 +76,30 @@ const validerSalaireMensuel = async (req, res) => {
   }
 };
 
-module.exports = { getSalaireMensuel, validerSalaireMensuel };
+// ============================================================
+// SALAIRES MENSUELS — historique (N derniers mois d'un employé)
+// ============================================================
+const getHistoriqueSalaires = async (req, res) => {
+  try {
+    const { employe_id, limit = 12 } = req.query;
+    if (!employe_id) {
+      return res.status(400).json({ message: 'employe_id est requis' });
+    }
+
+    const { data, error } = await supabase
+      .from('salaires_mensuels')
+      .select('*')
+      .eq('employe_id', employe_id)
+      .order('annee', { ascending: false })
+      .order('mois', { ascending: false })
+      .limit(Number(limit));
+
+    if (error) return res.status(500).json({ message: error.message });
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+module.exports = { getSalaireMensuel, validerSalaireMensuel, getHistoriqueSalaires };
