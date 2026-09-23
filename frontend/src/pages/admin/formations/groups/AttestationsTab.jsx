@@ -61,21 +61,24 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     fetchPayments();
   }, [groupId]);
 
-  useEffect(() => {
-    const fetchTemplate = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/template/${formationId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (res.ok) setTemplateUrl(data.template_attestation_url);
-      } catch (err) {
-        console.error(err);
+useEffect(() => {
+  setTemplateUrl(null); // reset immediately so we don't show a stale link from the previous formation
+  const fetchTemplate = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/template/${formationId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.template_attestation_url) {
+        setTemplateUrl(`${data.template_attestation_url}?t=${Date.now()}`);
       }
-    };
-    fetchTemplate();
-  }, [formationId]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  fetchTemplate();
+}, [formationId]);
 
   useEffect(() => {
     // seed local refs state from what's already saved on each inscription
@@ -93,13 +96,17 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
       const formData = new FormData();
       formData.append('template', file);
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/template/${formationId}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erreur upload');
-      setTemplateUrl(data.template_attestation_url);
+  method: 'POST',
+  headers: { Authorization: `Bearer ${token}` },
+  body: formData,
+});
+if (!res.ok) {
+  let msg = 'Erreur upload';
+  try { const data = await res.json(); msg = data.error || msg; } catch {}
+  throw new Error(msg);
+}
+const data = await res.json();
+     setTemplateUrl(`${data.template_attestation_url}?t=${Date.now()}`);
     } catch (err) {
       alert(err.message);
     } finally {
@@ -131,11 +138,27 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     );
   };
 
-  const handlePrintClick = () => {
-    if (selectedIds.size === 0) return;
-    setRef('');
-    setShowPrintModal(true);
-  };
+const handlePrintClick = () => {
+  if (selectedIds.size === 0) return;
+
+  // find the highest existing ref among all students in this table, and suggest the next number
+  let maxNum = 0;
+  let prefix = '';
+  etudiants.forEach(i => {
+    const val = i.attestation_ref || refs[i.id];
+    const match = val?.match(/^(.*?)(\d+)$/);
+    if (match) {
+      const num = parseInt(match[2], 10);
+      if (num > maxNum) {
+        maxNum = num;
+        prefix = match[1];
+      }
+    }
+  });
+
+  setRef(maxNum > 0 ? `${prefix}${String(maxNum + 1).padStart(3, '0')}` : '');
+  setShowPrintModal(true);
+};
 
   const handleDownload = async () => {
     const idsArray = Array.from(selectedIds);
@@ -232,7 +255,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
         </div>
         <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-100 cursor-pointer transition">
           <Upload size={12} /> {uploadingTemplate ? 'Envoi...' : templateUrl ? 'Remplacer le modèle' : 'Uploader un modèle'}
-          <input type="file" accept=".docx" className="hidden" onChange={handleTemplateUpload} disabled={uploadingTemplate} />
+          <input type="file" accept=".docx" className="hidden" onChange={handleTemplateUpload} disabled={uploadingTemplate} value="" />
         </label>
       </div>
 
