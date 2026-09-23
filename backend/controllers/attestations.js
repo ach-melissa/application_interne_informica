@@ -23,8 +23,11 @@ const generateAttestations = async (req, res) => {
   const fileRes = await fetch(templateUrl);
   const arrayBuffer = await fileRes.arrayBuffer();
   const zip = new PizZip(Buffer.from(arrayBuffer));
-  const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-
+ const doc = new Docxtemplater(zip, {
+  paragraphLoop: true,
+  linebreaks: true,
+  nullGetter: () => '',
+});
   const etudiantsData = inscriptions.map((i) => {
     const civilite = civilites[i.id] || 'Mme';
     return {
