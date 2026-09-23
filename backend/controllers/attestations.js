@@ -5,8 +5,7 @@ const DocxMerger = require('docx-merger');
 const civiliteToNe = (civilite) => (civilite === 'M.' ? 'né' : 'née');
 
 const generateAttestations = async (req, res) => {
-  const { ids, periode, dateSignature, civilites = {}, refs = {} } = req.body;
-
+  const { ids, periode, dateSignature, civilites = {}, refs = {}, formationNom } = req.body;
   const { data: inscriptions, error } = await supabase
     .from('inscriptions')
     .select(`
@@ -38,7 +37,7 @@ const generateAttestations = async (req, res) => {
       date_naissance: i.etudiant?.date_naissance
         ? new Date(i.etudiant.date_naissance).toLocaleDateString('fr-FR')
         : '',
-      formation_nom: i.formation?.nom ?? '',
+     formation_nom: formationNom || i.formation?.nom || '',
       periode,
       date: dateSignature,
     });
@@ -100,5 +99,31 @@ const uploadTemplate = async (req, res) => {
 
   res.json({ template_attestation_url: publicUrl });
 };
+const getNextRef = async (req, res) => {
+  const { formationId } = req.params;
 
-module.exports = { generateAttestations, getTemplate, uploadTemplate };
+  const { data, error } = await supabase
+    .from('inscriptions')
+    .select('attestation_ref')
+    .eq('formation_id', formationId)
+    .not('attestation_ref', 'is', null);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  let maxNum = 0;
+  let prefix = '';
+  (data || []).forEach(row => {
+    const match = row.attestation_ref?.match(/^(.*?)(\d+)$/);
+    if (match) {
+      const num = parseInt(match[2], 10);
+      if (num > maxNum) {
+        maxNum = num;
+        prefix = match[1];
+      }
+    }
+  });
+
+  const next = maxNum > 0 ? `${prefix}${String(maxNum + 1).padStart(3, '0')}` : '';
+  res.json({ next_ref: next });
+};
+module.exports = { generateAttestations, getTemplate, uploadTemplate, getNextRef };

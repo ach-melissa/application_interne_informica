@@ -41,6 +41,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
   const [justPrinted, setJustPrinted] = useState(new Set());
   const [civilites, setCivilites] = useState({});
   const [ref, setRef] = useState('');
+  const [formationNomEdit, setFormationNomEdit] = useState('');
   const [templateUrl, setTemplateUrl] = useState(null);
   const [uploadingTemplate, setUploadingTemplate] = useState(false);
   const [refs, setRefs] = useState({}); // local state for attestation_ref shown per row
@@ -138,25 +139,21 @@ const data = await res.json();
     );
   };
 
-const handlePrintClick = () => {
+const handlePrintClick = async () => {
   if (selectedIds.size === 0) return;
+  setFormationNomEdit(formationNom || '');
 
-  // find the highest existing ref among all students in this table, and suggest the next number
-  let maxNum = 0;
-  let prefix = '';
-  etudiants.forEach(i => {
-    const val = i.attestation_ref || refs[i.id];
-    const match = val?.match(/^(.*?)(\d+)$/);
-    if (match) {
-      const num = parseInt(match[2], 10);
-      if (num > maxNum) {
-        maxNum = num;
-        prefix = match[1];
-      }
-    }
-  });
+  const token = localStorage.getItem('token');
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/next-ref/${formationId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    setRef(res.ok ? (data.next_ref || '') : '');
+  } catch {
+    setRef('');
+  }
 
-  setRef(maxNum > 0 ? `${prefix}${String(maxNum + 1).padStart(3, '0')}` : '');
   setShowPrintModal(true);
 };
 
@@ -180,7 +177,7 @@ const handlePrintClick = () => {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ids: idsArray, periode, dateSignature, civilites, refs: generatedRefs }),
+        body: JSON.stringify({ ids: idsArray, periode, dateSignature, civilites, refs: generatedRefs, formationNom: formationNomEdit }),
       });
       if (!res.ok) throw new Error('Erreur génération');
 
@@ -390,12 +387,24 @@ const handlePrintClick = () => {
 
             <div className="sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
               <div className="flex items-center justify-between px-5 py-4">
-                <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
-                    <Printer size={14} className="text-white" />
-                  </span>
-                  Informations de l'attestation
-                </h2>
+               <div>
+  <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
+    <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+      <Printer size={14} className="text-white" />
+    </span>
+    Informations de l'attestation
+  </h2>
+<div className="ml-10 mt-2">
+  <Label icon={GraduationCap} text="Nom de la formation (sur l'attestation)" />
+  <input
+    type="text"
+    value={formationNomEdit}
+    onChange={(e) => setFormationNomEdit(e.target.value)}
+    placeholder="Bureautique"
+    className={inp}
+  />
+</div>
+</div>
                 <button onClick={() => setShowPrintModal(false)} className="text-slate-300 hover:text-slate-600">
                   <X size={16} />
                 </button>
