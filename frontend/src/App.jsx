@@ -39,6 +39,7 @@ import ProfFormationNiveaux from './pages/prof/formations/ProfFormationNiveaux';
 import ProfGroupDetail from './pages/prof/formations/ProfGroupDetail';
 // ── Pages comptable (nouvelles) ─────────────────────────────
 import StatistiqueComptable from './pages/comptable/statistique/Statistique';
+import RapportMensuel from './pages/comptable/statistique/RapportMensuel';   
 import PaiementsFormationPage from './pages/comptable/paiements/PaiementsFormationPage';
 import PaiementsAutrePage from './pages/comptable/paiements/PaiementsAutrePage';
 import ChargesFormation from "./pages/comptable/Charges/ChargesFormation";
@@ -224,11 +225,18 @@ function App() {
 
           {/* ── Routes comptable (nouvelles) ── */}
 
-   <Route path="/comptable/statistique" element={
-     <PrivateRoute allowedRoles={['comptable']}>
-       <StatistiqueComptable />
-     </PrivateRoute>
-   } />
+<Route path="/comptable/statistique" element={
+  <PrivateRoute allowedRoles={['comptable']}>
+    <StatistiqueComptable />
+  </PrivateRoute>
+} />
+<Route path="/comptable/rapport-mensuel" element={        
+  <PrivateRoute allowedRoles={['comptable']}>
+    <RapportMensuel />
+  </PrivateRoute>
+} />
+   
+
 <Route path="/comptable/paiements/formation" element={
   <PrivateRoute allowedRoles={['comptable']}>
     <PaiementsFormationPage />

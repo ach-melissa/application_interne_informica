@@ -11,7 +11,13 @@ const navGroups = [
   {
     label: 'Gestion',
     items: [
-      { label: 'Statistique', icon: BarChart3, path: '/comptable/statistique' },
+   {
+  label: 'Stat et rapports', icon: BarChart3,
+  children: [
+    { label: 'Statistiques', path: '/comptable/statistique' },
+    { label: 'Rapport mensuel', path: '/comptable/rapport-mensuel' },
+  ],
+},
       {
         label: 'Revenu', icon: CreditCard,
         children: [
