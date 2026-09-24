@@ -31,6 +31,7 @@ import DashboardProf from './pages/prof/dashboard/DashboardProf';
 import MesDemandesSalles from './pages/prof/demandesSalles/MesDemandesSalles';
 import DetailMaDemande from './pages/prof/demandesSalles/DetailMaDemande';
 import EmploiDuTemps from './pages/prof/EmploiDuTemps';
+import MesSalaires from './pages/prof/salaires/MesSalaires';
 import ProfLayout from './layouts/ProfLayout';
 
 import ProfFormations from './pages/prof/formations/ProfFormations';
@@ -201,6 +202,13 @@ function App() {
   <PrivateRoute allowedRoles={['prof']}>
     <ProfLayout>
       <DetailMaDemande />
+    </ProfLayout>
+  </PrivateRoute>
+} />
+<Route path="/prof/mes-salaires" element={
+  <PrivateRoute allowedRoles={['prof']}>
+    <ProfLayout>
+      <MesSalaires />
     </ProfLayout>
   </PrivateRoute>
 } />

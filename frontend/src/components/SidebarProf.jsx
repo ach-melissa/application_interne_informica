@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, CalendarDays, DoorOpen, ChevronLeft, ChevronRight, LogOut, X } from 'lucide-react';
-
+import { LayoutDashboard, Users, CalendarDays, DoorOpen, Wallet, ChevronLeft, ChevronRight, LogOut, X } from 'lucide-react';
 const navGroups = [
   {
     label: 'Gestion',
@@ -11,6 +10,7 @@ const navGroups = [
       { label: 'Mes Groupes',     icon: Users,           path: '/prof/formations' },
       { label: 'Emploi du Temps', icon: CalendarDays,    path: '/prof/emploi-du-temps' },
       { label: 'Mes demandes',    icon: DoorOpen,        path: '/prof/mes-demandes-salles' },
+      { label: 'Mes salaires',    icon: Wallet,          path: '/prof/mes-salaires' },
     ],
   },
 ];
