@@ -76,9 +76,8 @@ const updateMe = async (req, res) => {
     if (prenom         !== undefined) patch.prenom         = prenom;
     if (email          !== undefined) patch.email          = email;
     if (nom_utilisateur !== undefined) patch.nom_utilisateur = nom_utilisateur;
-    if (telephone      !== undefined) patch.telephone      = telephone;
-    if (date_naissance !== undefined) patch.date_naissance = date_naissance;
-
+    if (telephone      !== undefined) patch.telephone      = telephone === '' ? null : telephone;
+    if (date_naissance !== undefined) patch.date_naissance = date_naissance === '' ? null : date_naissance;
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ message: 'Aucune donnée à mettre à jour' });
     }
