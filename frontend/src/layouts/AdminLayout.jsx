@@ -1,8 +1,13 @@
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import SidebarAdmin from '../components/SidebarAdmin';
+import SidebarSuperAdmin from '../components/SidebarSuperAdmin';
 import Topbar from '../components/Topbar';
 
 const AdminLayout = ({ children }) => {
+  const { user } = useAuth();
+  const Sidebar = user?.role === 'super_admin' ? SidebarSuperAdmin : SidebarAdmin;
+
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
@@ -17,7 +22,7 @@ const AdminLayout = ({ children }) => {
     <div className="flex flex-col h-screen bg-[#f5f7fc] overflow-hidden">
       <Topbar onMenuClick={() => setMobileOpen(true)} />
       <div className="flex flex-1 overflow-hidden relative">
-        <SidebarAdmin
+        <Sidebar
           collapsed={collapsed}
           setCollapsed={handleCollapse}
           mobileOpen={mobileOpen}

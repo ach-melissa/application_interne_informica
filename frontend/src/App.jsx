@@ -49,8 +49,6 @@ import SalairesEmployes from './pages/comptable/salaires/SalairesEmployes';
 import SalairesProfesseurs from './pages/comptable/salaires/SalairesProfesseurs';
 import DetailEmploye from './pages/comptable/salaires/DetailEmploye';
 import DetailProfesseur from './pages/comptable/salaires/DetailProfesseur';
-// ── Super admin ── 
-import SuperAdminDashboard from "./pages/superadmin/dashboard/SuperAdminDashboard";
 
 // ── Page partagée (nouvelle) ───────────────────────────────
 import Profile from './pages/shared/profile/Profile';
@@ -277,13 +275,6 @@ function App() {
 <Route path="/comptable/salaires/professeurs/:id" element={
   <PrivateRoute allowedRoles={['comptable']}>
     <DetailProfesseur />
-  </PrivateRoute>
-} />
-
-{/* ── Super admin ── */}
-<Route path="/superadmin" element={
-  <PrivateRoute allowedRoles={['super_admin']}>
-    <SuperAdminDashboard />
   </PrivateRoute>
 } />
 
