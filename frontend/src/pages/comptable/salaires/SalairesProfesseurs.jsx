@@ -1,7 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Wallet, Tag, Users2, Calendar, Clock, Percent, ChevronRight, ChevronDown, X, GraduationCap, Plus, Phone } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
+
+export const API = import.meta.env.VITE_API_URL;
+export const getHeaders = () => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${localStorage.getItem('token')}`,
+});
+
+// GET /api/salaires-professeurs (current month by default; optional ?mois=&annee=)
+export const fetchProfesseurs = async () => {
+  const res = await fetch(`${API}/api/salaires-professeurs`, { headers: getHeaders() });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || 'Erreur serveur');
+  return data;
+};
 
 /* ------------------------------------------------------------------ */
 /*  Helpers (exportés : utilisés aussi par DetailProfesseur)           */
@@ -68,29 +82,9 @@ export const StatTile = ({ icon: Icon, label, value, color = 'blue' }) => {
 
 const BASE_PATH = '/comptable/salaires/professeurs';
 
-// Un professeur donne une ou plusieurs formations, et CHAQUE formation a
-// son propre mode de paiement (typeSalaire) et montant — un même professeur
-// peut donc être payé au fixe pour une formation et à l'heure pour une autre.
-// typeSalaire === null → aucun salaire configuré pour cette formation.
-export const PROFESSEURS_INITIAL = [
-  { id: 1, nom: 'Karim Traoré', poste: 'Formateur', telephone: '0555 11 22 33', statut: 'en_attente', formations: [
-    { nom: 'Comptabilité', typeSalaire: "À l'heure", montant: 2000, montantPeriode: 2000 * 40 },
-    { nom: 'Fiscalité', typeSalaire: 'Fixe', montant: 30000, montantPeriode: 30000 },
-  ] },
-  { id: 2, nom: 'Amina Diallo', poste: 'Formatrice', statut: 'payé', formations: [
-    { nom: 'Marketing', typeSalaire: "À l'heure", montant: 2200, montantPeriode: 2200 * 10 },
-  ] },
-  { id: 3, nom: 'Fatou Ndiaye', poste: 'Formatrice', statut: 'à_saisir', formations: [
-    { nom: 'Informatique', typeSalaire: 'Fixe', montant: 90000, montantPeriode: 90000 },
-    { nom: 'Bureautique', typeSalaire: 'Pourcentage', montant: 8, montantPeriode: 12000 },
-  ] },
-  { id: 4, nom: 'Nadia Cherif', poste: 'Coordinatrice pédagogique', statut: 'en_attente', formations: [
-    { nom: 'Langues', typeSalaire: 'Pourcentage', montant: 10, montantPeriode: 28000 },
-  ] },
-  { id: 5, nom: 'Yacine Belkacem', poste: 'Formateur', statut: 'à_saisir', formations: [
-    { nom: 'Informatique', typeSalaire: null, montant: 0, montantPeriode: 0 },
-  ] },
-];
+// Un professeur donne une ou plusieurs formations ; CHAQUE formation a son propre
+// mode de paiement (typeSalaire) et montant. typeSalaire === null → non défini.
+// Les données viennent de l'API (plus de données mock).
 export const totalProfesseur = (p) => p.formations.reduce((s, f) => s + f.montantPeriode, 0);
 /* ------------------------------------------------------------------ */
 /*  Une carte = un professeur                                          */
@@ -115,10 +109,10 @@ const ProfesseurCard = ({ professeur, onOpen }) => {
 
       {/* Une ligne par formation : nom + son propre mode de paiement */}
       <div className="space-y-1.5 mb-5 flex-1">
-        {professeur.formations.map((f, i) => {
+        {professeur.formations.map((f) => {
           const TypeIcon = f.typeSalaire ? typeIcon(f.typeSalaire) : Plus;
           return (
-            <div key={i} className="flex items-center justify-between gap-2 text-xs">
+            <div key={f.id} className="flex items-center justify-between gap-2 text-xs">
               <span className="flex items-center gap-1.5 min-w-0 text-slate-600 font-medium">
                 <Tag size={12} className="text-[#0369A1] shrink-0" /> <span className="truncate">{f.nom}</span>
               </span>
@@ -152,7 +146,16 @@ const ProfesseurCard = ({ professeur, onOpen }) => {
 
 const SalairesProfesseurs = () => {
   const navigate = useNavigate();
-  const professeurs = PROFESSEURS_INITIAL; // TODO API
+  const [professeurs, setProfesseurs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchProfesseurs()
+      .then(setProfesseurs)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
@@ -219,7 +222,13 @@ const SalairesProfesseurs = () => {
         {hasFilters && <button onClick={clearFilters} className="ml-auto flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"><X size={11} /> Tout effacer</button>}
       </div>
 
-      {filtered.length > 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : error ? (
+        <p className="text-red-500 text-sm">{error}</p>
+      ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map((p) => (
             <ProfesseurCard key={p.id} professeur={p} onOpen={() => openDetail(p)} />

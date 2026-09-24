@@ -29,20 +29,32 @@ const EditFormationModal = ({ formation, onClose, onSave }) => {
   const [heures, setHeures] = useState(formation.heures || '');
   const [error, setError] = useState('');
 
-  const submit = () => {
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    let payload;
     if (typeSalaire === 'Fixe') {
       if (!(Number(montant) > 0)) return setError('Renseignez un montant fixe valide.');
-      onSave({ typeSalaire, montant: Number(montant), heures: 0 });
+      payload = { typeSalaire, montant: Number(montant), heures: 0 };
     } else if (typeSalaire === 'Pourcentage') {
       if (!(Number(montant) > 0 && Number(montant) <= 100)) return setError('Le pourcentage doit être entre 1 et 100.');
-      onSave({ typeSalaire, montant: Number(montant), heures: 0 });
+      payload = { typeSalaire, montant: Number(montant), heures: 0 };
     } else {
-      if (!(Number(heures) > 0)) return setError('Renseignez le nombre d\'heures.');
+      if (!(Number(heures) > 0)) return setError("Renseignez le nombre d'heures.");
       if (!(Number(montant) > 0)) return setError('Renseignez le tarif horaire.');
-      onSave({ typeSalaire, montant: Number(montant), heures: Number(heures) });
+      payload = { typeSalaire, montant: Number(montant), heures: Number(heures) };
     }
-    setError('');
-    onClose();
+
+    setSaving(true);
+    try {
+      await onSave(payload); // ne ferme la fenêtre que si la sauvegarde a réussi
+      setError('');
+      onClose();
+    } catch (err) {
+      setError(err.message || "La rémunération n'a pas pu être enregistrée.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return createPortal(
@@ -91,7 +103,7 @@ const EditFormationModal = ({ formation, onClose, onSave }) => {
 
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
-            <button onClick={submit} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium flex items-center gap-1">
+            <button onClick={submit} disabled={saving} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium flex items-center gap-1 disabled:opacity-50">
               <Check size={12} /> Enregistrer
             </button>
           </div>
@@ -123,7 +135,7 @@ const FormationsTab = ({ formations, onUpdate }) => {
           {formations.map((f, i) => {
             const TypeIcon = f.typeSalaire ? typeIcon(f.typeSalaire) : null;
             return (
-              <tr key={i} onClick={() => setEditIdx(i)} className={`cursor-pointer hover:bg-slate-50/60 transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
+              <tr key={f.id} onClick={() => setEditIdx(i)} className={`cursor-pointer hover:bg-slate-50/60 transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                 <td className="px-3 py-2.5 text-slate-700 font-medium border-b border-l border-slate-100">{f.nom}</td>
                 <td className="px-3 py-2.5 text-slate-500 border-b border-slate-100">
                   <span className="flex items-center gap-1.5">{TypeIcon && <TypeIcon size={12} className="text-[#0369A1]" />} {f.typeSalaire || 'Non défini'}</span>
@@ -141,7 +153,7 @@ const FormationsTab = ({ formations, onUpdate }) => {
         <EditFormationModal
           formation={formations[editIdx]}
           onClose={() => setEditIdx(null)}
-          onSave={(patch) => onUpdate(editIdx, patch)}
+          onSave={(patch) => onUpdate(formations[editIdx].id, patch)}
         />
       )}
     </div>

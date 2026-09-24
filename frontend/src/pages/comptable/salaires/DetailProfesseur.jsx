@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, Phone } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
-import { PROFESSEURS_INITIAL, initiales, Badge } from './SalairesProfesseurs';
+import { initiales, Badge, fetchProfesseurs, API, getHeaders } from './SalairesProfesseurs';
 import FormationsTab from './FormationsTab';
 import { BilanMensuel, HistoriqueProf } from './BilanTab';
 
@@ -14,17 +14,62 @@ const DetailProfesseur = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
 
-  const professeurs = state?.professeurs ?? PROFESSEURS_INITIAL;
-  const [professeur, setProfesseur] = useState(state?.professeur ?? professeurs.find((p) => String(p.id) === id));
+  const [professeurs, setProfesseurs] = useState(state?.professeurs ?? []);
+  const [professeur, setProfesseur] = useState(state?.professeur ?? null);
+  const [loading, setLoading] = useState(!state?.professeur);
+  const [error, setError] = useState('');
   const idx = professeurs.findIndex((p) => p.id === professeur?.id);
   const [tab, setTab] = useState('formations');
 
+  // Recharge depuis l'API (lien direct, refresh de page, après une sauvegarde)
+  const load = async () => {
+    try {
+      const list = await fetchProfesseurs();
+      const found = list.find((p) => String(p.id) === id) ?? null;
+      setProfesseur(found);
+      // garde la liste filtrée de la page précédente si on l'a, en mettant à jour ce professeur
+      setProfesseurs((prev) => (prev.length && found ? prev.map((p) => (p.id === found.id ? found : p)) : list));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const next = state?.professeur ?? professeurs.find((p) => String(p.id) === id);
-    if (next && next.id !== professeur?.id) setProfesseur(next);
-  }, [id, state]);
+    if (state?.professeur && String(state.professeur.id) === id) {
+      setProfesseur(state.professeur);
+      if (state.professeurs) setProfesseurs(state.professeurs);
+      setLoading(false);
+    } else {
+      setLoading(true);
+      load();
+    }
+  }, [id]);
+
   const goTo = (target) => navigate(`${LIST_PATH}/${target.id}`, { state: { professeur: target, professeurs } });
-  const updateFormation = (i, patch) => setProfesseur((prev) => ({ ...prev, formations: prev.formations.map((f, j) => (j === i ? { ...f, ...patch } : f)) }));
+
+  // Sauvegarde la rémunération d'une formation, puis recharge (montantPeriode recalculé côté serveur)
+  const updateFormation = async (formationId, patch) => {
+    const res = await fetch(`${API}/api/salaires-professeurs/${professeur.id}/formations/${formationId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(patch),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "La rémunération n'a pas pu être enregistrée.");
+    await load();
+  };
+
+  if (loading) {
+    return (
+      <ComptableLayout>
+        <div className="flex justify-center py-16">
+          <div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </ComptableLayout>
+    );
+  }
 
   if (!professeur) {
     return (
@@ -32,7 +77,7 @@ const DetailProfesseur = () => {
         <button onClick={() => navigate(LIST_PATH)} className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1] hover:underline mb-4">
           <ArrowLeft size={14} /> Retour aux professeurs
         </button>
-        <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] px-3 py-10 text-center text-slate-400 text-xs">Ce professeur est introuvable.</div>
+        <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] px-3 py-10 text-center text-slate-400 text-xs">{error || 'Ce professeur est introuvable.'}</div>
       </ComptableLayout>
     );
   }
@@ -87,8 +132,8 @@ const DetailProfesseur = () => {
       </div>
 
       {tab === 'formations' && <FormationsTab formations={professeur.formations} onUpdate={updateFormation} />}
-      {tab === 'bilan' && <BilanMensuel formations={professeur.formations} />}
-      {tab === 'historique' && <HistoriqueProf />}
+      {tab === 'bilan' && <BilanMensuel key={professeur.id} professeur={professeur.nom} formations={professeur.formations} />}
+      {tab === 'historique' && <HistoriqueProf key={professeur.id} />}
     </ComptableLayout>
   );
 };
