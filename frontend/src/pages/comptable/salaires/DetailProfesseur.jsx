@@ -132,8 +132,8 @@ const DetailProfesseur = () => {
       </div>
 
       {tab === 'formations' && <FormationsTab formations={professeur.formations} onUpdate={updateFormation} />}
-      {tab === 'bilan' && <BilanMensuel key={professeur.id} professeur={professeur.nom} formations={professeur.formations} />}
-      {tab === 'historique' && <HistoriqueProf key={professeur.id} />}
+{tab === 'bilan' && <BilanMensuel key={professeur.id} professeurId={professeur.id} professeur={professeur.nom} />}
+ {tab === 'historique' && <HistoriqueProf key={professeur.id} />}
     </ComptableLayout>
   );
 };
