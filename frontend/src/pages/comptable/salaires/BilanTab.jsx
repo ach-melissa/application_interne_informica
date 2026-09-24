@@ -1,27 +1,20 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Wallet, Plus, Check, X, RotateCcw,
   Camera, ZoomIn, Image as ImageIcon, DollarSign, Receipt, GraduationCap, PieChart, School, Send,
 } from 'lucide-react';
-import { fmt } from './SalairesProfesseurs';
+import { fmt, API, getHeaders } from './SalairesProfesseurs';
 
 const CARD = 'bg-white rounded shadow-[0_2px_10px_rgba(15,42,74,0.08)]';
 const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const STATUT_HISTO = { paye: { label: 'Payé', cls: 'bg-emerald-50 text-emerald-600' }, partiel: { label: 'Partiel', cls: 'bg-amber-50 text-amber-600' }, non_paye: { label: 'Non payé', cls: 'bg-red-50 text-red-500' } };
+// TODO API: pas encore d'endpoint d'historique des bilans passés
 const MOCK_HISTORIQUE = [
   { mois: 'Août 2026', montant: 52000, paye: 52000, statut: 'paye' },
   { mois: 'Juillet 2026', montant: 48000, paye: 20000, statut: 'partiel' },
 ];
 const TYPES_MVT = { particulier: { label: 'Particulier', signe: 1 }, avance: { label: 'Avance', signe: -1 }, prime: { label: 'Prime', signe: 1 }, retenue: { label: 'Retenue', signe: -1 } };
-const MOCK_CHARGES = [
-  { id: 1, label: 'Ingrédients', montant: 5000 },
-  { id: 2, label: 'Certificats', montant: 2000 },
-  { id: 3, label: 'Outils', montant: 1000 },
-];
-const MOCK_PRIX_ETUDIANT = 8000; // TODO API: prix réel de la formation par étudiant
-const MOCK_NB_ETUDIANTS = 12;    // TODO API: nb réel d'étudiants inscrits
-const MOCK_SEANCES_FAITES = 6;   // TODO API: nb de séances réellement pointées ce mois
 
 const inp = 'w-full bg-white border border-slate-200 rounded-md px-2.5 py-1.5 text-xs text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0369A1]/40 focus:border-[#0369A1]';
 const Label = ({ text, required }) => <p className="text-[10px] text-slate-600 uppercase tracking-wide mb-0.5">{text}{required && <span className="text-red-500 ml-0.5">*</span>}</p>;
@@ -36,7 +29,35 @@ const StatTile = ({ icon: Icon, label, value, color }) => {
   );
 };
 
-const revenusFormation = () => MOCK_PRIX_ETUDIANT * MOCK_NB_ETUDIANTS; // TODO API
+/* ------------------------------------------------------------------ */
+/*  Appels API                                                          */
+/* ------------------------------------------------------------------ */
+const jsonOrThrow = async (res) => {
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Erreur serveur');
+  return data;
+};
+
+const fetchBilan = (teacherId, mois, annee) =>
+  fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan?mois=${mois}&annee=${annee}`, { headers: getHeaders() }).then(jsonOrThrow);
+
+const putFormationDetail = (teacherId, formationId, payload) =>
+  fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/formation/${formationId}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
+
+const postMouvement = (teacherId, payload) =>
+  fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/mouvements`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
+
+const deleteMouvementApi = (mouvementId) =>
+  fetch(`${API}/api/salaires-professeurs/mouvements/${mouvementId}`, { method: 'DELETE', headers: getHeaders() }).then(jsonOrThrow);
+
+const putTotal = (teacherId, payload) =>
+  fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/total`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
+
+const postValider = (teacherId, payload) =>
+  fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/valider`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
+
+const postEnvoyer = (teacherId, payload) =>
+  fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/envoyer`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
 
 /* ------------------------------------------------------------------ */
 /*  Modal d'ajout d'un mouvement                                       */
@@ -48,18 +69,25 @@ const AjoutMouvementModal = ({ formations, onClose, onSubmit }) => {
   const [description, setDescription] = useState('');
   const [montant, setMontant] = useState('');
   const [error, setError] = useState('');
-  const [pendingBons, setPendingBons] = useState([]); // mock, TODO API
+  const [saving, setSaving] = useState(false);
+  const [pendingBons, setPendingBons] = useState([]); // TODO API: upload vers Supabase Storage pas encore branché
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileInputRef = useRef(null);
 
-  const submit = () => {
+  const submit = async () => {
     const desc = type === 'particulier' && source === 'existante' ? formation : description;
     if (!desc.trim()) return setError('Renseignez une description.');
     if (!(Number(montant) > 0)) return setError('Renseignez un montant.');
     setError('');
-    // TODO API: uploader pendingBons après création du mouvement
-    onSubmit({ type, description: desc, montant: Number(montant), bons: pendingBons.map((p) => ({ id: p.file.name + p.file.size, url: p.preview })) });
-    onClose();
+    setSaving(true);
+    try {
+      await onSubmit({ type, description: desc, montant: Number(montant) });
+      onClose();
+    } catch (err) {
+      setError(err.message || "Le mouvement n'a pas pu être enregistré.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleFileChange = (e) => {
@@ -145,11 +173,12 @@ const AjoutMouvementModal = ({ formations, onClose, onSubmit }) => {
               <button type="button" onClick={() => fileInputRef.current?.click()} className="w-14 h-14 rounded-md border border-dashed border-slate-300 hover:border-[#0369A1]/50 flex items-center justify-center text-slate-400 hover:text-[#0369A1] transition"><Camera size={16} /></button>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+            <p className="text-[10px] text-slate-400 mt-1">L'envoi des bons n'est pas encore branché côté serveur.</p>
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
-            <button onClick={submit} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium flex items-center gap-1">
+            <button onClick={submit} disabled={saving} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium flex items-center gap-1 disabled:opacity-50">
               <Check size={12} /> Enregistrer
             </button>
           </div>
@@ -166,12 +195,11 @@ const AjoutMouvementModal = ({ formations, onClose, onSubmit }) => {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Détail "pourcentage" — icônes uniformes + dropdown charges          */
+/*  Détail "pourcentage" — travaille sur un state LOCAL au modal        */
 /* ------------------------------------------------------------------ */
-const DetailPourcentage = ({ f, professeur, state, onChange, onToggleCharge }) => {
-  const revenusCalcules = revenusFormation(); // TODO API: prix × nb étudiants réels
-  const revenus = state.revenusOverride ?? revenusCalcules;
-  const totalCharges = MOCK_CHARGES.filter((c) => state.charges.includes(c.id)).reduce((s, c) => s + c.montant, 0);
+const DetailPourcentage = ({ f, professeur, charges, state, onChange, onToggleCharge }) => {
+  const revenus = state.revenusOverride ?? 0; // TODO API: calcul auto (prix × nb étudiants) en attente
+  const totalCharges = charges.filter((c) => state.charges.includes(c.id)).reduce((s, c) => s + Number(c.montant), 0);
   const apresCharges = revenus - totalCharges;
   const partProf = Math.round(apresCharges * (state.part / 100));
   const partEcole = apresCharges - partProf;
@@ -181,12 +209,7 @@ const DetailPourcentage = ({ f, professeur, state, onChange, onToggleCharge }) =
       {professeur && <p className="text-slate-500">Professeur : <span className="font-semibold text-slate-700">{professeur}</span></p>}
 
       <div className="bg-white border border-[#E2E8F0] rounded-lg px-3 py-2.5">
-        <div className="flex items-center justify-between mb-1">
-          <p className="flex items-center gap-1.5 font-semibold text-slate-600"><GraduationCap size={13} className="text-[#0369A1]" /> Revenus de la formation</p>
-          {state.revenusOverride !== null && (
-            <button onClick={() => onChange({ revenusOverride: null })} title="Réinitialiser au calcul automatique" className="text-slate-300 hover:text-amber-500"><RotateCcw size={11} /></button>
-          )}
-        </div>
+        <p className="flex items-center gap-1.5 font-semibold text-slate-600 mb-1"><GraduationCap size={13} className="text-[#0369A1]" /> Revenus de la formation</p>
         <div className="flex items-center gap-1">
           <input
             type="number" min="0" value={revenus}
@@ -195,10 +218,9 @@ const DetailPourcentage = ({ f, professeur, state, onChange, onToggleCharge }) =
           />
           <span className="text-slate-500 shrink-0">DA</span>
         </div>
-        <p className="text-[10px] text-slate-400 mt-1">{state.revenusOverride !== null ? `Calcul auto : ${fmt(MOCK_PRIX_ETUDIANT)} × ${MOCK_NB_ETUDIANTS} étudiant(s) = ${fmt(revenusCalcules)}` : `${fmt(MOCK_PRIX_ETUDIANT)} × ${MOCK_NB_ETUDIANTS} étudiant(s)`}</p>
+        <p className="text-[10px] text-slate-400 mt-1">Saisie manuelle (calcul automatique via inscriptions pas encore disponible).</p>
       </div>
 
-      {/* Charges en dropdown (checklist) */}
       <div className="relative">
         <p className="flex items-center gap-1.5 text-[10px] text-slate-500 uppercase tracking-wide mb-1"><Receipt size={12} className="text-[#0369A1]" /> Charges à déduire</p>
         <details className="group">
@@ -207,10 +229,11 @@ const DetailPourcentage = ({ f, professeur, state, onChange, onToggleCharge }) =
             <ChevronDown size={13} className="text-slate-400 group-open:rotate-180 transition-transform" />
           </summary>
           <div className="mt-1 border border-slate-200 rounded-md divide-y divide-slate-100 overflow-hidden">
-            {MOCK_CHARGES.map((c) => (
+            {charges.length === 0 && <p className="px-2.5 py-2 text-slate-400">Aucune charge disponible.</p>}
+            {charges.map((c) => (
               <label key={c.id} className="flex items-center justify-between px-2.5 py-1.5 bg-white hover:bg-slate-50 cursor-pointer">
-                <span className="flex items-center gap-2"><input type="checkbox" checked={state.charges.includes(c.id)} onChange={() => onToggleCharge(c.id)} className="accent-[#0369A1]" /> {c.label}</span>
-                <span className="text-slate-500">{fmt(c.montant)}</span>
+                <span className="flex items-center gap-2"><input type="checkbox" checked={state.charges.includes(c.id)} onChange={() => onToggleCharge(c.id)} className="accent-[#0369A1]" /> {c.description}</span>
+                <span className="text-slate-500">{fmt(Number(c.montant))}</span>
               </label>
             ))}
           </div>
@@ -238,115 +261,146 @@ const DetailPourcentage = ({ f, professeur, state, onChange, onToggleCharge }) =
 };
 
 /* ------------------------------------------------------------------ */
-/*  Modale formation (éditable)                                        */
+/*  Modale formation — state local, "Enregistrer" envoie le patch      */
 /* ------------------------------------------------------------------ */
-const FormationModal = ({ f, professeur, seances, onChangeSeances, pctState, onChangePct, onToggleCharge, montant, onClose }) => createPortal(
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={onClose}>
-    <div className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-      <div className="sticky top-0 bg-white z-10 border-b border-[#F1F5F9] flex items-center justify-between px-5 py-4">
-        <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
-          <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0"><Wallet size={14} className="text-white" /></span>
-          {f.nom}
-        </h2>
-        <button onClick={onClose} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
-      </div>
+const FormationModal = ({ f, professeur, charges, onClose, onSave }) => {
+  const [seances, setSeances] = useState(f.nbSeances || 0);
+const [pct, setPct] = useState({ part: f.part ?? (Number(f.montant) || 40), revenusOverride: f.revenusOverride ?? null, charges: f.charges ?? [] });
+const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-      <div className="p-5">
-        {f.typeSalaire === "À l'heure" && (
-          <div className="text-xs space-y-1.5">
-            <div className="flex items-center gap-2">
-              <CalendarDays size={13} className="text-[#0369A1]" />
-              <input type="number" min="0" value={seances} onChange={(e) => onChangeSeances(Number(e.target.value) || 0)} className={`${inp} w-16 text-right`} />
-              <span className="text-slate-500">séance(s) faite(s)</span>
+  const toggleCharge = (id) => setPct((p) => ({ ...p, charges: p.charges.includes(id) ? p.charges.filter((c) => c !== id) : [...p.charges, id] }));
+
+  const montant = f.typeSalaire === 'Fixe' ? Number(f.montant)
+    : f.typeSalaire === "À l'heure" ? seances * Number(f.montant)
+    : Math.round(((pct.revenusOverride ?? 0) - charges.filter((c) => pct.charges.includes(c.id)).reduce((s, c) => s + Number(c.montant), 0)) * (pct.part / 100));
+
+  const submit = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      if (f.typeSalaire === "À l'heure") await onSave({ seances });
+      else if (f.typeSalaire === 'Pourcentage') await onSave({ part: pct.part, revenusOverride: pct.revenusOverride, charges: pct.charges });
+      onClose();
+    } catch (err) {
+      setError(err.message || "La formation n'a pas pu être enregistrée.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={onClose}>
+      <div className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white z-10 border-b border-[#F1F5F9] flex items-center justify-between px-5 py-4">
+          <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
+            <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0"><Wallet size={14} className="text-white" /></span>
+            {f.nom}
+          </h2>
+          <button onClick={onClose} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
+        </div>
+        {error && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 mx-5 mt-3 rounded-md">{error}</p>}
+
+        <div className="p-5">
+          {f.typeSalaire === "À l'heure" && (
+            <div className="text-xs space-y-1.5">
+              <div className="flex items-center gap-2">
+                <CalendarDays size={13} className="text-[#0369A1]" />
+                <input type="number" min="0" value={seances} onChange={(e) => setSeances(Number(e.target.value) || 0)} className={`${inp} w-16 text-right`} />
+                <span className="text-slate-500">séance(s) faite(s)</span>
+              </div>
+              <p className="text-slate-400">{seances} heure(s) × {fmt(Number(f.montant))} = <b className="text-slate-800">{fmt(montant)}</b></p>
             </div>
-            <p className="text-slate-400">{seances} heure(s) × {fmt(f.montant)} = <b className="text-slate-800">{fmt(montant)}</b></p>
-          </div>
-        )}
-        {f.typeSalaire === 'Fixe' && (
-          <p className="flex items-center gap-1.5 text-xs text-slate-500"><Wallet size={13} className="text-[#0369A1]" /> Forfait fixe de {fmt(f.montant)} par mois.</p>
-        )}
-        {f.typeSalaire === 'Pourcentage' && (
-          <DetailPourcentage f={f} professeur={professeur} state={pctState} onChange={onChangePct} onToggleCharge={onToggleCharge} />
-        )}
-      </div>
+          )}
+          {f.typeSalaire === 'Fixe' && (
+            <p className="flex items-center gap-1.5 text-xs text-slate-500"><Wallet size={13} className="text-[#0369A1]" /> Forfait fixe de {fmt(Number(f.montant))} par mois.</p>
+          )}
+          {f.typeSalaire === 'Pourcentage' && (
+            <DetailPourcentage f={f} professeur={professeur} charges={charges} state={pct} onChange={(patch) => setPct((p) => ({ ...p, ...patch }))} onToggleCharge={toggleCharge} />
+          )}
+        </div>
 
-      <div className="flex justify-end gap-2 px-5 pb-5">
-        <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium flex items-center gap-1">
-          <Check size={12} /> Enregistrer
-        </button>
+        <div className="flex justify-end gap-2 px-5 pb-5">
+          <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
+          <button onClick={submit} disabled={saving} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium flex items-center gap-1 disabled:opacity-50">
+            <Check size={12} /> Enregistrer
+          </button>
+        </div>
       </div>
-    </div>
-  </div>,
-  document.body
-);
+    </div>,
+    document.body
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /*  Bilan mensuel                                                      */
 /* ------------------------------------------------------------------ */
-export const BilanMensuel = ({ formations, professeur }) => {
-  const [periode, setPeriode] = useState(() => new Date(2026, 8, 1));
+export const BilanMensuel = ({ professeurId, professeur }) => {
+  const [periode, setPeriode] = useState(() => new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [tab, setTab] = useState('formations');
   const [modalFormation, setModalFormation] = useState(null);
-  const [seances, setSeances] = useState(() => Object.fromEntries(formations.filter((f) => f.typeSalaire === "À l'heure").map((f) => [f.nom, MOCK_SEANCES_FAITES])));
-   const [pct, setPct] = useState(() => Object.fromEntries(formations.filter((f) => f.typeSalaire === 'Pourcentage').map((f) => [f.nom, { charges: [], part: Number(f.montant) || 40, revenusOverride: null }])));
-  const [mouvements, setMouvements] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [totalOverride, setTotalOverride] = useState(null);
-  const [valide, setValide] = useState(false);  // TODO API: statut réel de validation
-  const [envoye, setEnvoye] = useState(false);  // TODO API: statut réel d'envoi au professeur
+
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [totalDraft, setTotalDraft] = useState(''); // saisie en cours dans le champ "Total du mois"
+
+  const mois = periode.getMonth() + 1;
+  const annee = periode.getFullYear();
   const label = periode.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchBilan(professeurId, mois, annee);
+      setData(res);
+      setTotalDraft(res.totalOverride !== null ? String(res.totalOverride) : '');
+      setError('');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [professeurId, mois, annee]);
+
   const changerMois = (delta) => setPeriode((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1));
-  const paye = 0; // TODO API
 
-  const updatePct = (nom, patch) => setPct((p) => ({ ...p, [nom]: { ...p[nom], ...patch } }));
-  const toggleCharge = (nom, id) => setPct((p) => {
-    const cur = p[nom].charges;
-    return { ...p, [nom]: { ...p[nom], charges: cur.includes(id) ? cur.filter((c) => c !== id) : [...cur, id] } };
-  });
+  const handleAjout = async (payload) => { await postMouvement(professeurId, { mois, annee, ...payload }); await load(); };
+  const handleDeleteMouvement = async (id) => { await deleteMouvementApi(id); await load(); };
 
-  const coutFormation = (st) => MOCK_CHARGES.filter((c) => st.charges.includes(c.id)).reduce((s, c) => s + c.montant, 0);
+  const commitTotal = async (raw) => {
+    const value = raw === '' ? null : Number(raw);
+    if (raw !== '' && Number.isNaN(value)) return;
+    await putTotal(professeurId, { mois, annee, totalOverride: value });
+    await load();
+  };
+ const handleTotalBlur = (e) => {
+  const raw = e.target.value;
+  if (raw === String(total)) return;                    
+  commitTotal(raw === String(totalCalcule) ? '' : raw);
+};
+  const resetTotal = () => { setTotalDraft(''); commitTotal(''); };
 
-  const reglelabel = (f, nbSeances, st) => {
-    if (f.typeSalaire === 'Fixe') return `Forfait fixe de ${fmt(f.montant)} / mois.`;
-    if (f.typeSalaire === "À l'heure") return `${nbSeances} heure(s) × ${fmt(f.montant)}.`;
-    const revenusTxt = st.revenusOverride !== null ? `${fmt(st.revenusOverride)} (manuel)` : `${fmt(MOCK_PRIX_ETUDIANT)} × ${MOCK_NB_ETUDIANTS} étudiant(s)`;
-    return `${revenusTxt} − charges, puis ${st.part}% pour le professeur.`;
+  const handleValider = async () => { await postValider(professeurId, { mois, annee }); await load(); };
+  const handleEnvoyer = async () => { await postEnvoyer(professeurId, { mois, annee }); await load(); };
+
+  const saveFormation = async (formationId, patch) => {
+    await putFormationDetail(professeurId, formationId, { mois, annee, ...patch });
+    await load();
   };
 
-  const revenusPourFormation = (st) => st.revenusOverride ?? revenusFormation(); // TODO API
+  if (loading && !data) {
+    return <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" /></div>;
+  }
+  if (error && !data) {
+    return <p className="text-red-500 text-sm">{error}</p>;
+  }
 
-  const montantFormation = (f) => {
-    if (f.typeSalaire === 'Fixe') return Number(f.montant);
-    if (f.typeSalaire === "À l'heure") return (seances[f.nom] || 0) * Number(f.montant);
-    const st = pct[f.nom];
-    const revenus = revenusPourFormation(st);
-    const totalCharges = MOCK_CHARGES.filter((c) => st.charges.includes(c.id)).reduce((s, c) => s + c.montant, 0);
-    return Math.round((revenus - totalCharges) * (st.part / 100));
-  };
-
-  const totalFormations = formations.reduce((s, f) => s + montantFormation(f), 0);
-  const totalMouvements = mouvements.reduce((s, m) => s + TYPES_MVT[m.type].signe * m.montant, 0);
-  const totalCalcule = totalFormations + totalMouvements;
-  const total = totalOverride ?? totalCalcule;
-
-  const handleAjout = (data) => setMouvements((list) => [...list, { id: Date.now(), ...data }]);
-  const handleTotalChange = (e) => {
-    const raw = e.target.value;
-    if (raw === '') { setTotalOverride(null); return; }
-    const v = Number(raw);
-    if (!Number.isNaN(v)) setTotalOverride(v);
-  };
-  const resetTotal = () => setTotalOverride(null);
-  const handleValider = () => {
-    // TODO API: POST /salaires/professeurs/:id/valider { periode, montant: total }
-    setValide(true);
-  };
-  const handleEnvoyer = () => {
-    // TODO API: POST /salaires/professeurs/:id/envoyer { periode }
-    setEnvoye(true);
-  };
-
+const { formations, mouvements, charges, total, totalCalcule, totalOverride, paye, valide, envoye } = data;
   return (
     <div className="space-y-4">
       <div className="relative flex items-center justify-center gap-3">
@@ -374,25 +428,23 @@ export const BilanMensuel = ({ formations, professeur }) => {
       <div className={`${CARD} p-5`}>
         <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-3"><DollarSign size={15} className="text-[#0369A1]" /> Salaire final — {label}</p>
 
-        {/* Détail par formation : règle de calcul + coût de la formation */}
         <div className="space-y-1.5 mb-3">
           {formations.map((f) => (
             <div key={f.nom} className="flex items-start justify-between gap-2 bg-[#F8FAFC] border border-[#F1F5F9] rounded-md px-2.5 py-2 text-xs">
               <div className="min-w-0">
                 <p className="font-medium text-slate-700 truncate">{f.nom}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">{reglelabel(f, seances[f.nom], pct[f.nom])}</p>
-                {f.typeSalaire === 'Pourcentage' && (
-                  <p className="flex items-center gap-1 text-[10px] text-amber-600 mt-0.5">
-                    <Receipt size={10} /> Coût formation : {fmt(coutFormation(pct[f.nom]))}
-                  </p>
-                )}
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {f.typeSalaire === 'Fixe' && `Forfait fixe de ${fmt(Number(f.montant))} / mois.`}
+                  {f.typeSalaire === "À l'heure" && `${f.nbSeances || 0} heure(s) × ${fmt(Number(f.montant))}.`}
+                  {f.typeSalaire === 'Pourcentage' && `${f.revenusOverride !== null ? fmt(f.revenusOverride) : 'Revenus non renseignés'} − charges, puis ${f.part}% pour le professeur.`}
+                  {!f.typeSalaire && 'Rémunération non configurée.'}
+                </p>
               </div>
-              <span className="font-semibold text-slate-700 shrink-0">{fmt(montantFormation(f))}</span>
+              <span className="font-semibold text-slate-700 shrink-0">{fmt(f.montantPeriode)}</span>
             </div>
           ))}
         </div>
 
-        {/* Détail des mouvements : avances, retenues, primes, particuliers */}
         {mouvements.length > 0 && (
           <div className="space-y-1.5 mb-3">
             {mouvements.map((m) => (
@@ -402,12 +454,9 @@ export const BilanMensuel = ({ formations, professeur }) => {
                     {TYPES_MVT[m.type].label}
                   </span>
                   <span className="text-slate-600 truncate">{m.description}</span>
-                  {(m.bons?.length ?? 0) > 0 && (
-                    <span className="flex items-center gap-0.5 text-[10px] text-[#0369A1] shrink-0"><ImageIcon size={10} /> {m.bons.length}</span>
-                  )}
                 </div>
                 <span className={`font-semibold shrink-0 ${TYPES_MVT[m.type].signe > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {TYPES_MVT[m.type].signe > 0 && '+'}{fmt(TYPES_MVT[m.type].signe * m.montant)}
+                  {TYPES_MVT[m.type].signe > 0 && '+'}{fmt(TYPES_MVT[m.type].signe * Number(m.montant))}
                 </span>
               </div>
             ))}
@@ -422,12 +471,18 @@ export const BilanMensuel = ({ formations, professeur }) => {
             )}
           </span>
           <span className="flex items-center gap-1">
-            <input type="number" value={total} onChange={handleTotalChange} className="w-28 text-right text-lg font-bold text-slate-800 bg-transparent border border-transparent rounded-md px-1.5 py-0.5 hover:border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/30" />
+            <input
+              type="number"
+              value={totalDraft !== '' ? totalDraft : total}
+              onChange={(e) => setTotalDraft(e.target.value)}
+              onBlur={handleTotalBlur}
+              className="w-28 text-right text-lg font-bold text-slate-800 bg-transparent border border-transparent rounded-md px-1.5 py-0.5 hover:border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/30"
+            />
             <span className="text-lg font-bold text-slate-800">DA</span>
           </span>
         </div>
-        {totalOverride !== null && <p className="text-[10px] text-slate-400 text-right mt-1">(calcul auto: {fmt(totalCalcule)})</p>}
-        <div className="flex justify-between text-xs text-slate-400 mt-2"><span>Déjà payé</span><span>{fmt(paye)}</span></div>
+{totalOverride !== null && <p className="text-[10px] text-slate-400 text-right mt-1">(calcul auto: {fmt(totalCalcule)})</p>}
+ <div className="flex justify-between text-xs text-slate-400 mt-2"><span>Déjà payé</span><span>{fmt(paye)}</span></div>
 
         <div className="flex gap-2 mt-4">
           <button onClick={handleValider} disabled={valide}
@@ -458,10 +513,10 @@ export const BilanMensuel = ({ formations, professeur }) => {
             </thead>
             <tbody>
               {formations.map((f, i) => (
-                <tr key={f.nom} onClick={() => setModalFormation(f)} className={`cursor-pointer hover:bg-slate-50/60 transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
+                <tr key={f.nom} onClick={() => f.typeSalaire && setModalFormation(f)} className={`${f.typeSalaire ? 'cursor-pointer hover:bg-slate-50/60' : ''} transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                   <td className="px-3 py-2 text-slate-700 font-medium border-b border-l border-slate-100">{f.nom}</td>
-                  <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{f.typeSalaire}</td>
-                  <td className="px-3 py-2 text-right font-medium text-slate-700 border-b border-r border-slate-100">{fmt(montantFormation(f))}</td>
+                  <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{f.typeSalaire || 'Non défini'}</td>
+                  <td className="px-3 py-2 text-right font-medium text-slate-700 border-b border-r border-slate-100">{fmt(f.montantPeriode)}</td>
                 </tr>
               ))}
             </tbody>
@@ -477,8 +532,8 @@ export const BilanMensuel = ({ formations, professeur }) => {
           </div>
           <table className="w-full text-xs">
             <thead className="bg-[#0F2A4A]">
-              <tr>{['Type', 'Description', 'Bons', 'Montant'].map((h, i, arr) => (
-                <th key={h} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] ${i === 0 ? 'border-l' : ''} ${i === arr.length - 1 ? 'text-right border-r' : ''}`}>{h}</th>
+              <tr>{['Type', 'Description', 'Montant', ''].map((h, i, arr) => (
+                <th key={h} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] ${i === 0 ? 'border-l' : ''} ${i === arr.length - 1 ? 'border-r' : ''}`}>{h}</th>
               ))}</tr>
             </thead>
             <tbody>
@@ -488,12 +543,10 @@ export const BilanMensuel = ({ formations, professeur }) => {
                 <tr key={m.id} className={i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}>
                   <td className="px-3 py-2 text-slate-500 border-b border-l border-slate-100">{TYPES_MVT[m.type].label}</td>
                   <td className="px-3 py-2 text-slate-600 border-b border-slate-100">{m.description}</td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap border-b border-slate-100">
-                    {(m.bons?.length ?? 0) === 0 ? <span className="text-slate-300">—</span> : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#DCEBFA] text-[#0369A1]"><ImageIcon size={11} /> {m.bons.length}</span>
-                    )}
+                  <td className={`px-3 py-2 text-right font-medium border-b border-slate-100 ${TYPES_MVT[m.type].signe > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{TYPES_MVT[m.type].signe > 0 && '+'}{fmt(TYPES_MVT[m.type].signe * Number(m.montant))}</td>
+                  <td className="px-3 py-2 text-right border-b border-r border-slate-100">
+                    <button onClick={() => handleDeleteMouvement(m.id)} className="text-slate-300 hover:text-red-500"><X size={12} /></button>
                   </td>
-                  <td className={`px-3 py-2 text-right font-medium border-b border-r border-slate-100 ${TYPES_MVT[m.type].signe > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{TYPES_MVT[m.type].signe > 0 && '+'}{fmt(TYPES_MVT[m.type].signe * m.montant)}</td>
                 </tr>
               ))}
             </tbody>
@@ -505,10 +558,9 @@ export const BilanMensuel = ({ formations, professeur }) => {
 
       {modalFormation && (
         <FormationModal
-          f={modalFormation} professeur={professeur}
-          seances={seances[modalFormation.nom]} onChangeSeances={(v) => setSeances((s) => ({ ...s, [modalFormation.nom]: v }))}
-          pctState={pct[modalFormation.nom]} onChangePct={(patch) => updatePct(modalFormation.nom, patch)} onToggleCharge={(id) => toggleCharge(modalFormation.nom, id)}
-          montant={montantFormation(modalFormation)} onClose={() => setModalFormation(null)}
+          f={modalFormation} professeur={professeur} charges={charges}
+          onClose={() => setModalFormation(null)}
+          onSave={(patch) => saveFormation(modalFormation.id, patch)}
         />
       )}
     </div>
