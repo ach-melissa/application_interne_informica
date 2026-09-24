@@ -41,6 +41,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
   const [justPrinted, setJustPrinted] = useState(new Set());
   const [civilites, setCivilites] = useState({});
   const [ref, setRef] = useState('');
+  const [formationNomEdit, setFormationNomEdit] = useState('');
   const [templateUrl, setTemplateUrl] = useState(null);
   const [uploadingTemplate, setUploadingTemplate] = useState(false);
   const [refs, setRefs] = useState({}); // local state for attestation_ref shown per row
@@ -61,21 +62,24 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     fetchPayments();
   }, [groupId]);
 
-  useEffect(() => {
-    const fetchTemplate = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/template/${formationId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (res.ok) setTemplateUrl(data.template_attestation_url);
-      } catch (err) {
-        console.error(err);
+useEffect(() => {
+  setTemplateUrl(null); // reset immediately so we don't show a stale link from the previous formation
+  const fetchTemplate = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/template/${formationId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.template_attestation_url) {
+        setTemplateUrl(`${data.template_attestation_url}?t=${Date.now()}`);
       }
-    };
-    fetchTemplate();
-  }, [formationId]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  fetchTemplate();
+}, [formationId]);
 
   useEffect(() => {
     // seed local refs state from what's already saved on each inscription
@@ -93,13 +97,17 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
       const formData = new FormData();
       formData.append('template', file);
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/template/${formationId}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erreur upload');
-      setTemplateUrl(data.template_attestation_url);
+  method: 'POST',
+  headers: { Authorization: `Bearer ${token}` },
+  body: formData,
+});
+if (!res.ok) {
+  let msg = 'Erreur upload';
+  try { const data = await res.json(); msg = data.error || msg; } catch {}
+  throw new Error(msg);
+}
+const data = await res.json();
+     setTemplateUrl(`${data.template_attestation_url}?t=${Date.now()}`);
     } catch (err) {
       alert(err.message);
     } finally {
@@ -131,11 +139,23 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
     );
   };
 
-  const handlePrintClick = () => {
-    if (selectedIds.size === 0) return;
+const handlePrintClick = async () => {
+  if (selectedIds.size === 0) return;
+  setFormationNomEdit(formationNom || '');
+
+  const token = localStorage.getItem('token');
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/next-ref/${formationId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    setRef(res.ok ? (data.next_ref || '') : '');
+  } catch {
     setRef('');
-    setShowPrintModal(true);
-  };
+  }
+
+  setShowPrintModal(true);
+};
 
   const handleDownload = async () => {
     const idsArray = Array.from(selectedIds);
@@ -157,7 +177,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/attestations/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ids: idsArray, periode, dateSignature, civilites, refs: generatedRefs }),
+        body: JSON.stringify({ ids: idsArray, periode, dateSignature, civilites, refs: generatedRefs, formationNom: formationNomEdit }),
       });
       if (!res.ok) throw new Error('Erreur génération');
 
@@ -232,7 +252,7 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
         </div>
         <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-100 cursor-pointer transition">
           <Upload size={12} /> {uploadingTemplate ? 'Envoi...' : templateUrl ? 'Remplacer le modèle' : 'Uploader un modèle'}
-          <input type="file" accept=".docx" className="hidden" onChange={handleTemplateUpload} disabled={uploadingTemplate} />
+          <input type="file" accept=".docx" className="hidden" onChange={handleTemplateUpload} disabled={uploadingTemplate} value="" />
         </label>
       </div>
 
@@ -367,12 +387,24 @@ const AttestationsTab = ({ etudiants, formationId, formationNom, groupId }) => {
 
             <div className="sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
               <div className="flex items-center justify-between px-5 py-4">
-                <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
-                    <Printer size={14} className="text-white" />
-                  </span>
-                  Informations de l'attestation
-                </h2>
+               <div>
+  <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
+    <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0">
+      <Printer size={14} className="text-white" />
+    </span>
+    Informations de l'attestation
+  </h2>
+<div className="ml-10 mt-2">
+  <Label icon={GraduationCap} text="Nom de la formation (sur l'attestation)" />
+  <input
+    type="text"
+    value={formationNomEdit}
+    onChange={(e) => setFormationNomEdit(e.target.value)}
+    placeholder="Bureautique"
+    className={inp}
+  />
+</div>
+</div>
                 <button onClick={() => setShowPrintModal(false)} className="text-slate-300 hover:text-slate-600">
                   <X size={16} />
                 </button>
