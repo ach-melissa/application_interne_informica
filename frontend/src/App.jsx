@@ -31,6 +31,7 @@ import DashboardProf from './pages/prof/dashboard/DashboardProf';
 import MesDemandesSalles from './pages/prof/demandesSalles/MesDemandesSalles';
 import DetailMaDemande from './pages/prof/demandesSalles/DetailMaDemande';
 import EmploiDuTemps from './pages/prof/EmploiDuTemps';
+import MesSalaires from './pages/prof/salaires/MesSalaires';
 import ProfLayout from './layouts/ProfLayout';
 
 import ProfFormations from './pages/prof/formations/ProfFormations';
@@ -49,8 +50,6 @@ import SalairesEmployes from './pages/comptable/salaires/SalairesEmployes';
 import SalairesProfesseurs from './pages/comptable/salaires/SalairesProfesseurs';
 import DetailEmploye from './pages/comptable/salaires/DetailEmploye';
 import DetailProfesseur from './pages/comptable/salaires/DetailProfesseur';
-// ── Super admin ── 
-import SuperAdminDashboard from "./pages/superadmin/dashboard/SuperAdminDashboard";
 
 // ── Page partagée (nouvelle) ───────────────────────────────
 import Profile from './pages/shared/profile/Profile';
@@ -206,6 +205,13 @@ function App() {
     </ProfLayout>
   </PrivateRoute>
 } />
+<Route path="/prof/mes-salaires" element={
+  <PrivateRoute allowedRoles={['prof']}>
+    <ProfLayout>
+      <MesSalaires />
+    </ProfLayout>
+  </PrivateRoute>
+} />
 <Route path="/admin/emplois" element={
   <PrivateRoute allowedRoles={['admin']}>
     <EmploisEcole />
@@ -277,13 +283,6 @@ function App() {
 <Route path="/comptable/salaires/professeurs/:id" element={
   <PrivateRoute allowedRoles={['comptable']}>
     <DetailProfesseur />
-  </PrivateRoute>
-} />
-
-{/* ── Super admin ── */}
-<Route path="/superadmin" element={
-  <PrivateRoute allowedRoles={['super_admin']}>
-    <SuperAdminDashboard />
   </PrivateRoute>
 } />
 

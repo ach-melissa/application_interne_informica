@@ -17,8 +17,8 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// NOUVEAU — comme verifyToken mais ne bloque jamais.
-// Utile pour une route accessible aux admins connectés ET au public.
+// comme verifyToken mais ne bloque jamais — utile pour une route accessible
+// aux admins connectés ET au public.
 const verifyTokenOptional = (req, res, next) => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.split(' ')[1];
@@ -36,13 +36,17 @@ const verifyTokenOptional = (req, res, next) => {
   next();
 };
 
-// Vérifie que le rôle du user fait partie des rôles autorisés
+// Vérifie que le rôle du user fait partie des rôles autorisés.
+// super_admin passe toujours, même s'il n'est pas explicitement listé.
 const requireRole = (...allowedRoles) => {
   return (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
+    if (!req.user) {
       return res.status(403).json({ message: 'Accès refusé' });
     }
-    next();
+    if (req.user.role === 'super_admin' || allowedRoles.includes(req.user.role)) {
+      return next();
+    }
+    return res.status(403).json({ message: 'Accès refusé' });
   };
 };
 

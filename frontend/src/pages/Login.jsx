@@ -40,7 +40,7 @@ const passwordRef = useRef(null);
 if (data.user.role === 'admin') navigate('/admin');
 else if (data.user.role === 'prof') navigate('/prof');
 else if (data.user.role === 'comptable') navigate('/comptable/statistique');
-else if (data.user.role === 'super_admin') navigate('/superadmin');
+else if (data.user.role === 'super_admin') navigate('/admin');
 else setError('Rôle non reconnu, contactez un administrateur');
     } catch (err) {
   setError(err.message || 'Une erreur est survenue, veuillez réessayer');
