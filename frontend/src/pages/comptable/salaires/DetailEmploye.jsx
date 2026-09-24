@@ -19,24 +19,38 @@ const mouvementFromApi = (m) => ({ ...m, posteId: m.poste_id, montant: Number(m.
 
 const JOURS_INDEX = { dimanche: 0, lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6 };
 const STATUT_HISTO = { paye: { label: 'Payé', cls: 'bg-emerald-50 text-emerald-600' }, partiel: { label: 'Partiel', cls: 'bg-amber-50 text-amber-600' }, non_paye: { label: 'Non payé', cls: 'bg-red-50 text-red-500' } };
+
+// null = poste pas encore commencé ce mois-là ; sinon jour de départ (1 = mois complet)
+const jourDebutDansMois = (p, periode) => {
+  if (!p.dateDebut) return 1;
+  const [y, m, d] = String(p.dateDebut).slice(0, 10).split('-').map(Number);
+  const py = periode.getFullYear(), pm = periode.getMonth() + 1;
+  if (y > py || (y === py && m > pm)) return null;
+  if (y === py && m === pm) return d;
+  return 1;
+};
 // Compte le nombre RÉEL de jours (ex: jeudis/vendredis/samedis) dans le mois de `periode`
 const joursPrevusPosteMois = (p, periode) => {
-  if (p.type === 'mensuel' || p.type === 'libre') return null; // non pertinent (forfait fixe ou montant libre)
+  if (p.type === 'mensuel' || p.type === 'libre') return null; 
+    const debut = jourDebutDansMois(p, periode);
+  if (debut === null) return 0;
   const year = periode.getFullYear(), month = periode.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   if (p.joursFixes) {
     const cibles = p.jours.map(j => JOURS_INDEX[j]);
     let count = 0;
-    for (let d = 1; d <= daysInMonth; d++) {
+    
+        for (let d = debut; d <= daysInMonth; d++) {
       if (cibles.includes(new Date(year, month, d).getDay())) count++;
     }
     return count;
   }
   // pas de jours fixes: estimation via nb jours/semaine × semaines réelles du mois
-  return Math.round(joursParSemaine(p) * (daysInMonth / 7));
+    return Math.round(joursParSemaine(p) * ((daysInMonth - debut + 1) / 7));
 };
 
 const montantPosteMois = (p, periode) => {
+    if (jourDebutDansMois(p, periode) === null) return 0;
   if (p.type === 'mensuel') return Number(p.montant);
   if (p.type === 'libre') return 0; // saisi manuellement chaque mois via le salaire net estimé
   const nbJ = joursPrevusPosteMois(p, periode);
@@ -44,6 +58,7 @@ const montantPosteMois = (p, periode) => {
 };
 
 const calculLabel = (p, periode) => {
+    if (jourDebutDansMois(p, periode) === null) return `Ce poste n'a pas encore commencé en ${periode.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}.`;
    if (p.type === 'mensuel') return `Forfait fixe de ${fmt(p.montant)} par mois.`;
   if (p.type === 'libre') return 'Montant non fixe : à saisir chaque mois dans le salaire net estimé.';
   const nbJ = joursPrevusPosteMois(p, periode);
@@ -55,6 +70,7 @@ const calculLabel = (p, periode) => {
 
 // Terme brut d'un poste dans la formule (ex: "4×1500" ou "4×8×600")
 const formuleTermePoste = (p, periode) => {
+    if (jourDebutDansMois(p, periode) === null) return '0';
   if (p.type === 'mensuel') return `${Number(p.montant)}`;
   const nbJ = joursPrevusPosteMois(p, periode);
   return p.type === 'jour' ? `${nbJ}×${Number(p.montant)}` : `${nbJ}×${p.heuresParJour}×${Number(p.montant)}`;
@@ -111,6 +127,11 @@ const [showPicker, setShowPicker] = useState(false);
       .finally(() => { if (!cancelled) setLoadingMouvements(false); });
     return () => { cancelled = true; };
   }, [employe, periode]);
+const dateForPeriode = (periode) => {
+  const now = new Date();
+  const d = periode.getFullYear() === now.getFullYear() && periode.getMonth() === now.getMonth() ? now : periode;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
   const [salaireOverride, setSalaireOverride] = useState(null); // null = valeur auto-calculée
   const [showFormule, setShowFormule] = useState(true);
@@ -177,12 +198,13 @@ useEffect(() => {
 
   const posteNom = (posteId) => employe.postes.find(p => p.id === posteId)?.poste || 'Général';
   const base = employe.postes.reduce((s, p) => s + montantPosteMois(p, periode), 0);
-  const joursPrevus = employe.postes.reduce((s, p) => s + (joursPrevusPosteMois(p, periode) || 0), 0) || 22; // 22 = fallback pour postes mensuels uniquement
-  const avances = mouvements.filter(m => m.type === 'avance').reduce((s, m) => s + m.montant, 0);
+const joursPrevus = employe.postes.reduce((s, p) => s + (joursPrevusPosteMois(p, periode) || 0), 0);
+const avances = mouvements.filter(m => m.type === 'avance').reduce((s, m) => s + m.montant, 0);
   const retenues = mouvements.filter(m => m.type === 'retenue').reduce((s, m) => s + m.montant, 0);
   const primes = mouvements.filter(m => m.type === 'prime').reduce((s, m) => s + m.montant, 0);
     const netCalcule = base + avances + retenues + primes;
   const net = salaireOverride ?? netCalcule;
+    const overrideActif = salaireOverride !== null && Number(salaireOverride) !== netCalcule;
   const paye = salaireMensuel?.montant_paye ?? 0;
   const restant = net - paye;
   const statutMois = salaireMensuel?.statut ?? (paye <= 0 ? 'non_paye' : paye < net ? 'partiel' : 'paye');
@@ -217,7 +239,7 @@ useEffect(() => {
     const payload = {
       employe_id: employe.id,
       poste_id: form.posteId || null,
-      date: editingId ? mouvements.find(m => m.id === editingId).date : new Date().toISOString().slice(0, 10),
+date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode(periode),
       type: form.type,
       description: form.description,
       montant: signe * Number(form.montant),
@@ -347,7 +369,9 @@ useEffect(() => {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || 'Erreur lors de la validation du salaire');
       }
-      setSalaireMensuel(await res.json());
+            const saved = await res.json();
+      setSalaireMensuel(saved);
+      setSalaireOverride(saved.montant_net);
     } catch (err) {
       setSalaireError(err.message);
     } finally {
@@ -474,7 +498,7 @@ useEffect(() => {
           </div>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3 mb-4">
-  <StatTile icon={CalendarDays} label="Jours prévus" value={joursPrevus} color="blue" />
+  {joursPrevus > 0 && <StatTile icon={CalendarDays} label="Jours prévus" value={joursPrevus} color="blue" />}
   <StatTile icon={Wallet} label="Reste à payer" value={fmt(restant)} color="amber" />
 </div>
 
@@ -504,7 +528,7 @@ useEffect(() => {
                 <button onClick={() => setShowFormule(v => !v)} className="text-slate-300 hover:text-[#0369A1]">
                   <Info size={11} />
                 </button>
-                {salaireOverride !== null && (
+                {overrideActif && (
                   <button onClick={resetSalaire} title="Réinitialiser au calcul automatique" className="text-slate-300 hover:text-amber-500">
                     <RotateCcw size={11} />
                   </button>
@@ -524,7 +548,7 @@ useEffect(() => {
               <p className="text-[10px] text-[#0369A1] bg-[#F0F7FE] rounded-md px-2 py-1 mt-1 text-right">
                 {formuleSalaire(employe, periode, avances, retenues, primes)} = {fmt(netCalcule)}  </p>
             )}
-            {salaireOverride !== null && (
+            {overrideActif && (
               <p className="text-[10px] text-slate-400 text-right -mt-0.5 mt-1">(calcul auto: {fmt(netCalcule)})</p>
             )}
             <div className="flex justify-between text-xs text-slate-400 mt-2"><span>Déjà payé</span><span>{fmt(paye)}</span></div>
@@ -581,7 +605,7 @@ useEffect(() => {
                 ))}
                 <tr className="bg-slate-50 font-semibold">
                   <td colSpan={multiPostes ? 5 : 4} className="px-3 py-2 text-slate-700 border-b border-l border-slate-100">Salaire du mois</td>
-                  <td className="px-3 py-2 text-right text-emerald-600 border-b border-r border-slate-100">{fmt(base)}</td>
+                  <td className="px-3 py-2 text-right text-emerald-600 border-b border-r border-slate-100">{fmt(net)}</td>
                 </tr>
               </tbody>
             </table>

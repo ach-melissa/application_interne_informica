@@ -3,22 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Wallet, Pencil, Phone, Users2, Calendar, ChevronRight, ChevronDown, X } from 'lucide-react';
 
 import ComptableLayout from '../../../layouts/ComptableLayout';
-import EmployeModal, { StatTile, JOURS, TYPES, typeOf, nomComplet, tarifLabel, totalEmploye, fmt, initiales, formatDate, joursParSemaine, cap, posteFromApi, posteToApi, employeFromApi } from './EmployeModal';
+import EmployeModal, { StatTile, TYPES, typeOf, nomComplet, tarifLabel, totalEmploye, fmt, initiales, formatDate, joursParSemaine, cap, posteToApi, employeFromApi } from './EmployeModal';
 const BASE_PATH = '/comptable/salaires/employes';
 const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
-const mkPoste = (id, poste, type, montant, extra = {}) => ({ id, poste, type, montant, joursFixes: true, jours: JOURS.slice(0, 5), nbJours: 5, heuresParJour: 8, dateDebut: '2024-01-01', ...extra });
 
-// NOTE: gardé pour l'instant uniquement comme fallback dans DetailEmploye.jsx
-// (pas encore branché sur l'API) — à supprimer une fois cette page migrée aussi.
-export const EMPLOYES_INITIAL = [
-  { id: 1, nom: 'Bekkar', prenom: 'Salima', telephone: '0555 12 34 56', statut: 'payé', postes: [mkPoste(101, 'Secrétaire', 'mensuel', 120000, { dateDebut: '2024-09-01' })] },
-  { id: 2, nom: 'Meziane', prenom: 'Yacine', telephone: '0661 45 78 90', statut: 'en_attente', postes: [
-    mkPoste(201, "Agent d'entretien", 'mensuel', 65000, { dateDebut: '2023-01-15' }),
-    mkPoste(202, 'Gardien de nuit', 'jour', 1500, { jours: ['jeudi', 'vendredi', 'samedi'], heuresParJour: 10, dateDebut: '2024-06-01' }),
-  ] },
-  { id: 3, nom: 'Belkacem', prenom: 'Omar', telephone: '0770 23 45 67', statut: 'payé', postes: [mkPoste(301, 'Technicien informatique', 'heure', 600, { joursFixes: false, nbJours: 3, heuresParJour: 4, dateDebut: '2025-03-01' })] },
-  { id: 4, nom: 'Cherif', prenom: 'Nadia', telephone: '0550 98 76 54', statut: 'en_attente', postes: [mkPoste(401, 'Commercial', 'jour', 2000, { dateDebut: '2024-11-01' })] },
-];
 
 const EmployeCard = ({ employe, onOpen, onEdit }) => (
   <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition flex flex-col h-full">

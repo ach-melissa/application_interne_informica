@@ -78,10 +78,6 @@ const AjoutMouvementModal = ({
               <Label icon={Wallet} text="Montant (DA)" required />
               <input type="number" value={form.montant} onChange={(e) => setForm((f) => ({ ...f, montant: e.target.value }))} className={inp} />
             </div>
-
-            {/* Bons (photos) — mock only pour l'instant. TODO API: brancher upload/delete réels
-                comme uploadBon()/doDeleteBon() dans ChargesBase.jsx, sur des endpoints du style
-                POST /api/comptable/salaires/mouvements/:id/bons et DELETE /.../bons/:bonId */}
             <div>
               <Label icon={ImageIcon} text="Bons (photos)" />
               <div className="flex flex-wrap gap-2">
