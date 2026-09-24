@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Wallet, Tag, Users2, Calendar, Clock, Percent, ChevronRight, ChevronDown, X, GraduationCap, Plus, Phone } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Search, Wallet, Tag, Users2,  Calendar, Clock, Percent, ChevronLeft, ChevronRight, ChevronDown, X, GraduationCap, Plus, Phone } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
 
 export const API = import.meta.env.VITE_API_URL;
@@ -10,13 +10,21 @@ export const getHeaders = () => ({
 });
 
 // GET /api/salaires-professeurs (current month by default; optional ?mois=&annee=)
-export const fetchProfesseurs = async () => {
-  const res = await fetch(`${API}/api/salaires-professeurs`, { headers: getHeaders() });
+export const fetchProfesseurs = async (mois, annee) => {
+  const qs = mois && annee ? `?mois=${mois}&annee=${annee}` : '';
+  const res = await fetch(`${API}/api/salaires-professeurs${qs}`, { headers: getHeaders() });
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new Error(data?.error || 'Erreur serveur');
   return data;
 };
-
+// GET /api/salaires-professeurs/:id (un seul professeur, même forme que dans la liste)
+export const fetchProfesseur = async (id, mois, annee) => {
+  const qs = mois && annee ? `?mois=${mois}&annee=${annee}` : '';
+  const res = await fetch(`${API}/api/salaires-professeurs/${id}${qs}`, { headers: getHeaders() });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || 'Erreur serveur');
+  return data;
+};
 /* ------------------------------------------------------------------ */
 /*  Helpers (exportés : utilisés aussi par DetailProfesseur)           */
 /* ------------------------------------------------------------------ */
@@ -26,6 +34,7 @@ export const TYPES_SALAIRE = ['Fixe', "À l'heure", 'Pourcentage'];
 const STATUT_STYLES = {
   payé: 'bg-emerald-50 text-emerald-600',
   en_attente: 'bg-amber-50 text-amber-600',
+  partiel: 'bg-sky-50 text-sky-600',
   à_saisir: 'bg-slate-100 text-slate-500',
 };
 
@@ -85,7 +94,7 @@ const BASE_PATH = '/comptable/salaires/professeurs';
 // Un professeur donne une ou plusieurs formations ; CHAQUE formation a son propre
 // mode de paiement (typeSalaire) et montant. typeSalaire === null → non défini.
 // Les données viennent de l'API (plus de données mock).
-export const totalProfesseur = (p) => p.formations.reduce((s, f) => s + f.montantPeriode, 0);
+export const totalProfesseur = (p) => p.total ?? p.formations.reduce((s, f) => s + f.montantPeriode, 0);
 /* ------------------------------------------------------------------ */
 /*  Une carte = un professeur                                          */
 /* ------------------------------------------------------------------ */
@@ -150,15 +159,29 @@ const SalairesProfesseurs = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchProfesseurs()
-      .then(setProfesseurs)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [periode, setPeriode] = useState(() => {
+    const d = new Date();
+    return { mois: Number(searchParams.get('mois')) || d.getMonth() + 1, annee: Number(searchParams.get('annee')) || d.getFullYear() };
+  });
+  const label = new Date(periode.annee, periode.mois - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  const changerMois = (delta) => {
+    const d = new Date(periode.annee, periode.mois - 1 + delta, 1);
+    const next = { mois: d.getMonth() + 1, annee: d.getFullYear() };
+    setPeriode(next);
+    setSearchParams({ mois: String(next.mois), annee: String(next.annee) }, { replace: true });
+  };
 
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
+  useEffect(() => {
+    let ignore = false;
+    setLoading(true);
+    setError('');
+    fetchProfesseurs(periode.mois, periode.annee)
+      .then((data) => { if (!ignore) setProfesseurs(data); })
+      .catch((err) => { if (!ignore) setError(err.message); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, [periode]);
   const [search, setSearch] = useState('');
   const [typeFiltre, setTypeFiltre] = useState('');
 
@@ -168,13 +191,12 @@ const SalairesProfesseurs = () => {
   );
 
   const totalSalaires = filtered.reduce((s, p) => s + totalProfesseur(p), 0);
-  const salairesPayes = filtered.filter((p) => p.statut === 'payé').reduce((s, p) => s + totalProfesseur(p), 0);
+  const salairesPayes = filtered.reduce((s, p) => s + (Number(p.paye) || 0), 0);
   const salairesRestants = totalSalaires - salairesPayes;
 
-  const openDetail = (professeur) => navigate(`${BASE_PATH}/${professeur.id}`, { state: { professeur, professeurs: filtered } });
-  const hasFilters = search || typeFiltre || dateDebut || dateFin;
-  const clearFilters = () => { setSearch(''); setTypeFiltre(''); setDateDebut(''); setDateFin(''); };
-
+const openDetail = (professeur) => navigate(`${BASE_PATH}/${professeur.id}?mois=${periode.mois}&annee=${periode.annee}`, { state: { professeur, professeurs: filtered } });
+const hasFilters = search || typeFiltre;
+const clearFilters = () => { setSearch(''); setTypeFiltre(''); };
   return (
     <ComptableLayout>
       <div className="flex items-center justify-between mb-4">
@@ -212,11 +234,10 @@ const SalairesProfesseurs = () => {
           {typeFiltre ? <button onClick={() => setTypeFiltre('')} className="absolute right-2 text-slate-300 hover:text-red-400"><X size={11} /></button> : <ChevronDown size={11} className="absolute right-2 text-slate-400 pointer-events-none" />}
         </div>
 
-        <div className="flex items-center gap-1.5 bg-white rounded-full px-3 py-1 border border-[#E2E8F0]">
-          <Calendar size={12} className="text-[#0369A1] flex-shrink-0" />
-          <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className={`text-xs bg-transparent focus:outline-none transition ${dateDebut ? 'text-[#0369A1] font-medium' : 'text-slate-400'}`} />
-          <span className="text-[#0369A1]/40 text-[10px] font-bold px-0.5">–</span>
-          <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className={`text-xs bg-transparent focus:outline-none transition ${dateFin ? 'text-[#0369A1] font-medium' : 'text-slate-400'}`} />
+        <div className="flex items-center gap-1 bg-white rounded-full px-1.5 py-1 border border-[#E2E8F0]">
+          <button onClick={() => changerMois(-1)} className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-slate-50"><ChevronLeft size={13} className="text-[#0369A1]" /></button>
+          <span className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1] capitalize px-1"><Calendar size={12} /> {label}</span>
+          <button onClick={() => changerMois(1)} className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-slate-50"><ChevronRight size={13} className="text-[#0369A1]" /></button>
         </div>
 
         {hasFilters && <button onClick={clearFilters} className="ml-auto flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"><X size={11} /> Tout effacer</button>}

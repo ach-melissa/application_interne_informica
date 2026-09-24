@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Wallet, Tag, Percent, X, Check, Clock } from 'lucide-react';
+import { Wallet, Tag, Percent, X, Check} from 'lucide-react';
 import { typeIcon } from './SalairesProfesseurs';
 
 const TYPES_REM = ['Fixe', "À l'heure", 'Pourcentage'];
@@ -16,8 +16,8 @@ const Label = ({ icon: Icon, text, required }) => (
 export const montantLabel = (f) => {
   if (f.typeSalaire === 'Fixe') return `${f.montant} DA / mois`;
   if (f.typeSalaire === 'Pourcentage') return `${f.montant} %`;
-  if (f.typeSalaire === "À l'heure") return `${f.heures || 0}h → ${f.montant} DA/h`;
-  return '—';
+if (f.typeSalaire === "À l'heure") return `${f.montant} DA / h`;
+ return '—';
 };
 
 /* ------------------------------------------------------------------ */
@@ -26,7 +26,6 @@ export const montantLabel = (f) => {
 const EditFormationModal = ({ formation, onClose, onSave }) => {
   const [typeSalaire, setTypeSalaire] = useState(formation.typeSalaire || "À l'heure");
   const [montant, setMontant] = useState(formation.montant || '');
-  const [heures, setHeures] = useState(formation.heures || '');
   const [error, setError] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -40,9 +39,8 @@ const EditFormationModal = ({ formation, onClose, onSave }) => {
       if (!(Number(montant) > 0 && Number(montant) <= 100)) return setError('Le pourcentage doit être entre 1 et 100.');
       payload = { typeSalaire, montant: Number(montant), heures: 0 };
     } else {
-      if (!(Number(heures) > 0)) return setError("Renseignez le nombre d'heures.");
-      if (!(Number(montant) > 0)) return setError('Renseignez le tarif horaire.');
-      payload = { typeSalaire, montant: Number(montant), heures: Number(heures) };
+if (!(Number(montant) > 0)) return setError('Renseignez le tarif horaire.');
+      payload = { typeSalaire, montant: Number(montant), heures: 0 };
     }
 
     setSaving(true);
@@ -84,13 +82,6 @@ const EditFormationModal = ({ formation, onClose, onSave }) => {
             </select>
           </div>
 
-          {typeSalaire === "À l'heure" && (
-            <div>
-              <Label icon={Clock} text="Nombre d'heures" required />
-              <input type="number" min="0" value={heures} onChange={(e) => setHeures(e.target.value)} className={inp} placeholder="0" />
-            </div>
-          )}
-
           <div>
             <Label icon={typeSalaire === 'Pourcentage' ? Percent : Wallet} text={typeSalaire === 'Pourcentage' ? 'Pourcentage' : typeSalaire === 'Fixe' ? 'Montant fixe' : 'Tarif horaire'} required />
             <div className="flex min-w-0 rounded-md border border-slate-200 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#0369A1]/40">
@@ -126,7 +117,7 @@ const FormationsTab = ({ formations, onUpdate }) => {
       <table className="w-full text-xs">
         <thead className="bg-[#0F2A4A]">
           <tr>
-            {['Formation', 'Type de paiement', 'Heures / Tarif'].map((h, i, arr) => (
+            {['Formation', 'Type de paiement', 'Tarif'].map((h, i, arr) => (
               <th key={h} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] ${i === 0 ? 'border-l' : ''} ${i === arr.length - 1 ? 'text-right border-r' : ''}`}>{h}</th>
             ))}
           </tr>

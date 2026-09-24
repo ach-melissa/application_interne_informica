@@ -1,7 +1,7 @@
 const express = require('express');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware'); 
 const {
-  getProfesseurs, updateFormationRemuneration,
+  getProfesseurs, getProfesseur , updateFormationRemuneration,
   getBilan, upsertBilanFormationDetail, addMouvement, deleteMouvement,
   setTotalOverride, validerBilan, envoyerBilan,
 } = require('../controllers/salairesProfesseursController');
@@ -10,6 +10,7 @@ const router = express.Router();
 router.use(verifyToken, requireRole('comptable', 'admin', 'super_admin'));
 
 router.get('/', getProfesseurs);
+router.get('/:teacherId', getProfesseur);
 router.put('/:teacherId/formations/:formationId', updateFormationRemuneration);
 router.get('/:teacherId/bilan', getBilan);
 router.put('/:teacherId/bilan/formation/:formationId', upsertBilanFormationDetail);

@@ -56,6 +56,9 @@ const putTotal = (teacherId, payload) =>
 const postValider = (teacherId, payload) =>
   fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/valider`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
 
+const putPaye = (teacherId, payload) =>
+  fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/paye`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
+
 const postEnvoyer = (teacherId, payload) =>
   fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/envoyer`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
 
@@ -65,7 +68,7 @@ const postEnvoyer = (teacherId, payload) =>
 const AjoutMouvementModal = ({ formations, onClose, onSubmit }) => {
   const [type, setType] = useState('avance');
   const [source, setSource] = useState('existante');
-  const [formation, setFormation] = useState(formations[0]?.nom ?? '');
+  const [formation, setFormation] = useState(formations[0]?.id ?? '');
   const [description, setDescription] = useState('');
   const [montant, setMontant] = useState('');
   const [error, setError] = useState('');
@@ -75,13 +78,15 @@ const AjoutMouvementModal = ({ formations, onClose, onSubmit }) => {
   const fileInputRef = useRef(null);
 
   const submit = async () => {
-    const desc = type === 'particulier' && source === 'existante' ? formation : description;
+    const isFormationMvt = type === 'particulier' && source === 'existante';
+    const formationSel = isFormationMvt ? formations.find((f) => f.id === formation) : null;
+    const desc = isFormationMvt ? (formationSel?.nom ?? '') : description;
     if (!desc.trim()) return setError('Renseignez une description.');
     if (!(Number(montant) > 0)) return setError('Renseignez un montant.');
     setError('');
     setSaving(true);
     try {
-      await onSubmit({ type, description: desc, montant: Number(montant) });
+      await onSubmit({ type, description: desc, montant: Number(montant), formationId: formationSel?.id });
       onClose();
     } catch (err) {
       setError(err.message || "Le mouvement n'a pas pu être enregistré.");
@@ -136,7 +141,7 @@ const AjoutMouvementModal = ({ formations, onClose, onSubmit }) => {
                 <div>
                   <Label text="Choisir une formation" required />
                   <select value={formation} onChange={(e) => setFormation(e.target.value)} className={inp}>
-                    {formations.map((f) => <option key={f.nom} value={f.nom}>{f.nom}</option>)}
+                    {formations.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
                   </select>
                 </div>
               ) : (
@@ -264,7 +269,7 @@ const DetailPourcentage = ({ f, professeur, charges, state, onChange, onToggleCh
 /*  Modale formation — state local, "Enregistrer" envoie le patch      */
 /* ------------------------------------------------------------------ */
 const FormationModal = ({ f, professeur, charges, onClose, onSave }) => {
-  const [seances, setSeances] = useState(f.nbSeances || 0);
+const [seances, setSeances] = useState(String(f.heuresEffectuees ?? 0));
 const [pct, setPct] = useState({ part: f.part ?? (Number(f.montant) || 40), revenusOverride: f.revenusOverride ?? null, charges: f.charges ?? [] });
 const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -272,14 +277,21 @@ const [saving, setSaving] = useState(false);
   const toggleCharge = (id) => setPct((p) => ({ ...p, charges: p.charges.includes(id) ? p.charges.filter((c) => c !== id) : [...p.charges, id] }));
 
   const montant = f.typeSalaire === 'Fixe' ? Number(f.montant)
-    : f.typeSalaire === "À l'heure" ? seances * Number(f.montant)
+    : f.typeSalaire === "À l'heure" ? Math.round((Number(seances) || 0) * Number(f.montant))
     : Math.round(((pct.revenusOverride ?? 0) - charges.filter((c) => pct.charges.includes(c.id)).reduce((s, c) => s + Number(c.montant), 0)) * (pct.part / 100));
+
+    const resetAuto = async () => {
+  setSaving(true); setError('');
+  try { await onSave({ seances: null }); onClose(); }
+  catch (err) { setError(err.message || 'Erreur.'); }
+  finally { setSaving(false); }
+};
 
   const submit = async () => {
     setSaving(true);
     setError('');
     try {
-      if (f.typeSalaire === "À l'heure") await onSave({ seances });
+      if (f.typeSalaire === "À l'heure" && Number(seances) !== Number(f.heuresEffectuees)) await onSave({ seances: Number(seances) || 0 });
       else if (f.typeSalaire === 'Pourcentage') await onSave({ part: pct.part, revenusOverride: pct.revenusOverride, charges: pct.charges });
       onClose();
     } catch (err) {
@@ -306,11 +318,17 @@ const [saving, setSaving] = useState(false);
             <div className="text-xs space-y-1.5">
               <div className="flex items-center gap-2">
                 <CalendarDays size={13} className="text-[#0369A1]" />
-                <input type="number" min="0" value={seances} onChange={(e) => setSeances(Number(e.target.value) || 0)} className={`${inp} w-16 text-right`} />
-                <span className="text-slate-500">séance(s) faite(s)</span>
+               <input type="number" min="0" step="0.5" value={seances} onChange={(e) => setSeances(e.target.value)} className={`${inp} w-20 text-right`} />
+<span className="text-slate-500">heure(s) effectuée(s)</span>
               </div>
-              <p className="text-slate-400">{seances} heure(s) × {fmt(Number(f.montant))} = <b className="text-slate-800">{fmt(montant)}</b></p>
-            </div>
+<p className="text-slate-400">{seances || 0} heure(s) × {fmt(Number(f.montant))} = <b className="text-slate-800">{fmt(montant)}</b></p>
+{f.heuresOverride == null && f.seancesSansDuree > 0 && (
+  <p className="text-amber-600">{f.seancesSansDuree} séance(s) sans durée : comptées 0h.</p>
+)}
+{f.heuresOverride != null && (
+  <button type="button" onClick={resetAuto} className="text-[11px] text-amber-600 hover:underline">Revenir au calcul automatique</button>
+)}
+</div>
           )}
           {f.typeSalaire === 'Fixe' && (
             <p className="flex items-center gap-1.5 text-xs text-slate-500"><Wallet size={13} className="text-[#0369A1]" /> Forfait fixe de {fmt(Number(f.montant))} par mois.</p>
@@ -335,10 +353,11 @@ const [saving, setSaving] = useState(false);
 /* ------------------------------------------------------------------ */
 /*  Bilan mensuel                                                      */
 /* ------------------------------------------------------------------ */
-export const BilanMensuel = ({ professeurId, professeur }) => {
-  const [periode, setPeriode] = useState(() => new Date());
+export const BilanMensuel = ({ professeurId, professeur, initialMois, initialAnnee, onChange, onPeriodeChange }) => {
+  const [periode, setPeriode] = useState(() => (initialMois && initialAnnee ? new Date(initialAnnee, initialMois - 1, 1) : new Date()));
   const [showPicker, setShowPicker] = useState(false);
   const [tab, setTab] = useState('formations');
+  
   const [modalFormation, setModalFormation] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
@@ -346,6 +365,8 @@ export const BilanMensuel = ({ professeurId, professeur }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [totalDraft, setTotalDraft] = useState(''); // saisie en cours dans le champ "Total du mois"
+  const [payeDraft, setPayeDraft] = useState(''); // saisie en cours dans le champ "Déjà payé"
+  const [actionError, setActionError] = useState('');
 
   const mois = periode.getMonth() + 1;
   const annee = periode.getFullYear();
@@ -357,6 +378,7 @@ export const BilanMensuel = ({ professeurId, professeur }) => {
       const res = await fetchBilan(professeurId, mois, annee);
       setData(res);
       setTotalDraft(res.totalOverride !== null ? String(res.totalOverride) : '');
+      setPayeDraft('');
       setError('');
     } catch (err) {
       setError(err.message);
@@ -366,32 +388,46 @@ export const BilanMensuel = ({ professeurId, professeur }) => {
   };
 
   useEffect(() => { load(); }, [professeurId, mois, annee]);
-
+// prévient la page parente quand le mois affiché change (pour garder l'URL et le badge synchronisés)
+useEffect(() => {
+  if (mois === initialMois && annee === initialAnnee) return;
+  onPeriodeChange?.(mois, annee);
+}, [mois, annee, initialMois, initialAnnee]);
   const changerMois = (delta) => setPeriode((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1));
 
-  const handleAjout = async (payload) => { await postMouvement(professeurId, { mois, annee, ...payload }); await load(); };
-  const handleDeleteMouvement = async (id) => { await deleteMouvementApi(id); await load(); };
+const run = async (fn) => {
+  try { setActionError(''); await fn(); await load(); onChange?.(); }
+  catch (err) { setActionError(err.message); }
+};
 
-  const commitTotal = async (raw) => {
-    const value = raw === '' ? null : Number(raw);
-    if (raw !== '' && Number.isNaN(value)) return;
-    await putTotal(professeurId, { mois, annee, totalOverride: value });
-    await load();
-  };
- const handleTotalBlur = (e) => {
+const handleAjout = async (payload) => { await postMouvement(professeurId, { mois, annee, ...payload }); await load(); onChange?.(); };
+
+const saveFormation = async (formationId, patch) => {
+  await putFormationDetail(professeurId, formationId, { mois, annee, ...patch });
+  await load();
+  onChange?.();
+};
+const handleDeleteMouvement = (id) => run(() => deleteMouvementApi(id));
+
+const commitTotal = (raw) => {
+  const value = raw === '' ? null : Number(raw);
+  if (raw !== '' && Number.isNaN(value)) return;
+  return run(() => putTotal(professeurId, { mois, annee, totalOverride: value }));
+};
+const handleTotalBlur = (e) => {
   const raw = e.target.value;
-  if (raw === String(total)) return;                    
+  if (raw === String(total)) return;
   commitTotal(raw === String(totalCalcule) ? '' : raw);
 };
-  const resetTotal = () => { setTotalDraft(''); commitTotal(''); };
+const resetTotal = () => { setTotalDraft(''); commitTotal(''); };
+const handlePayeBlur = (e) => {
+  const raw = e.target.value;
+  if (raw === '' || Number(raw) === Number(paye)) { setPayeDraft(''); return; }
+  run(() => putPaye(professeurId, { mois, annee, montant: Number(raw) }));
+};
 
-  const handleValider = async () => { await postValider(professeurId, { mois, annee }); await load(); };
-  const handleEnvoyer = async () => { await postEnvoyer(professeurId, { mois, annee }); await load(); };
-
-  const saveFormation = async (formationId, patch) => {
-    await putFormationDetail(professeurId, formationId, { mois, annee, ...patch });
-    await load();
-  };
+const handleValider = () => run(() => postValider(professeurId, { mois, annee }));
+const handleEnvoyer = () => run(() => postEnvoyer(professeurId, { mois, annee }));
 
   if (loading && !data) {
     return <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-[#0369A1] border-t-transparent rounded-full animate-spin" /></div>;
@@ -419,7 +455,7 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
           </div>
         )}
       </div>
-
+{actionError && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 rounded-md">{actionError}</p>}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
         <StatTile icon={CalendarDays} label="Formations" value={formations.length} color="blue" />
         <StatTile icon={Wallet} label="Reste à payer" value={fmt(total - paye)} color="amber" />
@@ -430,12 +466,12 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
 
         <div className="space-y-1.5 mb-3">
           {formations.map((f) => (
-            <div key={f.nom} className="flex items-start justify-between gap-2 bg-[#F8FAFC] border border-[#F1F5F9] rounded-md px-2.5 py-2 text-xs">
+            <div key={f.id} className="flex items-start justify-between gap-2 bg-[#F8FAFC] border border-[#F1F5F9] rounded-md px-2.5 py-2 text-xs">
               <div className="min-w-0">
                 <p className="font-medium text-slate-700 truncate">{f.nom}</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">
                   {f.typeSalaire === 'Fixe' && `Forfait fixe de ${fmt(Number(f.montant))} / mois.`}
-                  {f.typeSalaire === "À l'heure" && `${f.nbSeances || 0} heure(s) × ${fmt(Number(f.montant))}.`}
+{f.typeSalaire === "À l'heure" && `${f.heuresEffectuees ?? 0} heure(s) × ${fmt(Number(f.montant))}.${f.heuresOverride == null && f.seancesSansDuree > 0 ? ` (${f.seancesSansDuree} séance(s) sans durée)` : ''}`}
                   {f.typeSalaire === 'Pourcentage' && `${f.revenusOverride !== null ? fmt(f.revenusOverride) : 'Revenus non renseignés'} − charges, puis ${f.part}% pour le professeur.`}
                   {!f.typeSalaire && 'Rémunération non configurée.'}
                 </p>
@@ -476,13 +512,30 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
               value={totalDraft !== '' ? totalDraft : total}
               onChange={(e) => setTotalDraft(e.target.value)}
               onBlur={handleTotalBlur}
+              disabled={valide}
               className="w-28 text-right text-lg font-bold text-slate-800 bg-transparent border border-transparent rounded-md px-1.5 py-0.5 hover:border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/30"
             />
             <span className="text-lg font-bold text-slate-800">DA</span>
           </span>
         </div>
 {totalOverride !== null && <p className="text-[10px] text-slate-400 text-right mt-1">(calcul auto: {fmt(totalCalcule)})</p>}
- <div className="flex justify-between text-xs text-slate-400 mt-2"><span>Déjà payé</span><span>{fmt(paye)}</span></div>
+ <div className="flex items-center justify-between text-xs text-slate-400 mt-2">
+          <span>Déjà payé</span>
+          {valide ? (
+            <span className="flex items-center gap-1">
+              <input
+                type="number" min="0" max={total}
+                value={payeDraft !== '' ? payeDraft : paye}
+                onChange={(e) => setPayeDraft(e.target.value)}
+                onBlur={handlePayeBlur}
+                className="w-24 text-right text-xs font-medium text-slate-700 bg-transparent border border-transparent rounded-md px-1.5 py-0.5 hover:border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/30"
+              />
+              <span>DA</span>
+            </span>
+          ) : (
+            <span>{fmt(paye)}</span>
+          )}
+        </div>
 
         <div className="flex gap-2 mt-4">
           <button onClick={handleValider} disabled={valide}
@@ -513,7 +566,7 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
             </thead>
             <tbody>
               {formations.map((f, i) => (
-                <tr key={f.nom} onClick={() => f.typeSalaire && setModalFormation(f)} className={`${f.typeSalaire ? 'cursor-pointer hover:bg-slate-50/60' : ''} transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
+                <tr key={f.id} onClick={() => f.typeSalaire && setModalFormation(f)} className={`${f.typeSalaire ? 'cursor-pointer hover:bg-slate-50/60' : ''} transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                   <td className="px-3 py-2 text-slate-700 font-medium border-b border-l border-slate-100">{f.nom}</td>
                   <td className="px-3 py-2 text-slate-500 border-b border-slate-100">{f.typeSalaire || 'Non défini'}</td>
                   <td className="px-3 py-2 text-right font-medium text-slate-700 border-b border-r border-slate-100">{fmt(f.montantPeriode)}</td>

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation ,useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, Phone } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
-import { initiales, Badge, fetchProfesseurs, API, getHeaders } from './SalairesProfesseurs';
+import { initiales, Badge, fetchProfesseur, API, getHeaders } from './SalairesProfesseurs';
 import FormationsTab from './FormationsTab';
 import { BilanMensuel, HistoriqueProf } from './BilanTab';
 
@@ -11,6 +11,11 @@ const TABS = [['formations', 'Formations & rémunération'], ['bilan', 'Bilan me
 
 const DetailProfesseur = () => {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const now = new Date();
+  const mois = Number(searchParams.get('mois')) || now.getMonth() + 1;
+  const annee = Number(searchParams.get('annee')) || now.getFullYear();
+  const listUrl = `${LIST_PATH}?mois=${mois}&annee=${annee}`;
   const { state } = useLocation();
   const navigate = useNavigate();
 
@@ -24,11 +29,10 @@ const DetailProfesseur = () => {
   // Recharge depuis l'API (lien direct, refresh de page, après une sauvegarde)
   const load = async () => {
     try {
-      const list = await fetchProfesseurs();
-      const found = list.find((p) => String(p.id) === id) ?? null;
+      const found = await fetchProfesseur(id, mois, annee);
       setProfesseur(found);
-      // garde la liste filtrée de la page précédente si on l'a, en mettant à jour ce professeur
-      setProfesseurs((prev) => (prev.length && found ? prev.map((p) => (p.id === found.id ? found : p)) : list));
+      // met à jour ce professeur dans la liste de la page précédente (s'il y en a une)
+      setProfesseurs((prev) => prev.map((p) => (p.id === found.id ? found : p)));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -43,12 +47,12 @@ const DetailProfesseur = () => {
       setLoading(false);
     } else {
       setLoading(true);
-      load();
     }
-  }, [id]);
+    load(); // toujours rafraîchir depuis l'API (un seul professeur)
+}, [id, mois, annee]);
 
-  const goTo = (target) => navigate(`${LIST_PATH}/${target.id}`, { state: { professeur: target, professeurs } });
-
+  const goTo = (target) => navigate(`${LIST_PATH}/${target.id}?mois=${mois}&annee=${annee}`, { state: { professeur: target, professeurs } });
+const changePeriode = (m, a) => setSearchParams({ mois: String(m), annee: String(a) }, { replace: true });
   // Sauvegarde la rémunération d'une formation, puis recharge (montantPeriode recalculé côté serveur)
   const updateFormation = async (formationId, patch) => {
     const res = await fetch(`${API}/api/salaires-professeurs/${professeur.id}/formations/${formationId}`, {
@@ -74,7 +78,7 @@ const DetailProfesseur = () => {
   if (!professeur) {
     return (
       <ComptableLayout>
-        <button onClick={() => navigate(LIST_PATH)} className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1] hover:underline mb-4">
+        <button onClick={() => navigate(listUrl)} className="flex items-center gap-1.5 text-xs font-medium text-[#0369A1] hover:underline mb-4">
           <ArrowLeft size={14} /> Retour aux professeurs
         </button>
         <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(15,42,74,0.08)] px-3 py-10 text-center text-slate-400 text-xs">{error || 'Ce professeur est introuvable.'}</div>
@@ -87,11 +91,11 @@ const DetailProfesseur = () => {
       {/* Breadcrumb + navigation entre professeurs */}
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(LIST_PATH)} className="w-9 h-9 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAFC] transition flex-shrink-0">
+          <button onClick={() => navigate(listUrl)} className="w-9 h-9 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-[#F8FAFC] transition flex-shrink-0">
             <ArrowLeft size={16} className="text-[#0369A1]" />
           </button>
           <div className="flex items-center gap-1.5 text-xs">
-            <button onClick={() => navigate(LIST_PATH)} className="text-slate-400 hover:text-[#0369A1] transition">Professeurs</button>
+            <button onClick={() => navigate(listUrl)} className="text-slate-400 hover:text-[#0369A1] transition">Professeurs</button>
             <span className="text-slate-300">›</span>
             <span className="text-[#0369A1] font-medium">{professeur.nom}</span>
           </div>
@@ -132,8 +136,8 @@ const DetailProfesseur = () => {
       </div>
 
       {tab === 'formations' && <FormationsTab formations={professeur.formations} onUpdate={updateFormation} />}
-{tab === 'bilan' && <BilanMensuel key={professeur.id} professeurId={professeur.id} professeur={professeur.nom} />}
- {tab === 'historique' && <HistoriqueProf key={professeur.id} />}
+{tab === 'bilan' && <BilanMensuel key={professeur.id} professeurId={professeur.id} professeur={professeur.nom} initialMois={mois} initialAnnee={annee} onChange={load} onPeriodeChange={changePeriode} />}
+{tab === 'historique' && <HistoriqueProf key={professeur.id} professeurId={professeur.id} />}
     </ComptableLayout>
   );
 };
