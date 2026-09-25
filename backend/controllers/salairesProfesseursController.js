@@ -229,7 +229,7 @@ const applyBilan = (professeur, { bilan, details, mouvements, charges }, revenus
   const formations = professeur.formations.map((f) => {
     const d = detailOf(f.id);
   if (f.typeSalaire === 'Pourcentage') {
-    const part = d?.part_pct != null ? Number(d.part_pct) : (Number(f.montant) || 40);
+    const part = Number(f.montant) || 40;
     const selected = d?.charges_selectionnees ?? [];
     const revenusOverride = d?.revenus_override != null ? Number(d.revenus_override) : null;
     const revenusAuto = Number(revenusMap[f.id] ?? 0);
@@ -506,7 +506,13 @@ const upsertBilanFormationDetail = async (req, res) => {
     if (seances !== undefined) patch.seances = seances === null ? null : Number(seances) || 0;
     if (revenusOverride !== undefined) patch.revenus_override = revenusOverride === null ? null : Number(revenusOverride);
 if (part !== undefined) {
-  patch.part_pct = Number(part);
+  patch.part_pct = Number(part); // kept for the DB column, unused for calculation now
+
+  const { error: pfErr } = await supabase.from('professeur_formations')
+    .update({ montant: Number(part), updated_at: new Date().toISOString() })
+    .eq('teacher_id', teacherId)
+    .eq('formation_id', formationId);
+  if (pfErr) throw pfErr;
 }
     if (charges !== undefined) patch.charges_selectionnees = charges;
 
