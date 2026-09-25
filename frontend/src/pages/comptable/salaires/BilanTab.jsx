@@ -46,6 +46,15 @@ const putFormationDetail = (teacherId, formationId, payload) =>
 
 const postMouvement = (teacherId, payload) =>
   fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/mouvements`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
+const postBonMouvement = (teacherId, mouvementId, file) => {
+  const formData = new FormData();
+  formData.append('bon', file);
+  return fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/mouvements/${mouvementId}/bons`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    body: formData,
+  }).then(jsonOrThrow);
+};
 
 const deleteMouvementApi = (mouvementId) =>
   fetch(`${API}/api/salaires-professeurs/mouvements/${mouvementId}`, { method: 'DELETE', headers: getHeaders() }).then(jsonOrThrow);
@@ -65,7 +74,7 @@ const postEnvoyer = (teacherId, payload) =>
 /* ------------------------------------------------------------------ */
 /*  Modal d'ajout d'un mouvement                                       */
 /* ------------------------------------------------------------------ */
-const AjoutMouvementModal = ({ formations, onClose, onSubmit }) => {
+const AjoutMouvementModal = ({ formations, professeurId, onClose, onSubmit }) => {
   const [type, setType] = useState('avance');
   const [source, setSource] = useState('existante');
   const [formation, setFormation] = useState(formations[0]?.id ?? '');
@@ -85,10 +94,13 @@ const AjoutMouvementModal = ({ formations, onClose, onSubmit }) => {
     if (!(Number(montant) > 0)) return setError('Renseignez un montant.');
     setError('');
     setSaving(true);
-    try {
-      await onSubmit({ type, description: desc, montant: Number(montant), formationId: formationSel?.id });
-      onClose();
-    } catch (err) {
+try {
+  const created = await onSubmit({ type, description: desc, montant: Number(montant), formationId: formationSel?.id });
+  for (const p of pendingBons) {
+    await postBonMouvement(professeurId, created.id, p.file);
+  }
+  onClose();
+} catch (err) {
       setError(err.message || "Le mouvement n'a pas pu être enregistré.");
     } finally {
       setSaving(false);
@@ -178,8 +190,7 @@ const AjoutMouvementModal = ({ formations, onClose, onSubmit }) => {
               <button type="button" onClick={() => fileInputRef.current?.click()} className="w-14 h-14 rounded-md border border-dashed border-slate-300 hover:border-[#0369A1]/50 flex items-center justify-center text-slate-400 hover:text-[#0369A1] transition"><Camera size={16} /></button>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-            <p className="text-[10px] text-slate-400 mt-1">L'envoi des bons n'est pas encore branché côté serveur.</p>
-          </div>
+</div>
 
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
@@ -405,7 +416,12 @@ const run = async (fn) => {
   catch (err) { setActionError(err.message); }
 };
 
-const handleAjout = async (payload) => { await postMouvement(professeurId, { mois, annee, ...payload }); await load(); onChange?.(); };
+const handleAjout = async (payload) => {
+  const created = await postMouvement(professeurId, { mois, annee, ...payload });
+  await load();
+  onChange?.();
+  return created;
+};
 
 const saveFormation = async (formationId, patch) => {
   await putFormationDetail(professeurId, formationId, { mois, annee, ...patch });
@@ -611,9 +627,7 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
           </table>
         </div>
       )}
-
-      {showForm && <AjoutMouvementModal formations={formations} onClose={() => setShowForm(false)} onSubmit={handleAjout} />}
-
+{showForm && <AjoutMouvementModal formations={formations} professeurId={professeurId} onClose={() => setShowForm(false)} onSubmit={handleAjout} />}
 {modalFormation && (
   <FormationModal
     f={modalFormation} professeur={professeur}

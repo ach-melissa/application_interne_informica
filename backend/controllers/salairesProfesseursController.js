@@ -5,6 +5,8 @@ const supabase = require('../supabaseClient');
 /* ------------------------------------------------------------------ */
 
 const pad = (n) => String(n).padStart(2, '0');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 // [start, end[  →  first day of the month / first day of the next month
 const monthRange = (mois, annee) => {
@@ -530,6 +532,47 @@ if (part !== undefined) {
 /*  body: { mois, annee, type, description, montant, formationId? }    */
 /* ------------------------------------------------------------------ */
 
+const uploadBonMouvement = async (req, res) => {
+  try {
+    const { mouvementId } = req.params;
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+
+    const { data: mvt, error: selErr } = await supabase
+      .from('mouvements_salaire_professeurs')
+      .select('id, bons, bilan:bilan_id(valide)')
+      .eq('id', mouvementId)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (!mvt) return res.status(404).json({ error: 'Mouvement introuvable.' });
+    if (mvt.bilan?.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
+
+    const ext = file.mimetype.split('/')[1] || 'jpg';
+    const path = `mouvements/${mouvementId}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('bons-paiement')
+      .upload(path, file.buffer, { contentType: file.mimetype, upsert: true });
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage.from('bons-paiement').getPublicUrl(path);
+
+    const newBons = [...(mvt.bons ?? []), { url: publicUrl }];
+    const { data, error } = await supabase
+      .from('mouvements_salaire_professeurs')
+      .update({ bons: newBons })
+      .eq('id', mouvementId)
+      .select()
+      .single();
+    if (error) throw error;
+
+    res.json(data);
+  } catch (err) {
+    console.error('uploadBonMouvement:', err);
+    res.status(500).json({ error: err.message || 'Erreur serveur' });
+  }
+};
+
 const addMouvement = async (req, res) => {
   try {
     const { teacherId } = req.params;
@@ -759,4 +802,5 @@ module.exports = {
   getProfesseurs, getProfesseur, buildProfesseurs, updateFormationRemuneration,
   getBilan, upsertBilanFormationDetail, addMouvement, deleteMouvement,
   setTotalOverride, validerBilan, envoyerBilan, setPaye, getHistorique,
+  uploadBonMouvement, upload,
 };
