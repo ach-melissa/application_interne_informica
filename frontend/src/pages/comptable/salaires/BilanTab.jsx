@@ -614,13 +614,14 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
 
       {showForm && <AjoutMouvementModal formations={formations} onClose={() => setShowForm(false)} onSubmit={handleAjout} />}
 
-      {modalFormation && (
-        <FormationModal
-          f={modalFormation} professeur={professeur} charges={charges}
-          onClose={() => setModalFormation(null)}
-          onSave={(patch) => saveFormation(modalFormation.id, patch)}
-        />
-      )}
+{modalFormation && (
+  <FormationModal
+    f={modalFormation} professeur={professeur}
+    charges={charges.filter((c) => c.formation_id === modalFormation.id)}
+    onClose={() => setModalFormation(null)}
+    onSave={(patch) => saveFormation(modalFormation.id, patch)}
+  />
+)}
     </div>
   );
 };

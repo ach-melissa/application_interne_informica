@@ -309,10 +309,10 @@ const loadRevenusParGroupes = async (formationId, groupIds, mois, annee) => {
 
 // Bilan data of one or several professors for a month, in a fixed number of queries.
 const loadBilanData = async (teacherIds, mois, annee) => {
-  const [bilansRes, chargesRes] = await Promise.all([
-    supabase.from('bilans_salaires').select('*').in('teacher_id', teacherIds).eq('mois', mois).eq('annee', annee),
-    supabase.from('charges').select('id, description, montant'),
-  ]);
+const [bilansRes, chargesRes] = await Promise.all([
+  supabase.from('bilans_salaires').select('*').in('teacher_id', teacherIds).eq('mois', mois).eq('annee', annee),
+  supabase.from('charges').select('id, description, montant, formation_id').eq('type', 'formation'),
+]);
   if (bilansRes.error) throw bilansRes.error;
   if (chargesRes.error) throw chargesRes.error;
 
