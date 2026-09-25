@@ -203,8 +203,8 @@ const AjoutMouvementModal = ({ formations, onClose, onSubmit }) => {
 /*  Détail "pourcentage" — travaille sur un state LOCAL au modal        */
 /* ------------------------------------------------------------------ */
 const DetailPourcentage = ({ f, professeur, charges, state, onChange, onToggleCharge }) => {
-  const revenus = state.revenusOverride ?? 0; // TODO API: calcul auto (prix × nb étudiants) en attente
-  const totalCharges = charges.filter((c) => state.charges.includes(c.id)).reduce((s, c) => s + Number(c.montant), 0);
+const revenus = state.revenusOverride ?? f.revenusAuto ?? 0;
+ const totalCharges = charges.filter((c) => state.charges.includes(c.id)).reduce((s, c) => s + Number(c.montant), 0);
   const apresCharges = revenus - totalCharges;
   const partProf = Math.round(apresCharges * (state.part / 100));
   const partEcole = apresCharges - partProf;
@@ -223,8 +223,13 @@ const DetailPourcentage = ({ f, professeur, charges, state, onChange, onToggleCh
           />
           <span className="text-slate-500 shrink-0">DA</span>
         </div>
-        <p className="text-[10px] text-slate-400 mt-1">Saisie manuelle (calcul automatique via inscriptions pas encore disponible).</p>
-      </div>
+<p className="text-[10px] text-slate-400 mt-1">Calculé automatiquement depuis les paiements de cette formation. Modifiable si besoin.</p>
+{f.revenusProfesseur > 0 && (
+  <p className="text-[10px] text-slate-400 mt-0.5">
+    dont {fmt(f.revenusProfesseur)} venant de vos groupes.
+  </p>
+)}
+</div>
 
       <div className="relative">
         <p className="flex items-center gap-1.5 text-[10px] text-slate-500 uppercase tracking-wide mb-1"><Receipt size={12} className="text-[#0369A1]" /> Charges à déduire</p>

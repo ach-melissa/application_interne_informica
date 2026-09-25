@@ -134,19 +134,20 @@ const buildProfesseurs = async (mois, annee, teacherId = null) => {
     const ensure = (formation, typeDuree) => {
       if (!byFormation[formation.id]) {
         const cfg = configOf(t.id, formation.id);
-        byFormation[formation.id] = {
-          id: formation.id,
-          nom: formation.nom,
-          typeDuree: typeDuree ?? formation.type_duree, // 'seances' | 'heures'
-          nbGroupes: 0,
-          nbSeances: 0,
-          heuresEffectuees: 0,
-          seancesSansDuree: 0,
-          typeSalaire: cfg ? TYPE_TO_LABEL[cfg.type_salaire] : null,
-          montant: cfg ? Number(cfg.montant) : 0,
-          heures: cfg ? Number(cfg.heures) : 0,
-          montantPeriode: 0,
-        };
+byFormation[formation.id] = {
+  id: formation.id,
+  nom: formation.nom,
+  typeDuree: typeDuree ?? formation.type_duree,
+  nbGroupes: 0,
+  nbSeances: 0,
+  heuresEffectuees: 0,
+  seancesSansDuree: 0,
+  typeSalaire: cfg ? TYPE_TO_LABEL[cfg.type_salaire] : null,
+  montant: cfg ? Number(cfg.montant) : 0,
+  heures: cfg ? Number(cfg.heures) : 0,
+  montantPeriode: 0,
+  groupIds: [],
+};
       }
       return byFormation[formation.id];
     };
@@ -161,10 +162,11 @@ const buildProfesseurs = async (mois, annee, teacherId = null) => {
         // a group can override the duration type of its formation
         const typeDuree = g.use_default_duree === false && g.type_duree ? g.type_duree : g.formation.type_duree;
         const f = ensure(g.formation, typeDuree);
-        f.nbGroupes += 1;
-        f.nbSeances += perGroup[g.id]?.nb ?? 0;
-        f.heuresEffectuees += perGroup[g.id]?.heures ?? 0;
-        f.seancesSansDuree += perGroup[g.id]?.sansDuree ?? 0;
+f.nbGroupes += 1;
+f.nbSeances += perGroup[g.id]?.nb ?? 0;
+f.heuresEffectuees += perGroup[g.id]?.heures ?? 0;
+f.seancesSansDuree += perGroup[g.id]?.sansDuree ?? 0;
+f.groupIds.push(g.id);   // ← ADD THIS LINE
       });
 
     return {
@@ -221,19 +223,21 @@ const computeStatut = (valide, total, paye) => {
 
 // Applies the bilan data (manual hours, percentage settings, movements, total override, payments) to a professor.
 // Shared by GET /:teacherId/bilan and the professors list, so both always show the same numbers.
-const applyBilan = (professeur, { bilan, details, mouvements, charges }) => {
+const applyBilan = (professeur, { bilan, details, mouvements, charges }, revenusMap = {}, revenusProfMap = {}) => {
   const detailOf = (formationId) => details.find((d) => d.formation_id === formationId);
 
   const formations = professeur.formations.map((f) => {
     const d = detailOf(f.id);
-    if (f.typeSalaire === 'Pourcentage') {
-      const part = d?.part_pct != null ? Number(d.part_pct) : (Number(f.montant) || 40);
-      const selected = d?.charges_selectionnees ?? [];
-      const revenusOverride = d?.revenus_override != null ? Number(d.revenus_override) : null;
-      const revenus = revenusOverride ?? 0; // TODO: calcul auto en attente
-      const totalCharges = charges.filter((c) => selected.includes(c.id)).reduce((s, c) => s + Number(c.montant), 0);
-      return { ...f, part, charges: selected, revenusOverride, montantPeriode: Math.round((revenus - totalCharges) * (part / 100)) };
-    }
+  if (f.typeSalaire === 'Pourcentage') {
+    const part = d?.part_pct != null ? Number(d.part_pct) : (Number(f.montant) || 40);
+    const selected = d?.charges_selectionnees ?? [];
+    const revenusOverride = d?.revenus_override != null ? Number(d.revenus_override) : null;
+    const revenusAuto = Number(revenusMap[f.id] ?? 0);
+    const revenusProfesseur = Number(revenusProfMap[f.id] ?? 0);   // ← new, note-only
+    const revenus = revenusOverride ?? revenusAuto;
+    const totalCharges = charges.filter((c) => selected.includes(c.id)).reduce((s, c) => s + Number(c.montant), 0);
+    return { ...f, part, charges: selected, revenusOverride, revenusAuto, revenusProfesseur, montantPeriode: Math.round((revenus - totalCharges) * (part / 100)) };
+  }
     if (f.typeSalaire === "À l'heure" && d?.seances != null) {
       const heures = Number(d.seances);
       return { ...f, heuresEffectuees: heures, heuresOverride: heures, montantPeriode: Math.round(Number(f.montant) * heures) };
@@ -259,6 +263,48 @@ const applyBilan = (professeur, { bilan, details, mouvements, charges }) => {
     envoye: bilan?.envoye ?? false,
     statut: computeStatut(valide, total, paye),
   };
+};
+// Revenu total encaissé pour chaque formation (même donnée que "Revenu par formation")
+const loadRevenusFormations = async (formationIds, mois, annee) => {
+  if (!formationIds.length) return {};
+  const { start, end } = monthRange(mois, annee);
+  const { data, error } = await supabase
+    .from('payments')
+    .select('formation_id, montant')
+    .in('formation_id', formationIds)
+    .gte('date_paiement', start)
+    .lt('date_paiement', end);
+  if (error) throw error;
+  const map = {};
+  (data ?? []).forEach((p) => { map[p.formation_id] = (map[p.formation_id] ?? 0) + Number(p.montant); });
+  return map;
+};
+
+// Revenue of a formation, restricted to a given professor's own group(s) — display-only note.
+const loadRevenusParGroupes = async (formationId, groupIds, mois, annee) => {
+  if (!groupIds?.length) return 0;
+
+  const { data: inscriptions, error: insErr } = await supabase
+    .from('inscriptions')
+    .select('etudiant_id')
+    .eq('formation_id', formationId)
+    .in('group_id', groupIds);
+  if (insErr) throw insErr;
+
+  const etudiantIds = [...new Set((inscriptions ?? []).map((i) => i.etudiant_id))];
+  if (!etudiantIds.length) return 0;
+
+  const { start, end } = monthRange(mois, annee);
+  const { data: payments, error: payErr } = await supabase
+    .from('payments')
+    .select('montant')
+    .eq('formation_id', formationId)
+    .in('etudiant_id', etudiantIds)
+    .gte('date_paiement', start)
+    .lt('date_paiement', end);
+  if (payErr) throw payErr;
+
+  return (payments ?? []).reduce((s, p) => s + Number(p.montant), 0);
 };
 
 // Bilan data of one or several professors for a month, in a fixed number of queries.
@@ -299,8 +345,8 @@ const bilanDataOf = (all, teacherId) => {
 };
 
 // A professor as shown in the list and on the detail page: formations + total + paid + status of the month
-const toListItem = (professeur, all) => {
-  const r = applyBilan(professeur, bilanDataOf(all, professeur.id));
+const toListItem = (professeur, all, revenusMap = {}) => {
+  const r = applyBilan(professeur, bilanDataOf(all, professeur.id), revenusMap);
   return { ...professeur, formations: r.formations, total: r.total, paye: r.paye, statut: r.statut };
 };
 
@@ -308,6 +354,7 @@ const toListItem = (professeur, all) => {
 /*  GET /api/salaires-professeurs?mois=&annee=                         */
 /* ------------------------------------------------------------------ */
 
+// APRÈS
 const getProfesseurs = async (req, res) => {
   try {
     const periode = readPeriode(req.query);
@@ -318,7 +365,11 @@ const getProfesseurs = async (req, res) => {
     if (!professeurs.length) return res.json([]);
 
     const all = await loadBilanData(professeurs.map((p) => p.id), mois, annee);
-    res.json(professeurs.map((p) => toListItem(p, all)));
+    const formationIds = [...new Set(
+      professeurs.flatMap((p) => p.formations.filter((f) => f.typeSalaire === 'Pourcentage').map((f) => f.id))
+    )];
+   const revenusMap = await loadRevenusFormations(formationIds, mois, annee);
+    res.json(professeurs.map((p) => toListItem(p, all, revenusMap)));
   } catch (err) {
     console.error('getProfesseurs:', err);
     res.status(500).json({ error: err.message || 'Erreur serveur' });
@@ -343,7 +394,9 @@ const getProfesseur = async (req, res) => {
     const professeur = professeurs[0];
     if (!professeur) return res.status(404).json({ error: 'Professeur introuvable.' });
 
-    res.json(toListItem(professeur, all));
+    const formationIds = professeur.formations.filter((f) => f.typeSalaire === 'Pourcentage').map((f) => f.id);
+    const revenusMap = await loadRevenusFormations(formationIds, mois, annee);
+    res.json(toListItem(professeur, all, revenusMap));
   } catch (err) {
     console.error('getProfesseur:', err);
     res.status(500).json({ error: err.message || 'Erreur serveur' });
@@ -405,8 +458,17 @@ const getBilan = async (req, res) => {
     const professeur = professeurs[0];
     if (!professeur) return res.status(404).json({ error: 'Professeur introuvable.' });
 
-    const data = bilanDataOf(all, teacherId);
-    const r = applyBilan(professeur, data);
+const pctFormations = professeur.formations.filter((f) => f.typeSalaire === 'Pourcentage');
+const formationIds = pctFormations.map((f) => f.id);
+const revenusMap = await loadRevenusFormations(formationIds, mois, annee);
+
+const revenusProfMap = {};
+await Promise.all(pctFormations.map(async (f) => {
+  revenusProfMap[f.id] = await loadRevenusParGroupes(f.id, f.groupIds, mois, annee);
+}));
+
+const data = bilanDataOf(all, teacherId);
+const r = applyBilan(professeur, data, revenusMap, revenusProfMap);
 
     res.json({
       formations: r.formations,
@@ -443,7 +505,9 @@ const upsertBilanFormationDetail = async (req, res) => {
     const patch = { bilan_id: bilan.id, formation_id: formationId, updated_at: new Date().toISOString() };
     if (seances !== undefined) patch.seances = seances === null ? null : Number(seances) || 0;
     if (revenusOverride !== undefined) patch.revenus_override = revenusOverride === null ? null : Number(revenusOverride);
-    if (part !== undefined) patch.part_pct = Number(part);
+if (part !== undefined) {
+  patch.part_pct = Number(part);
+}
     if (charges !== undefined) patch.charges_selectionnees = charges;
 
     const { error } = await supabase.from('bilan_formation_details').upsert(patch, { onConflict: 'bilan_id,formation_id' });
@@ -624,10 +688,11 @@ const setPaye = async (req, res) => {
       buildProfesseurs(moisN, anneeN, teacherId),
       loadBilanData([teacherId], moisN, anneeN),
     ]);
-    if (!professeurs[0]) return res.status(404).json({ error: 'Professeur introuvable.' });
-    const { total } = applyBilan(professeurs[0], bilanDataOf(all, teacherId));
+  if (!professeurs[0]) return res.status(404).json({ error: 'Professeur introuvable.' });
+    const formationIds = professeurs[0].formations.filter((f) => f.typeSalaire === 'Pourcentage').map((f) => f.id);
+    const revenusMap = await loadRevenusFormations(formationIds, moisN, anneeN);
+    const { total } = applyBilan(professeurs[0], bilanDataOf(all, teacherId), revenusMap);
     if (m > total) return res.status(400).json({ error: 'Le montant payé dépasse le total du mois.' });
-
     const { error } = await supabase.from('bilans_salaires')
       .update({ deja_paye: m, updated_at: new Date().toISOString() })
       .eq('id', bilan.id);
@@ -670,9 +735,11 @@ const getHistorique = async (req, res) => {
         loadBilanData([teacherId], b.mois, b.annee),
       ]);
       if (!professeurs[0]) return null;
-      const r = applyBilan(professeurs[0], bilanDataOf(all, teacherId));
+      const formationIds = professeurs[0].formations.filter((f) => f.typeSalaire === 'Pourcentage').map((f) => f.id);
+      const revenusMap = await loadRevenusFormations(formationIds, b.mois, b.annee);
+      const r = applyBilan(professeurs[0], bilanDataOf(all, teacherId), revenusMap);
       const statut = r.statut === 'payé' ? 'paye' : r.statut === 'partiel' ? 'partiel' : 'non_paye';
-      return { mois: b.mois, annee: b.annee, montant: r.total, paye: r.paye, statut };
+        return { mois: b.mois, annee: b.annee, montant: r.total, paye: r.paye, statut };
     }));
 
     res.json(rows.filter(Boolean));
