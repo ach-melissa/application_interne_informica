@@ -56,7 +56,7 @@ const getEmployeById = async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Erreur serveur' });
+    res.status(500).json({ message: err.message || 'Erreur serveur' });
   }
 };
 
