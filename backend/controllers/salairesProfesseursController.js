@@ -79,10 +79,10 @@ const buildProfesseurs = async (mois, annee, teacherId = null) => {
     .select(`
       id,
       user:user_id(id, nom, prenom, telephone, archived),
-      groups(
-        id, archived, formation_id, use_default_duree, type_duree,
-        formation:formation_id(id, nom, type_duree)
-      ),
+groups(
+  id, nom, archived, formation_id, use_default_duree, type_duree,
+  formation:formation_id(id, nom, type_duree)
+),
       teacher_formations(
         formation:formation_id(id, nom, type_duree)
       )
@@ -149,6 +149,7 @@ byFormation[formation.id] = {
   heures: cfg ? Number(cfg.heures) : 0,
   montantPeriode: 0,
   groupIds: [],
+  groupes: [], 
 };
       }
       return byFormation[formation.id];
@@ -169,6 +170,7 @@ f.nbSeances += perGroup[g.id]?.nb ?? 0;
 f.heuresEffectuees += perGroup[g.id]?.heures ?? 0;
 f.seancesSansDuree += perGroup[g.id]?.sansDuree ?? 0;
 f.groupIds.push(g.id);   // ← ADD THIS LINE
+f.groupes.push({ id: g.id, nom: g.nom, heures: Math.round((perGroup[g.id]?.heures ?? 0) * 100) / 100 });
       });
 
     return {
@@ -307,6 +309,92 @@ const loadRevenusParGroupes = async (formationId, groupIds, mois, annee) => {
   if (payErr) throw payErr;
 
   return (payments ?? []).reduce((s, p) => s + Number(p.montant), 0);
+};
+
+// Découpe montantPeriode d'une formation entre ses groupes.
+// Utilisé UNIQUEMENT par getMesSalaires — ne touche pas l'écran comptable.
+const computeGroupesForFormation = async (f, mois, annee) => {
+  const groupes = f.groupes ?? [];
+  if (!groupes.length) return [];
+
+  if (f.typeSalaire === "À l'heure") {
+    const heuresBrutesTotal = groupes.reduce((s, g) => s + g.heures, 0);
+    // si le comptable a saisi un nombre d'heures manuel, on garde la même proportion
+    const scale = heuresBrutesTotal > 0 && f.heuresEffectuees != null ? f.heuresEffectuees / heuresBrutesTotal : 1;
+    return groupes.map((g) => {
+      const heures = Math.round(g.heures * scale * 100) / 100;
+      return { nom: g.nom, heures, montant: Math.round(Number(f.montant) * heures) };
+    });
+  }
+
+  if (f.typeSalaire === 'Pourcentage') {
+    const revenus = await Promise.all(groupes.map((g) => loadRevenusParGroupes(f.id, [g.id], mois, annee)));
+    const totalRevenus = revenus.reduce((s, r) => s + r, 0);
+    let restant = f.montantPeriode;
+    return groupes.map((g, i) => {
+      const part = totalRevenus > 0 ? revenus[i] / totalRevenus : 1 / groupes.length;
+      const montant = i === groupes.length - 1 ? restant : Math.round(f.montantPeriode * part);
+      restant -= montant;
+      return { nom: g.nom, montant };
+    });
+  }
+  return [];
+};
+
+/* GET /api/salaires-professeurs/me?annee=  — vue du prof sur SES salaires */
+const getMesSalaires = async (req, res) => {
+  try {
+    const { data: teacher, error: tErr } = await supabase
+      .from('teachers').select('id').eq('user_id', req.user.id).maybeSingle();
+    if (tErr) throw tErr;
+    if (!teacher) return res.status(403).json({ error: "Ce compte n'est pas un compte professeur." });
+
+    const teacherId = teacher.id;
+    const { mois: moisCourant, annee: anneeCourante } = currentMonthDZ();
+    const annee = Number(req.query.annee) || anneeCourante;
+    const dernierMois = annee === anneeCourante ? moisCourant : 12;
+
+    const { data: bilans, error: bErr } = await supabase
+      .from('bilans_salaires').select('mois, valide')
+      .eq('teacher_id', teacherId).eq('annee', annee).lte('mois', dernierMois);
+    if (bErr) throw bErr;
+    if (!bilans?.length) return res.json([]);
+
+    const resultats = await Promise.all(bilans.map(async (b) => {
+      if (!b.valide) return { mois: b.mois, statut: 'attente', total: 0, formations: [] };
+
+      const [professeurs, all] = await Promise.all([
+        buildProfesseurs(b.mois, annee, teacherId),
+        loadBilanData([teacherId], b.mois, annee),
+      ]);
+      const professeur = professeurs[0];
+      if (!professeur) return { mois: b.mois, statut: 'attente', total: 0, formations: [] };
+
+      const pctFormations = professeur.formations.filter((f) => f.typeSalaire === 'Pourcentage');
+      const revenusMap = await loadRevenusFormations(pctFormations.map((f) => f.id), b.mois, annee);
+      const r = applyBilan(professeur, bilanDataOf(all, teacherId), revenusMap);
+
+      const formations = await Promise.all(r.formations.map(async (f) => ({
+        formation_nom: f.nom,
+        type: f.typeSalaire === "À l'heure" ? 'heure' : 'pourcentage',
+        ...(f.typeSalaire === "À l'heure" ? { taux_horaire: Number(f.montant) } : { pourcentage: Number(f.part ?? f.montant) }),
+        montant: f.montantPeriode,
+        groupes: await computeGroupesForFormation(f, b.mois, annee),
+      })));
+
+      return {
+        mois: b.mois,
+        statut: r.paye >= r.total && r.total > 0 ? 'paye' : 'attente',
+        total: r.total,
+        formations,
+      };
+    }));
+
+    res.json(resultats.sort((a, b) => b.mois - a.mois));
+  } catch (err) {
+    console.error('getMesSalaires:', err);
+    res.status(500).json({ error: err.message || 'Erreur serveur' });
+  }
 };
 
 // Bilan data of one or several professors for a month, in a fixed number of queries.
@@ -803,5 +891,5 @@ module.exports = {
   getBilan, upsertBilanFormationDetail, addMouvement, deleteMouvement,
   setTotalOverride, validerBilan, envoyerBilan, setPaye, getHistorique,
   uploadBonMouvement, upload,
-  applyBilan, loadBilanData, bilanDataOf, loadRevenusFormations, // ← ajout
+  applyBilan, loadBilanData, bilanDataOf, loadRevenusFormations,getMesSalaires 
 };

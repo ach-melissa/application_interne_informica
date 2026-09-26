@@ -136,17 +136,13 @@ const MesSalaires = () => {
       setLoading(true);
       setError('');
       try {
-        if (USE_FAKE) {
-          setData(FAKE);
-        } else {
-          const token = localStorage.getItem('token');
-          const res = await fetch(
-            `${import.meta.env.VITE_API_URL}/api/salaires/mon-salaire?year=${year}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          if (!res.ok) throw new Error();
-          setData(await res.json());
-        }
+        const token = localStorage.getItem('token');
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/salaires-professeurs/me?annee=${year}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!res.ok) throw new Error();
+        setData(await res.json());
       } catch {
         setData([]);
         setError('Impossible de charger les salaires');
