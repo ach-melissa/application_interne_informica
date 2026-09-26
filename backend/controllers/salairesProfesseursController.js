@@ -354,15 +354,14 @@ const getMesSalaires = async (req, res) => {
     const annee = Number(req.query.annee) || anneeCourante;
     const dernierMois = annee === anneeCourante ? moisCourant : 12;
 
-    const { data: bilans, error: bErr } = await supabase
-      .from('bilans_salaires').select('mois, valide')
-      .eq('teacher_id', teacherId).eq('annee', annee).lte('mois', dernierMois);
-    if (bErr) throw bErr;
-    if (!bilans?.length) return res.json([]);
+const { data: bilans, error: bErr } = await supabase
+  .from('bilans_salaires').select('mois, valide, envoye')
+  .eq('teacher_id', teacherId).eq('annee', annee).lte('mois', dernierMois);
+if (bErr) throw bErr;
+if (!bilans?.length) return res.json([]);
 
-    const resultats = await Promise.all(bilans.map(async (b) => {
-      if (!b.valide) return { mois: b.mois, statut: 'attente', total: 0, formations: [] };
-
+const resultats = await Promise.all(bilans.map(async (b) => {
+  if (!b.envoye) return { mois: b.mois, statut: 'attente', total: 0, formations: [] };
       const [professeurs, all] = await Promise.all([
         buildProfesseurs(b.mois, annee, teacherId),
         loadBilanData([teacherId], b.mois, annee),
@@ -374,20 +373,31 @@ const getMesSalaires = async (req, res) => {
       const revenusMap = await loadRevenusFormations(pctFormations.map((f) => f.id), b.mois, annee);
       const r = applyBilan(professeur, bilanDataOf(all, teacherId), revenusMap);
 
-      const formations = await Promise.all(r.formations.map(async (f) => ({
-        formation_nom: f.nom,
-        type: f.typeSalaire === "À l'heure" ? 'heure' : 'pourcentage',
-        ...(f.typeSalaire === "À l'heure" ? { taux_horaire: Number(f.montant) } : { pourcentage: Number(f.part ?? f.montant) }),
-        montant: f.montantPeriode,
-        groupes: await computeGroupesForFormation(f, b.mois, annee),
-      })));
+// APRÈS
+const formations = await Promise.all(r.formations.map(async (f) => {
+  const hasGroupes = (f.groupes ?? []).length > 0;
+  return {
+    formation_nom: f.nom,
+    type: f.typeSalaire === "À l'heure" ? 'heure' : 'pourcentage',
+    ...(f.typeSalaire === "À l'heure" ? { taux_horaire: Number(f.montant) } : { pourcentage: Number(f.part ?? f.montant) }),
+    montant: hasGroupes ? f.montantPeriode : 0,
+    groupes: hasGroupes ? await computeGroupesForFormation(f, b.mois, annee) : [],
+  };
+}));
 
-      return {
-        mois: b.mois,
-        statut: r.paye >= r.total && r.total > 0 ? 'paye' : 'attente',
-        total: r.total,
-        formations,
-      };
+// Le total du mois doit rester cohérent avec les montants affichés ci-dessus
+// (sauf si le comptable a fixé un total manuel — dans ce cas on le respecte tel quel)
+const totalMouvements = bilanData.mouvements.reduce((s, m) => s + SIGNE_MVT[m.type] * Number(m.montant), 0);
+const totalAffiche = r.totalOverride != null
+  ? r.total
+  : formations.reduce((s, f) => s + f.montant, 0) + totalMouvements;
+
+return {
+  mois: b.mois,
+  statut: r.paye >= totalAffiche && totalAffiche > 0 ? 'paye' : 'attente',
+  total: totalAffiche,
+  formations,
+};
     }));
 
     res.json(resultats.sort((a, b) => b.mois - a.mois));
@@ -557,8 +567,8 @@ await Promise.all(pctFormations.map(async (f) => {
   revenusProfMap[f.id] = await loadRevenusParGroupes(f.id, f.groupIds, mois, annee);
 }));
 
-const data = bilanDataOf(all, teacherId);
-const r = applyBilan(professeur, data, revenusMap, revenusProfMap);
+const bilanData = bilanDataOf(all, teacherId);
+const r = applyBilan(professeur, bilanData, revenusMap);
 
     res.json({
       formations: r.formations,

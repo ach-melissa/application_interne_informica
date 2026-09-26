@@ -1,53 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Wallet, CalendarDays, ChevronDown, Coins } from 'lucide-react';
-const USE_FAKE = true; // set to false when the endpoint is ready
 
 const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const now = new Date();
 const fmt = (n) => Math.round(Number(n || 0)).toLocaleString('fr-DZ') + ' DA';
-
-const FAKE = [
-  { mois: 9, statut: 'attente', total: 96600, formations: [
-    { formation_nom: 'Anglais', type: 'heure', taux_horaire: 1500, montant: 48000, groupes: [
-      { nom: 'Groupe A', heures: 14, montant: 21000 },
-      { nom: 'Groupe B', heures: 10, montant: 15000 },
-      { nom: 'Groupe C', heures: 8,  montant: 12000 },
-    ]},
-    { formation_nom: 'Développement Web', type: 'pourcentage', pourcentage: 60, montant: 48600, groupes: [
-      { nom: 'Groupe 1', montant: 30000 },
-      { nom: 'Groupe 2', montant: 18600 },
-    ]},
-  ]},
-  { mois: 8, statut: 'paye', total: 70000, formations: [
-    { formation_nom: 'Anglais', type: 'heure', taux_horaire: 1500, montant: 48000, groupes: [
-      { nom: 'Groupe A', heures: 20, montant: 30000 },
-      { nom: 'Groupe B', heures: 12, montant: 18000 },
-    ]},
-    { formation_nom: 'Marketing', type: 'pourcentage', pourcentage: 40, montant: 22000, groupes: [
-      { nom: 'Groupe 1', montant: 22000 },
-    ]},
-  ]},
-  { mois: 7, statut: 'paye', total: 75000, formations: [
-    { formation_nom: 'Anglais', type: 'heure', taux_horaire: 1500, montant: 24000, groupes: [
-      { nom: 'Groupe A', heures: 16, montant: 24000 },
-    ]},
-    { formation_nom: 'Développement Web', type: 'pourcentage', pourcentage: 60, montant: 51000, groupes: [
-      { nom: 'Groupe 1', montant: 27000 },
-      { nom: 'Groupe 2', montant: 15000 },
-      { nom: 'Groupe 3', montant: 9000 },
-    ]},
-  ]},
-  { mois: 6, statut: 'paye', total: 77200, formations: [
-    { formation_nom: 'Marketing', type: 'pourcentage', pourcentage: 40, montant: 34000, groupes: [
-      { nom: 'Groupe 1', montant: 20000 },
-      { nom: 'Groupe 2', montant: 14000 },
-    ]},
-    { formation_nom: 'Informatique', type: 'heure', taux_horaire: 1800, montant: 43200, groupes: [
-      { nom: 'Groupe A', heures: 18, montant: 32400 },
-      { nom: 'Groupe B', heures: 6,  montant: 10800 },
-    ]},
-  ]},
-];
 
 const STAT_COLORS = {
   blue:    { bg: 'bg-[#DCEBFA]',  text: 'text-[#0369A1]' },
