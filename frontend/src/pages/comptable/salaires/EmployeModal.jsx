@@ -110,7 +110,7 @@ const EmployeModal = ({ employe, onClose, onSave }) => {
     if (!infos.nom.trim() || !infos.prenom.trim()) return 'Renseignez le nom et le prénom.';
     for (const [i, p] of postes.entries()) {
       const pre = `Poste ${i + 1} : `;
-      if (!p.poste.trim()) return pre + 'renseignez le poste.';
+         if (!p.poste.trim()) return pre + 'renseignez le poste.';
       if (p.type !== 'libre' && !(Number(p.montant) > 0)) return pre + 'renseignez le montant.';
       if (p.type !== 'mensuel' && p.type !== 'libre' && joursParSemaine(p) < 1) return pre + 'indiquez les jours de travail.';
       if (p.type === 'heure' && !(Number(p.heuresParJour) > 0)) return pre + 'indiquez les heures par jour.';
@@ -227,8 +227,7 @@ const EmployeModal = ({ employe, onClose, onSave }) => {
                       </>
                     )}
 
-                    <div><Label icon={CalendarDays} text="Date de début" /><input type="date" value={p.dateDebut} onChange={e => set({ dateDebut: e.target.value })} className={inp} /></div>
-
+  <div><Label icon={CalendarDays} text="Date de début" /><input type="date" value={p.dateDebut} onChange={e => set({ dateDebut: e.target.value })} className={inp} /></div>
                     {estimation > 0 && (
                       <p className="text-[10px] text-slate-500 pt-1 border-t border-[#F1F5F9]">Estimation mensuelle : <span className="font-semibold text-slate-700">{fmt(estimation)}</span></p>
                     )}
