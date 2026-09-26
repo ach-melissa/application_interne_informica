@@ -370,7 +370,8 @@ const resultats = await Promise.all(bilans.map(async (b) => {
       if (!professeur) return { mois: b.mois, statut: 'attente', total: 0, formations: [] };
 
       const pctFormations = professeur.formations.filter((f) => f.typeSalaire === 'Pourcentage');
-const bilanData = bilanDataOf(all, teacherId);
+const revenusMap = await loadRevenusFormations(pctFormations.map((f) => f.id), b.mois, annee); 
+      const bilanData = bilanDataOf(all, teacherId);
 const r = applyBilan(professeur, bilanData, revenusMap);
 // APRÈS
 const formations = await Promise.all(r.formations.map(async (f) => {
