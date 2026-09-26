@@ -97,6 +97,10 @@ cron.schedule('0 7 * * *', () => {
 }, {
   timezone: 'Africa/Algiers'
 });
-app.listen(process.env.PORT, '0.0.0.0', () => {
+const server = app.listen(process.env.PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${process.env.PORT}`);
 });
+// Évite les 502 du proxy Vite : le défaut Node (5s) peut fermer une connexion
+// keep-alive juste au moment où le proxy essaie de la réutiliser.
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000; // doit rester > keepAliveTimeout

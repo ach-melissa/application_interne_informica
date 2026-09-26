@@ -1,69 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import {
   Wallet, GraduationCap, CreditCard, TrendingUp, TrendingDown, AlertCircle,
   PiggyBank, Building2, Briefcase, Users, Trophy, Frown, Flame, Coins, Award,
-  Layers, CalendarDays, X, BarChart3,
+  Layers, CalendarDays, X, BarChart3, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
 
-// ============================================================
-// Données de test — à remplacer par l'API (paiements, charges, salaires)
-// ============================================================
-
-
-const FORMATIONS = [
-  { nom: 'Comptabilité', etudiants: 45, groupes: 2, prix: 25000 },
-  { nom: 'Informatique', etudiants: 20, groupes: 1, prix: 30000 },
-  { nom: 'Marketing',    etudiants: 18, groupes: 1, prix: 22000 },
-];
-
-const toRows = (list, keys) => list.map((r) => Object.fromEntries(keys.map((k, i) => [k, r[i]])));
-
-const PAIEMENTS = toRows([
-  ['Comptabilité', '2026-09-05', 180000], ['Comptabilité', '2026-08-12', 220000],
-  ['Comptabilité', '2026-06-20', 250000], ['Comptabilité', '2026-02-10', 200000],
-  ['Informatique', '2026-09-08', 120000], ['Informatique', '2026-07-15', 160000],
-  ['Informatique', '2026-03-05', 200000],
-  ['Marketing',    '2026-09-02', 90000],  ['Marketing',    '2026-08-01', 110000],
-  ['Marketing',    '2026-04-18', 120000],
-], ['formation', 'date', 'montant']);
-
-const AUTRES_REVENUS = toRows([
-  ['Dons / subventions', '2026-08-20', 170000], ['Partenariats / sponsoring', '2026-09-10', 85000],
-  ["Frais d'événements", '2026-07-05', 39500],  ['Location de salle', '2026-09-15', 24800],
-  ['Vente de matériel', '2026-05-12', 12800],
-], ['categorie', 'date', 'montant']);
-
-const CHARGES = toRows([
-  ['Loyer', '2026-09-01', 80000], ['Loyer', '2026-08-01', 80000],
-  ['Matériel pédagogique', '2026-09-12', 60000],
-  ['Électricité / eau', '2026-09-20', 25000], ['Électricité / eau', '2026-08-20', 25000],
-  ['Entretien', '2026-08-25', 30000],
-], ['categorie', 'date', 'montant']);
-
-const SALAIRES_PROFS = toRows([
-  ['Comptabilité', '2026-09-01', 24000], ['Comptabilité', '2026-08-01', 24000],
-  ['Informatique', '2026-09-01', 16000], ['Informatique', '2026-08-01', 16000],
-  ['Marketing',    '2026-09-01', 11000], ['Marketing',    '2026-08-01', 11000],
-], ['formation', 'date', 'montant']);
-
-const SALAIRES_EMPLOYES = toRows([
-  ['Secrétaire', '2026-09-01', 60000], ['Secrétaire', '2026-08-01', 60000],
-  ["Agent d'entretien", '2026-09-01', 32500], ["Agent d'entretien", '2026-08-01', 32500],
-], ['nom', 'date', 'montant']);
-
 // ── Helpers ──
-const fmt = (n) => Math.round(n).toLocaleString('fr-DZ') + ' DA';
-const sum = (list) => list.reduce((s, x) => s + x.montant, 0);
+const fmt = (n) => Math.round(n || 0).toLocaleString('fr-DZ') + ' DA';
 
-const topBy = (list) => {
-  const map = {};
-  list.forEach((x) => { map[x.categorie] = (map[x.categorie] || 0) + x.montant; });
-  const entries = Object.entries(map).sort((a, b) => b[1] - a[1]);
-  return entries.length ? { nom: entries[0][0], montant: entries[0][1] } : null;
-};
-
-// ── Composants (même style que Préinscription) ──
+// ── Composants (même style que Préinscription, inchangés) ──
 const STAT_COLORS = {
   blue:    { bg: 'bg-[#DCEBFA]',  text: 'text-[#0369A1]' },
   navy:    { bg: 'bg-[#0F2A4A]/5', text: 'text-[#0F2A4A]' },
@@ -125,55 +71,67 @@ const Statistique = () => {
   const [dateTo, setDateTo] = useState('');
   const hasFilter = !!(dateFrom || dateTo);
 
-  const s = useMemo(() => {
-    // Sans filtre : tout est compté (totaux)
-    const inRange = (r) => (!dateFrom || r.date >= dateFrom) && (!dateTo || r.date <= dateTo);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [expanded, setExpanded] = useState({}); // { [formationId]: bool } — replie/déplie les niveaux
 
-    const charges  = CHARGES.filter(inRange);
-    const autres   = AUTRES_REVENUS.filter(inRange);
-    const paiP     = PAIEMENTS.filter(inRange);
-    const profs    = SALAIRES_PROFS.filter(inRange);
-    const employes = SALAIRES_EMPLOYES.filter(inRange);
+  useEffect(() => {
+    let cancelled = false;
 
-    const totalCharges = sum(charges);
-    const totalEtudiants = FORMATIONS.reduce((a, f) => a + f.etudiants, 0) || 1;
+    const fetchStatistiques = async () => {
+      setLoading(true);
+      setErrorMsg('');
+      try {
+        const params = new URLSearchParams();
+        if (dateFrom) params.set('dateFrom', dateFrom);
+        if (dateTo) params.set('dateTo', dateTo);
 
-    const formations = FORMATIONS.map((f) => {
-      const revenus = sum(paiP.filter((p) => p.formation === f.nom));
-      const partEns = sum(profs.filter((p) => p.formation === f.nom));
-      const chargesF = totalCharges * (f.etudiants / totalEtudiants);
-      const attendu = f.etudiants * f.prix;
-      const encaisse = sum(PAIEMENTS.filter((p) => p.formation === f.nom)); // cumul
-      const credit = Math.max(attendu - encaisse, 0);
-      return {
-        ...f, revenus, partEns, charges: chargesF, coutTotal: chargesF + partEns,
-        benefice: revenus - chargesF - partEns, attendu, encaisse, credit,
-        nbCredit: credit > 0 ? Math.max(1, Math.round(credit / f.prix)) : 0,
-      };
-    });
-
-    const revenusFormations = formations.reduce((a, f) => a + f.revenus, 0);
-    const best = (key, dir) => [...formations].sort((a, b) => dir * (b[key] - a[key]))[0];
-
-    return {
-      formations, totalCharges, revenusFormations,
-      totalRevenus: revenusFormations + sum(autres),
-      partEnseignants: sum(profs),
-      totalEmployes: sum(employes),
-      dettes: formations.reduce((a, f) => a + f.credit, 0),
-      clientsCredit: formations.reduce((a, f) => a + f.nbCredit, 0),
-      topCharge: topBy(charges),
-      topRevenu: topBy(autres),
-      plusRentable: best('benefice', 1),
-      moinsRentable: best('benefice', -1),
-      plusRevenus: best('revenus', 1),
-      plusCharges: best('coutTotal', 1),
+        // TODO : adapter à ton client API existant (base URL + header d'auth).
+        // Exemple ci-dessous avec un token stocké en localStorage — remplace
+        // par ton instance axios / apiFetch si tu en as déjà une dans le projet.
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/comptable/statistiques?${params.toString()}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error('Erreur lors du chargement des statistiques.');
+        const json = await res.json();
+        if (!cancelled) setData(json);
+      } catch (err) {
+        if (!cancelled) setErrorMsg(err.message || 'Erreur serveur');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
+
+    fetchStatistiques();
+    return () => { cancelled = true; };
   }, [dateFrom, dateTo]);
 
-  const beneficeInformica = s.totalRevenus - s.totalCharges - s.partEnseignants - s.totalEmployes;
+  const toggleNiveaux = (id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+
   const th = 'text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase whitespace-nowrap';
   const td = 'px-3 py-2.5 border-b border-slate-100 whitespace-nowrap';
+
+  if (loading && !data) {
+    return (
+      <ComptableLayout>
+        <p className="text-sm text-slate-400 py-10 text-center">Chargement des statistiques…</p>
+      </ComptableLayout>
+    );
+  }
+
+  if (errorMsg && !data) {
+    return (
+      <ComptableLayout>
+        <p className="text-sm text-red-500 py-10 text-center">{errorMsg}</p>
+      </ComptableLayout>
+    );
+  }
+
+  const t = data?.totaux ?? {};
+  const c = data?.classement ?? {};
+  const formations = data?.formations ?? [];
 
   return (
     <ComptableLayout>
@@ -206,19 +164,20 @@ const Statistique = () => {
             <X size={11} /> Tout effacer
           </button>
         )}
+        {loading && <span className="text-[11px] text-slate-400 ml-2">Actualisation…</span>}
       </div>
 
       {/* Cartes */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <StatTile icon={PiggyBank}   label="Total des revenus"       value={fmt(s.totalRevenus)}      color="blue" />
-        <StatTile icon={Wallet}      label="Revenus des formations"  value={fmt(s.revenusFormations)} color="navy" />
-<StatTile icon={Briefcase}   label="Part des enseignants et autres employés" value={fmt(s.partEnseignants + s.totalEmployes)}   color="purple" />
-        <StatTile icon={beneficeInformica >= 0 ? TrendingUp : TrendingDown}
-                  label="Bénéfices d'Informica" value={fmt(beneficeInformica)}
-                  color={beneficeInformica >= 0 ? 'emerald' : 'red'} />
-        <StatTile icon={CreditCard}  label="Dettes des étudiants"    value={fmt(s.dettes)}            color="amber" />
-        <StatTile icon={AlertCircle} label="Clients en crédit"       value={s.clientsCredit}          color="red" />
-        <StatTile icon={Building2}   label="Total des charges"       value={fmt(s.totalCharges)}      color="slate" />
+        <StatTile icon={PiggyBank}   label="Total des revenus"       value={fmt(t.totalRevenus)}      color="blue" />
+        <StatTile icon={Wallet}      label="Revenus des formations"  value={fmt(t.revenusFormations)} color="navy" />
+        <StatTile icon={Briefcase}   label="Part des enseignants et autres employés" value={fmt((t.partEnseignants || 0) + (t.totalEmployes || 0))} color="purple" />
+        <StatTile icon={(t.beneficeInformica ?? 0) >= 0 ? TrendingUp : TrendingDown}
+                  label="Bénéfices d'Informica" value={fmt(t.beneficeInformica)}
+                  color={(t.beneficeInformica ?? 0) >= 0 ? 'emerald' : 'red'} />
+        <StatTile icon={CreditCard}  label="Dettes des étudiants"    value={fmt(t.dettes)}            color="amber" />
+        <StatTile icon={AlertCircle} label="Clients en crédit"       value={t.clientsCredit ?? 0}      color="red" />
+        <StatTile icon={Building2}   label="Total des charges"       value={fmt(t.totalCharges)}      color="slate" />
       </div>
 
       {/* Tableau */}
@@ -246,32 +205,63 @@ const Statistique = () => {
               </tr>
             </thead>
             <tbody>
-              {s.formations.map((f, i) => (
-                <tr key={f.nom} className={`hover:bg-slate-50 transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
-                  <td className={td}>
-                    <span className="bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium">{f.nom}</span>
-                  </td>
-                  <td className={`${td} text-center text-slate-500`}>{f.etudiants}</td>
-                  <td className={`${td} text-center text-slate-500`}>{f.groupes}</td>
-                  <td className={`${td} text-right font-semibold text-[#0369A1]`}>{fmt(f.revenus)}</td>
-                  <td className={`${td} text-right text-slate-500`}>{fmt(f.charges)}</td>
-                  <td className={`${td} text-right text-slate-500`}>{fmt(f.partEns)}</td>
-                  <td className={`${td} text-right font-semibold ${f.benefice >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{fmt(f.benefice)}</td>
-                  <td className={`${td} text-right text-slate-500`}>{fmt(f.attendu)}</td>
-                  <td className={`${td} text-right text-slate-500`}>{fmt(f.encaisse)}</td>
-                  <td className={`${td} text-right`}>
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${f.credit > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                      {fmt(f.credit)}
-                    </span>
-                  </td>
-                  <td className={`${td} text-center text-slate-500`}>{f.nbCredit}</td>
-                </tr>
+              {formations.map((f, i) => (
+                <Fragment key={f.id}>
+                  <tr className={`hover:bg-slate-50 transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
+                    <td className={td}>
+                      <button
+                        type="button"
+                        disabled={!f.a_niveaux}
+                        onClick={() => toggleNiveaux(f.id)}
+                        className={`flex items-center gap-1 ${f.a_niveaux ? 'cursor-pointer' : 'cursor-default'}`}
+                      >
+                        {f.a_niveaux && (
+                          expanded[f.id]
+                            ? <ChevronDown size={12} className="text-slate-400" />
+                            : <ChevronRight size={12} className="text-slate-400" />
+                        )}
+                        <span className="bg-[#DCEBFA] text-[#0369A1] px-2 py-0.5 rounded-full text-[11px] font-medium">{f.nom}</span>
+                      </button>
+                    </td>
+                    <td className={`${td} text-center text-slate-500`}>{f.nb_etudiants}</td>
+                    <td className={`${td} text-center text-slate-500`}>{f.nb_groupes}</td>
+                    <td className={`${td} text-right font-semibold text-[#0369A1]`}>{fmt(f.revenus)}</td>
+                    <td className={`${td} text-right text-slate-500`}>{fmt(f.charges)}</td>
+                    <td className={`${td} text-right text-slate-500`}>{fmt(f.partEns)}</td>
+                    <td className={`${td} text-right font-semibold ${f.benefice >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{fmt(f.benefice)}</td>
+                    <td className={`${td} text-right text-slate-500`}>{fmt(f.attendu)}</td>
+                    <td className={`${td} text-right text-slate-500`}>{fmt(f.encaisse)}</td>
+                    <td className={`${td} text-right`}>
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${f.credit > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                        {fmt(f.credit)}
+                      </span>
+                    </td>
+                    <td className={`${td} text-center text-slate-500`}>{f.nbCredit}</td>
+                  </tr>
+
+                  {/* Détail par niveau — visible seulement si la formation a des niveaux et est dépliée */}
+                  {f.a_niveaux && expanded[f.id] && f.niveaux.map((n) => (
+                    <tr key={n.id} className="bg-[#F8FBFF]">
+                      <td className={`${td} pl-9 text-slate-500`}>{n.nom}</td>
+                      <td className={`${td} text-center text-slate-400`}>{n.nb_etudiants}</td>
+                      <td className={td}></td>
+                      <td className={td}></td>
+                      <td className={td}></td>
+                      <td className={td}></td>
+                      <td className={td}></td>
+                      <td className={`${td} text-right text-slate-400`}>{fmt(n.attendu)}</td>
+                      <td className={td}></td>
+                      <td className={td}></td>
+                      <td className={td}></td>
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
         </div>
         <p className="text-[11px] text-slate-400 px-5 py-3">
-          Revenus, charges, part enseignant et bénéfices suivent la période choisie. Attendu, encaissé et crédit sont toujours cumulés.
+          Revenus, charges, part enseignant et crédit suivent la période choisie. Attendu est le total dû (calculé selon niveaux/promotions/échéancier).
         </p>
       </div>
 
@@ -279,19 +269,19 @@ const Statistique = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <Card icon={Briefcase} title="Paiements du personnel">
           <div className="space-y-3">
-            <Highlight icon={GraduationCap} tone="blue" label="Total payé aux professeurs" name="Enseignants" value={fmt(s.partEnseignants)} />
-            <Highlight icon={Users} tone="amber" label="Total payé aux employés" name="Tous les autres employés" value={fmt(s.totalEmployes)} />
+            <Highlight icon={GraduationCap} tone="blue" label="Total payé aux professeurs" name="Enseignants" value={fmt(t.partEnseignants)} />
+            <Highlight icon={Users} tone="amber" label="Total payé aux employés" name="Tous les autres employés" value={fmt(t.totalEmployes)} />
           </div>
         </Card>
 
         <Card icon={Trophy} title="Classement rentabilité">
           <div className="space-y-3">
             <Highlight icon={Trophy} tone="emerald" label="Formation la plus rentable"
-              name={s.plusRentable?.nom} value={fmt(s.plusRentable?.benefice ?? 0)}
-              sub={`${s.plusRentable?.etudiants ?? 0} étudiants`} />
+              name={c.plusRentable?.nom} value={fmt(c.plusRentable?.benefice ?? 0)}
+              sub={`${c.plusRentable?.nb_etudiants ?? 0} étudiants`} />
             <Highlight icon={Frown} tone="red" label="Formation la moins rentable"
-              name={s.moinsRentable?.nom} value={fmt(s.moinsRentable?.benefice ?? 0)}
-              sub={`${s.moinsRentable?.etudiants ?? 0} étudiants`} />
+              name={c.moinsRentable?.nom} value={fmt(c.moinsRentable?.benefice ?? 0)}
+              sub={`${c.moinsRentable?.nb_etudiants ?? 0} étudiants`} />
           </div>
         </Card>
       </div>
@@ -300,16 +290,16 @@ const Statistique = () => {
       <Card icon={Layers} title="Points clés">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <Highlight icon={Flame} tone="red" label="Catégorie de charges la plus coûteuse"
-            name={s.topCharge?.nom} value={fmt(s.topCharge?.montant ?? 0)}
-            sub={s.totalCharges > 0 && s.topCharge ? `${((s.topCharge.montant / s.totalCharges) * 100).toFixed(0)}% des charges` : null} />
+            name={c.topCharge?.nom} value={fmt(c.topCharge?.montant ?? 0)}
+            sub={t.totalCharges > 0 && c.topCharge ? `${((c.topCharge.montant / t.totalCharges) * 100).toFixed(0)}% des charges` : null} />
           <Highlight icon={Coins} tone="emerald" label="Catégorie de revenu la plus rentable"
-            name={s.topRevenu?.nom} value={fmt(s.topRevenu?.montant ?? 0)} />
+            name={c.topRevenu?.nom} value={fmt(c.topRevenu?.montant ?? 0)} />
           <Highlight icon={Award} tone="blue" label="Formation avec le plus de revenus"
-            name={s.plusRevenus?.nom} value={fmt(s.plusRevenus?.revenus ?? 0)}
-            sub={`${s.plusRevenus?.etudiants ?? 0} étudiants`} />
+            name={c.plusRevenus?.nom} value={fmt(c.plusRevenus?.revenus ?? 0)}
+            sub={`${c.plusRevenus?.nb_etudiants ?? 0} étudiants`} />
           <Highlight icon={Building2} tone="amber" label="Formation avec le plus de charges"
-            name={s.plusCharges?.nom} value={fmt(s.plusCharges?.coutTotal ?? 0)}
-            sub={`${s.plusCharges?.etudiants ?? 0} étudiants · charges + part enseignant`} />
+            name={c.plusCharges?.nom} value={fmt(c.plusCharges?.coutTotal ?? 0)}
+            sub={`${c.plusCharges?.nb_etudiants ?? 0} étudiants · charges + part enseignant`} />
         </div>
       </Card>
     </ComptableLayout>

@@ -19,6 +19,9 @@ const monthBounds = (mois, annee) => {
   return { start: `${annee}-${pad(mois)}-01`, end: `${next.y}-${pad(next.m)}-01` };
 };
 
+// Dernier jour du mois (pour construire un dateTo inclusif)
+const lastDayOfMonth = (mois, annee) => new Date(Date.UTC(annee, mois, 0)).getUTCDate();
+
 // Un bilan (mois, annee) est retenu si son mois chevauche [dateFrom, dateTo]
 const monthOverlapsRange = (mois, annee, dateFrom, dateTo) => {
   const { start, end } = monthBounds(mois, annee);
@@ -168,6 +171,40 @@ const getFormationsEtEcheances = async (dateFrom, dateTo) => {
 };
 
 // ============================================================
+// 1bis. Groupes actifs d'une formation, avec leur nombre d'étudiants
+//       (pour l'affichage "Groupe A (12), Groupe B (8)" du rapport mensuel)
+// ============================================================
+const getGroupesActifsAvecEtudiants = async (formationIds) => {
+  if (!formationIds.length) return {};
+
+  const { data: groupes } = await supabase
+    .from('groups')
+    .select('id, nom, formation_id')
+    .in('formation_id', formationIds)
+    .eq('archived', false);
+
+  const groupIds = (groupes ?? []).map((g) => g.id);
+  const { data: inscriptions } = await supabase
+    .from('inscriptions')
+    .select('group_id, statut_scolarite')
+    .eq('statut', 'confirmed')
+    .eq('archived', false)
+    .in('group_id', groupIds.length ? groupIds : ['00000000-0000-0000-0000-000000000000']);
+
+  const countByGroup = {};
+  (inscriptions ?? []).forEach((i) => {
+    if (i.statut_scolarite === 'abandonne') return;
+    countByGroup[i.group_id] = (countByGroup[i.group_id] || 0) + 1;
+  });
+
+  const byFormation = {};
+  (groupes ?? []).forEach((g) => {
+    (byFormation[g.formation_id] ??= []).push({ nom: g.nom, etudiants: countByGroup[g.id] || 0 });
+  });
+  return byFormation;
+};
+
+// ============================================================
 // 2. Autres revenus
 // ============================================================
 const getAutresRevenusPeriode = async (dateFrom, dateTo) => {
@@ -198,7 +235,9 @@ const getChargesPeriode = async (formationIds, dateFrom, dateTo) => {
 
 // ============================================================
 // 4. Part enseignant — UNIQUEMENT les bilans validés dont le mois
-//    chevauche la période filtrée (mois/annee du bilan, pas date_validation)
+//    chevauche la période filtrée (mois/annee du bilan, pas date_validation).
+//    Retourne aussi `details` : le détail individuel prof × formation,
+//    utilisé par le rapport mensuel pour la liste "Professeurs".
 // ============================================================
 const getPartEnseignantParFormation = async (dateFrom, dateTo) => {
   const { data: bilansValides, error } = await supabase
@@ -208,7 +247,7 @@ const getPartEnseignantParFormation = async (dateFrom, dateTo) => {
   if (error) throw error;
 
   const bilansRetenus = (bilansValides ?? []).filter((b) => monthOverlapsRange(b.mois, b.annee, dateFrom, dateTo));
-  if (!bilansRetenus.length) return { parFormation: {}, total: 0 };
+  if (!bilansRetenus.length) return { parFormation: {}, total: 0, details: [] };
 
   // regroupe par (mois, annee) pour ne rebâtir les professeurs qu'une fois par période
   const parPeriode = {};
@@ -218,6 +257,7 @@ const getPartEnseignantParFormation = async (dateFrom, dateTo) => {
   });
 
   const parFormation = {};
+  const details = [];
   let total = 0;
 
   for (const { mois, annee, teacherIds } of Object.values(parPeriode)) {
@@ -235,13 +275,24 @@ const getPartEnseignantParFormation = async (dateFrom, dateTo) => {
     profsRetenus.forEach((p) => {
       const r = applyBilan(p, bilanDataOf(all, p.id), revenusMap);
       r.formations.forEach((f) => {
+        if (!f.typeSalaire) return; // pas de config de rémunération pour cette formation
         parFormation[f.id] = (parFormation[f.id] || 0) + f.montantPeriode;
         total += f.montantPeriode;
+        details.push({
+          profNom: p.nom,
+          formationId: f.id,
+          formationNom: f.nom,
+          typeSalaire: f.typeSalaire, // 'Fixe' | "À l'heure" | 'Pourcentage'
+          tauxOuMontant: Number(f.montant) || 0,
+          heuresEffectuees: f.heuresEffectuees ?? 0,
+          part: f.part ?? null,
+          montantPeriode: f.montantPeriode,
+        });
       });
     });
   }
 
-  return { parFormation, total };
+  return { parFormation, total, details };
 };
 
 // ============================================================
@@ -358,4 +409,108 @@ const getStatistiques = async (req, res) => {
   }
 };
 
-module.exports = { getStatistiques };
+// ============================================================
+// Construit le rapport complet d'UN mois (réutilisé par getRapportMensuel)
+// ============================================================
+const buildRapportMois = async (mois, annee) => {
+  const dateFrom = `${annee}-${pad(mois)}-01`;
+  const dateTo = `${annee}-${pad(mois)}-${pad(lastDayOfMonth(mois, annee))}`;
+
+  const formations = await getFormationsEtEcheances(dateFrom, dateTo);
+  const formationIds = formations.map((f) => f.id);
+
+  const [autresRevenus, chargesRes, partEnseignant, employes, groupesByFormation] = await Promise.all([
+    getAutresRevenusPeriode(dateFrom, dateTo),
+    getChargesPeriode(formationIds, dateFrom, dateTo),
+    getPartEnseignantParFormation(dateFrom, dateTo),
+    getSalairesEmployesPeriode(dateFrom, dateTo),
+    getGroupesActifsAvecEtudiants(formationIds),
+  ]);
+  const { chargesFormation, chargesAutres } = chargesRes;
+
+  const formationsMois = formations.map((f) => {
+    const chargesListe = chargesFormation
+      .filter((c) => c.formation_id === f.id)
+      .map((c) => ({ categorie: c.categorie, date: c.date, montant: Number(c.montant) }));
+    const chargesTotal = sum(chargesListe);
+
+    const profPaiements = partEnseignant.details
+      .filter((d) => d.formationId === f.id)
+      .map((d) => ({
+        nom: d.profNom,
+        montant: d.montantPeriode,
+        typeSalaire: d.typeSalaire,
+        tauxOuMontant: d.tauxOuMontant,
+        heuresEffectuees: d.heuresEffectuees,
+        part: d.part,
+      }));
+    const profTotal = sum(profPaiements, 'montant');
+
+    return {
+      nom: f.nom,
+      etudiants: f.nb_etudiants,
+      groupes: groupesByFormation[f.id] || [],
+      attendu: f.attendu,
+      obtenu: f.encaisse,
+      charges: chargesListe,
+      chargesTotal,
+      profPaiements,
+      profTotal,
+      benefice: f.encaisse - chargesTotal - profTotal,
+    };
+  });
+
+  const revenuAttenduTotal = sum(formationsMois, 'attendu');
+  const revenuObtenuTotal = sum(formationsMois, 'obtenu');
+  const chFTotal = sum(chargesFormation);
+  const autresRevTotal = sum(autresRevenus);
+  const chATotal = sum(chargesAutres);
+  const profsTotal = partEnseignant.total;
+  const empTotal = sum(employes, 'montant');
+  const totalSalaires = profsTotal + empTotal;
+  const totalRevenus = revenuObtenuTotal + autresRevTotal;
+  const totalCharges = chFTotal + chATotal + totalSalaires;
+
+  return {
+    mois,
+    formations: formationsMois,
+    autresRev: autresRevenus,
+    chA: chargesAutres,
+    profs: partEnseignant.details.map((d) => ({
+      nom: d.profNom,
+      formation: d.formationNom,
+      montant: d.montantPeriode,
+      typeSalaire: d.typeSalaire,
+      tauxOuMontant: d.tauxOuMontant,
+      heuresEffectuees: d.heuresEffectuees,
+      part: d.part,
+    })),
+    emp: employes.map((e) => ({ nom: e.nom, poste: e.role, montant: e.montant })),
+    revenuAttenduTotal, revenuObtenuTotal, chFTotal, autresRevTotal, chATotal,
+    profsTotal, empTotal, totalSalaires, totalRevenus, totalCharges,
+    benefice: totalRevenus - totalCharges,
+    empty: totalRevenus === 0 && totalCharges === 0,
+  };
+};
+
+// ============================================================
+// Endpoint — GET /api/comptable/statistiques/rapport-mensuel?annee=2026
+// Renvoie les 12 mois de l'année, chacun avec son détail complet
+// (utilisé par la page Rapport mensuel : tableau + modal par mois)
+// ============================================================
+const getRapportMensuel = async (req, res) => {
+  try {
+    const annee = Number(req.query.annee) || new Date().getFullYear();
+
+    const mois = await Promise.all(
+      Array.from({ length: 12 }, (_, idx) => buildRapportMois(idx + 1, annee))
+    );
+
+    res.json({ annee, mois });
+  } catch (err) {
+    console.error('getRapportMensuel:', err);
+    res.status(500).json({ error: err.message || 'Erreur serveur' });
+  }
+};
+
+module.exports = { getStatistiques, getRapportMensuel };
