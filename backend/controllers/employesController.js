@@ -1,20 +1,43 @@
 const supabase = require('../supabaseClient');
-
+const { logHistorique, buildDiffDescription } = require('./historiqueController');
 // ============================================================
 // EMPLOYES — list (avec leurs postes)
 // ============================================================
 const getEmployes = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data: employes, error } = await supabase
       .from('employes')
       .select('*, postes(*)')
       .order('nom');
 
     if (error) return res.status(500).json({ message: error.message });
-    res.json(data);
+
+    const allPosteIds = employes.flatMap((e) => e.postes.map((p) => p.id));
+    let nbParPoste = {};
+
+    if (allPosteIds.length > 0) {
+      const { data: mouvements, error: mvtError } = await supabase
+        .from('mouvements_salaire')
+        .select('poste_id')
+        .in('poste_id', allPosteIds);
+
+      if (mvtError) return res.status(500).json({ message: mvtError.message });
+
+      nbParPoste = mouvements.reduce((acc, m) => {
+        acc[m.poste_id] = (acc[m.poste_id] || 0) + 1;
+        return acc;
+      }, {});
+    }
+
+    const withCounts = employes.map((e) => ({
+      ...e,
+      nb_mouvements: e.postes.reduce((s, p) => s + (nbParPoste[p.id] || 0), 0),
+    }));
+
+    res.json(withCounts);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Erreur serveur' });
+    res.status(500).json({ message: err.message || 'Erreur serveur' });
   }
 };
 
@@ -33,7 +56,7 @@ const getEmployeById = async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Erreur serveur' });
+    res.status(500).json({ message: err.message || 'Erreur serveur' });
   }
 };
 
@@ -64,8 +87,27 @@ const createEmploye = async (req, res) => {
         .select();
 
       if (postesError) return res.status(500).json({ message: postesError.message });
+
+      await logHistorique({
+        req,
+        perimetre: 'employes',
+        action: 'création',
+        entite: 'employe',
+        entite_id: employe.id,
+        description: `Employé créé : ${nom} ${prenom} (${postesData.length} poste${postesData.length > 1 ? 's' : ''})`,
+      });
+
       return res.status(201).json({ ...employe, postes: postesData });
     }
+
+    await logHistorique({
+      req,
+      perimetre: 'employes',
+      action: 'création',
+      entite: 'employe',
+      entite_id: employe.id,
+      description: `Employé créé : ${nom} ${prenom}`,
+    });
 
     res.status(201).json({ ...employe, postes: [] });
   } catch (err) {
@@ -86,6 +128,14 @@ const updateEmploye = async (req, res) => {
   try {
     const { nom, prenom, telephone, statut, postes } = req.body;
 
+    const { data: before, error: beforeError } = await supabase
+      .from('employes')
+      .select('nom, prenom, telephone, statut')
+      .eq('id', employeId)
+      .single();
+
+    if (beforeError) return res.status(500).json({ message: beforeError.message });
+
     const { data: employe, error: empError } = await supabase
       .from('employes')
       .update({ nom, prenom, telephone, statut })
@@ -95,10 +145,22 @@ const updateEmploye = async (req, res) => {
 
     if (empError) return res.status(500).json({ message: empError.message });
 
+    const champsChanges = buildDiffDescription(before, { nom, prenom, telephone, statut });
+
     if (!Array.isArray(postes)) {
+      if (champsChanges.length > 0) {
+        await logHistorique({
+          req,
+          perimetre: 'employes',
+          action: 'modification',
+          entite: 'employe',
+          entite_id: employeId,
+          description: `Employé modifié : ${nom} ${prenom}`,
+          details: champsChanges.join(' | '),
+        });
+      }
       return res.json({ ...employe, postes: [] });
     }
-
     const { data: postesExistants, error: fetchError } = await supabase
       .from('postes')
       .select('id')
@@ -156,6 +218,25 @@ const updateEmploye = async (req, res) => {
 
     if (finalError) return res.status(500).json({ message: finalError.message });
 
+    const posteChanges = [];
+    if (aInserer.length > 0) posteChanges.push(`${aInserer.length} poste${aInserer.length > 1 ? 's' : ''} ajouté${aInserer.length > 1 ? 's' : ''}`);
+    if (aModifier.length > 0) posteChanges.push(`${aModifier.length} poste${aModifier.length > 1 ? 's' : ''} modifié${aModifier.length > 1 ? 's' : ''}`);
+    if (idsASupprimer.length > 0) posteChanges.push(`${idsASupprimer.length} poste${idsASupprimer.length > 1 ? 's' : ''} supprimé${idsASupprimer.length > 1 ? 's' : ''}`);
+
+    const allChanges = [...champsChanges, ...posteChanges];
+
+    if (allChanges.length > 0) {
+      await logHistorique({
+        req,
+        perimetre: 'employes',
+        action: 'modification',
+        entite: 'employe',
+        entite_id: employeId,
+        description: `Employé modifié : ${nom} ${prenom}`,
+        details: allChanges.join(' | '),
+      });
+    }
+
     res.json({ ...employe, postes: postesFinal });
   } catch (err) {
     console.error(err);
@@ -164,12 +245,60 @@ const updateEmploye = async (req, res) => {
 };
 
 // ============================================================
-// EMPLOYES — delete
+// EMPLOYES — delete (bloqué si des mouvements sont liés)
 // ============================================================
 const deleteEmploye = async (req, res) => {
+  const employeId = req.params.id;
   try {
-    const { error } = await supabase.from('employes').delete().eq('id', req.params.id);
+    const { data: employeInfo, error: infoError } = await supabase
+      .from('employes')
+      .select('nom, prenom')
+      .eq('id', employeId)
+      .single();
+
+    if (infoError) return res.status(500).json({ message: infoError.message });
+
+    const { data: postes, error: postesError } = await supabase
+      .from('postes')
+      .select('id')
+      .eq('employe_id', employeId);
+
+    if (postesError) return res.status(500).json({ message: postesError.message });
+
+    const posteIds = postes.map((p) => p.id);
+
+    if (posteIds.length > 0) {
+      const { data: mouvementsLies, error: mvtError } = await supabase
+        .from('mouvements_salaire')
+        .select('id')
+        .in('poste_id', posteIds);
+
+      if (mvtError) return res.status(500).json({ message: mvtError.message });
+
+      if (mouvementsLies.length > 0) {
+        return res.status(400).json({
+          message: "Impossible de supprimer cet employé : des mouvements de salaire sont encore liés à un ou plusieurs de ses postes.",
+        });
+      }
+    }
+
+    if (posteIds.length > 0) {
+      const { error: delPostesError } = await supabase.from('postes').delete().eq('employe_id', employeId);
+      if (delPostesError) return res.status(500).json({ message: delPostesError.message });
+    }
+
+    const { error } = await supabase.from('employes').delete().eq('id', employeId);
     if (error) return res.status(500).json({ message: error.message });
+
+    await logHistorique({
+      req,
+      perimetre: 'employes',
+      action: 'suppression',
+      entite: 'employe',
+      entite_id: employeId,
+      description: `Employé supprimé : ${employeInfo.nom} ${employeInfo.prenom}`,
+    });
+
     res.status(204).send();
   } catch (err) {
     console.error(err);
