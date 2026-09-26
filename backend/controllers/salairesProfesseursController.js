@@ -231,7 +231,7 @@ const applyBilan = (professeur, { bilan, details, mouvements, charges }, revenus
   const formations = professeur.formations.map((f) => {
     const d = detailOf(f.id);
   if (f.typeSalaire === 'Pourcentage') {
-    const part = Number(f.montant) || 40;
+    const part = f.montant != null ? Number(f.montant) : 40;
     const selected = d?.charges_selectionnees ?? [];
     const revenusOverride = d?.revenus_override != null ? Number(d.revenus_override) : null;
     const revenusAuto = Number(revenusMap[f.id] ?? 0);
