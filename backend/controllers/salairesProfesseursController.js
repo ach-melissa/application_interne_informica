@@ -803,4 +803,5 @@ module.exports = {
   getBilan, upsertBilanFormationDetail, addMouvement, deleteMouvement,
   setTotalOverride, validerBilan, envoyerBilan, setPaye, getHistorique,
   uploadBonMouvement, upload,
+  applyBilan, loadBilanData, bilanDataOf, loadRevenusFormations, // ← ajout
 };
