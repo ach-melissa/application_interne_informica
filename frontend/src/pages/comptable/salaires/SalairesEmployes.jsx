@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Wallet, Pencil, Phone, Users2, Calendar, ChevronRight, ChevronDown, X } from 'lucide-react';
-
+import { Plus, Search, Wallet, Pencil, Phone, Users2, Calendar, ChevronRight, ChevronDown, X, Trash2 } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
 import EmployeModal, { StatTile, TYPES, typeOf, nomComplet, tarifLabel, totalEmploye, fmt, initiales, formatDate, joursParSemaine, cap, posteToApi, employeFromApi } from './EmployeModal';
 const BASE_PATH = '/comptable/salaires/employes';
 const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
 
 
-const EmployeCard = ({ employe, onOpen, onEdit }) => (
+const EmployeCard = ({ employe, onOpen, onEdit, onDelete }) => (
   <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition flex flex-col h-full">
     <div className="flex items-center gap-3 mb-4">
       <div className="w-10 h-10 bg-[#DCEBFA] rounded-full flex items-center justify-center text-sm font-bold text-[#0369A1] shrink-0">{initiales(nomComplet(employe))}</div>
@@ -45,6 +44,9 @@ const EmployeCard = ({ employe, onOpen, onEdit }) => (
       <button onClick={onEdit} className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 active:scale-95 transition">
         <Pencil size={13} /> Modifier
       </button>
+      <button onClick={onDelete} className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-600/20 px-3 py-1.5 rounded-full hover:bg-red-100 active:scale-95 transition">
+        <Trash2 size={13} /> Supprimer
+      </button>
       <span className="ml-auto text-sm font-bold text-slate-700">{fmt(totalEmploye(employe))}</span>
     </div>
   </div>
@@ -60,7 +62,7 @@ const SalairesEmployes = () => {
   const [search, setSearch] = useState('');
   const [typeFiltre, setTypeFiltre] = useState('');
   const [modal, setModal] = useState(null);
-  
+  const [deleteError, setDeleteError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +110,23 @@ const filtered = employes.filter(e =>
     setEmployes(prev => isEdit ? prev.map(e => e.id === saved.id ? saved : e) : [...prev, saved]);
   };
 
+  const handleDelete = async (employe) => {
+    const confirmed = window.confirm(`Supprimer ${nomComplet(employe)} ? Cette action est irréversible.`);
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`${API_URL}/${employe.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Erreur lors de la suppression");
+      }
+      setEmployes(prev => prev.filter(e => e.id !== employe.id));
+      setDeleteError(null);
+    } catch (err) {
+      setDeleteError(err.message);
+    }
+  };
+
   const hasFilters = search || typeFiltre || dateDebut || dateFin;
   const clearFilters = () => { setSearch(''); setTypeFiltre(''); setDateDebut(''); setDateFin(''); };
 
@@ -132,6 +151,13 @@ const filtered = employes.filter(e =>
         <StatTile icon={Wallet} label="Salaires payés" value={fmt(payes)} color="emerald" />
         <StatTile icon={Wallet} label="Salaires restants" value={fmt(total - payes)} color="amber" />
       </div>
+
+      {deleteError && (
+        <div className="mb-4 flex items-center justify-between gap-2 bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg px-3 py-2">
+          <span>{deleteError}</span>
+          <button onClick={() => setDeleteError(null)} className="text-red-400 hover:text-red-600"><X size={12} /></button>
+        </div>
+      )}
 
       <div className="mb-6 flex flex-wrap gap-2 items-center">
         <div className="relative min-w-[160px] flex-1 max-w-[220px]">
@@ -162,7 +188,7 @@ const filtered = employes.filter(e =>
         <p className="text-red-500 text-sm">{loadError}</p>
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map(e => <EmployeCard key={e.id} employe={e} onOpen={() => navigate(`${BASE_PATH}/${e.id}`, { state: { employe: e, employes: filtered } })} onEdit={() => setModal({ employe: e })} />)}
+          {filtered.map(e => <EmployeCard key={e.id} employe={e} onOpen={() => navigate(`${BASE_PATH}/${e.id}`, { state: { employe: e, employes: filtered } })} onEdit={() => setModal({ employe: e })} onDelete={() => handleDelete(e)} />)}
         </div>
       ) : <p className="text-slate-400 text-sm">Aucun employé ne correspond à ces filtres.</p>}
 
