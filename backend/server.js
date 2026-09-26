@@ -49,6 +49,7 @@ app.use('/api/comptable', comptableRoutes);
 app.use('/api/employes', employesRoutes);
 app.use('/api/mouvements', mouvementsRoutes);
 app.use('/api/salaires-mensuels', salairesMensuelsRoutes);
+app.use('/api/salaires-professeurs', require('./routes/salairesProfesseursMeRoutes'));
 app.use('/api/salaires-professeurs', salairesProfesseursRoutes);
 app.use('/api/comptable/statistiques', require('./routes/statistiqueComptableRoutes')); // ← nouvelle ligne
 app.use('/api/schedules', scheduleRoutes);
