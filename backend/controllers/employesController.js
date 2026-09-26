@@ -5,16 +5,39 @@ const { logHistorique, buildDiffDescription } = require('./historiqueController'
 // ============================================================
 const getEmployes = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data: employes, error } = await supabase
       .from('employes')
       .select('*, postes(*)')
       .order('nom');
 
     if (error) return res.status(500).json({ message: error.message });
-    res.json(data);
+
+    const allPosteIds = employes.flatMap((e) => e.postes.map((p) => p.id));
+    let nbParPoste = {};
+
+    if (allPosteIds.length > 0) {
+      const { data: mouvements, error: mvtError } = await supabase
+        .from('mouvements_salaire')
+        .select('poste_id')
+        .in('poste_id', allPosteIds);
+
+      if (mvtError) return res.status(500).json({ message: mvtError.message });
+
+      nbParPoste = mouvements.reduce((acc, m) => {
+        acc[m.poste_id] = (acc[m.poste_id] || 0) + 1;
+        return acc;
+      }, {});
+    }
+
+    const withCounts = employes.map((e) => ({
+      ...e,
+      nb_mouvements: e.postes.reduce((s, p) => s + (nbParPoste[p.id] || 0), 0),
+    }));
+
+    res.json(withCounts);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Erreur serveur' });
+    res.status(500).json({ message: err.message || 'Erreur serveur' });
   }
 };
 

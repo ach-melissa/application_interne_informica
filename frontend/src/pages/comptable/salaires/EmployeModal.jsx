@@ -97,8 +97,9 @@ const Suffix = ({ text, children }) => (
 const newPoste = () => ({ id: Date.now() + Math.random(), poste: '', type: 'mensuel', montant: '', joursFixes: true, jours: JOURS.slice(0, 5), nbJours: 5, heuresParJour: 8, dateDebut: '' });
 
 const EmployeModal = ({ employe, onClose, onSave }) => {
-  const { nom = '', prenom = '', telephone = '' } = employe ?? {};
-  const [infos, setInfos] = useState({ nom, prenom, telephone });
+  const { nom = '', prenom = '', telephone = null } = employe ?? {};
+  const infosInit = { nom, prenom, telephone: telephone ?? '' };
+   const [infos, setInfos] = useState(infosInit);
   const [postes, setPostes] = useState(employe ? employe.postes.map(p => ({ ...p })) : [newPoste()]);
   const [error, setError] = useState('');
 

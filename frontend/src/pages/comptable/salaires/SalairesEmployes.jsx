@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Wallet, Pencil, Phone, Users2, Calendar, ChevronRight, ChevronDown, X, Trash2 } from 'lucide-react';
+import { Plus, Search, Wallet, Pencil, Phone, Users2, Calendar, ChevronRight, ChevronDown, X, Trash2, AlertTriangle } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
 import EmployeModal, { StatTile, TYPES, typeOf, nomComplet, tarifLabel, totalEmploye, fmt, initiales, formatDate, joursParSemaine, cap, posteToApi, employeFromApi } from './EmployeModal';
 const BASE_PATH = '/comptable/salaires/employes';
@@ -44,11 +44,25 @@ const EmployeCard = ({ employe, onOpen, onEdit, onDelete }) => (
       <button onClick={onEdit} className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-700/20 px-3 py-1.5 rounded-full hover:bg-amber-100 active:scale-95 transition">
         <Pencil size={13} /> Modifier
       </button>
-      <button onClick={onDelete} className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-600/20 px-3 py-1.5 rounded-full hover:bg-red-100 active:scale-95 transition">
+      <button
+        onClick={onDelete}
+        disabled={employe.nb_mouvements > 0}
+        title={employe.nb_mouvements > 0 ? `${employe.nb_mouvements} mouvement(s) de salaire lié(s) : suppression impossible` : undefined}
+        className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition ${
+          employe.nb_mouvements > 0
+            ? 'text-slate-300 bg-slate-50 border-slate-200 cursor-not-allowed'
+            : 'text-red-600 bg-red-50 border-red-600/20 hover:bg-red-100 active:scale-95'
+        }`}
+      >
         <Trash2 size={13} /> Supprimer
       </button>
       <span className="ml-auto text-sm font-bold text-slate-700">{fmt(totalEmploye(employe))}</span>
     </div>
+    {employe.nb_mouvements > 0 && (
+      <p className="text-[10px] text-slate-400 mt-2">
+        {employe.nb_mouvements} mouvement(s) lié(s) — non supprimable
+      </p>
+    )}
   </div>
 );
 
@@ -63,7 +77,8 @@ const SalairesEmployes = () => {
   const [typeFiltre, setTypeFiltre] = useState('');
   const [modal, setModal] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
-
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -110,20 +125,21 @@ const filtered = employes.filter(e =>
     setEmployes(prev => isEdit ? prev.map(e => e.id === saved.id ? saved : e) : [...prev, saved]);
   };
 
-  const handleDelete = async (employe) => {
-    const confirmed = window.confirm(`Supprimer ${nomComplet(employe)} ? Cette action est irréversible.`);
-    if (!confirmed) return;
-
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    setDeleteError(null);
     try {
-      const res = await fetch(`${API_URL}/${employe.id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Erreur lors de la suppression");
-      }
-      setEmployes(prev => prev.filter(e => e.id !== employe.id));
-      setDeleteError(null);
+      const res = await fetch(`${API_URL}/${confirmDelete.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Erreur lors de la suppression");
+      setEmployes(prev => prev.filter(e => e.id !== confirmDelete.id));
+      setConfirmDelete(null);
     } catch (err) {
       setDeleteError(err.message);
+      setConfirmDelete(null); // ferme le modal de confirmation pour laisser voir le message d'erreur
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -188,11 +204,42 @@ const filtered = employes.filter(e =>
         <p className="text-red-500 text-sm">{loadError}</p>
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map(e => <EmployeCard key={e.id} employe={e} onOpen={() => navigate(`${BASE_PATH}/${e.id}`, { state: { employe: e, employes: filtered } })} onEdit={() => setModal({ employe: e })} onDelete={() => handleDelete(e)} />)}
+          {filtered.map(e => <EmployeCard key={e.id} employe={e} onOpen={() => navigate(`${BASE_PATH}/${e.id}`, { state: { employe: e, employes: filtered } })} onEdit={() => setModal({ employe: e })} onDelete={() => setConfirmDelete(e)} />)}
         </div>
       ) : <p className="text-slate-400 text-sm">Aucun employé ne correspond à ces filtres.</p>}
 
       {modal && <EmployeModal employe={modal.employe} onClose={() => setModal(null)} onSave={handleSave} />}
+
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => !deleting && setConfirmDelete(null)}>
+          <div onClick={ev => ev.stopPropagation()} className="bg-white rounded-md shadow-xl w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#F1F5F9]">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-red-500 flex items-center justify-center shrink-0"><Trash2 size={15} className="text-white" /></div>
+                <h2 className="text-sm font-semibold text-slate-800">Supprimer l'employé</h2>
+              </div>
+              <button onClick={() => setConfirmDelete(null)} className="text-slate-300 hover:text-slate-600 flex-shrink-0"><X size={16} /></button>
+            </div>
+            <div className="px-5 py-4">
+              <div className="bg-red-50 rounded-md p-3">
+                <p className="text-xs text-red-600 flex items-center gap-1.5">
+                  <AlertTriangle size={13} className="flex-shrink-0" />
+                  {confirmDelete.nb_mouvements > 0
+                    ? `Suppression impossible : ${confirmDelete.nb_mouvements} mouvement(s) de salaire sont liés à ${nomComplet(confirmDelete)} (avances, retenues, primes...).`
+                    : `Supprimer définitivement ${nomComplet(confirmDelete)} ? Action irréversible.`}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F1F5F9]">
+              <button onClick={() => setConfirmDelete(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-slate-100">Annuler</button>
+              <button onClick={doDelete} disabled={deleting || confirmDelete.nb_mouvements > 0}
+                className="text-xs px-3 py-1.5 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-40">
+                {deleting ? '...' : 'Oui, supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ComptableLayout>
   );
 };
