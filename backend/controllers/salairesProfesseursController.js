@@ -63,8 +63,16 @@ const computeMontantPeriode = (f) => {
   return 0;
 };
 
-const MSG_BILAN_VALIDE = 'Ce bilan est validé : il ne peut plus être modifié.';
+const { logHistorique } = require('../utils/historique');
 
+const dz = (n) => Math.abs(Number(n) || 0).toLocaleString('fr-FR') + ' DA';
+const periodeLabel = (mois, annee) => `${pad(mois)}/${annee}`;
+const TYPE_MVT_LABEL = { avance: 'une avance', retenue: 'une retenue', prime: 'une prime', particulier: 'un mouvement particulier' };
+
+const nomProf = async (teacherId) => {
+  const { data } = await supabase.from('teachers').select('user:user_id(nom, prenom)').eq('id', teacherId).maybeSingle();
+  return data?.user ? [data.user.prenom, data.user.nom].filter(Boolean).join(' ') : '—';
+};
 /* ------------------------------------------------------------------ */
 /*  Core: professors + their formations + séances for the month        */
 /*  (exported so GET /:id can reuse it with teacherId)                 */
@@ -262,6 +270,8 @@ const applyBilan = (professeur, { bilan, details, mouvements, charges }, revenus
     totalCalcule,
     totalOverride,
     total,
+    totalCalculeValide: bilan?.total_calcule_valide != null ? Number(bilan.total_calcule_valide) : null,
+    dateValidation: bilan?.date_validation ?? null,
     paye,
     valide,
     envoye: bilan?.envoye ?? false,
@@ -574,7 +584,9 @@ const r = applyBilan(professeur, bilanData, revenusMap);
       formations: r.formations,
        mouvements: bilanData.mouvements,
       charges: bilanData.charges,
-      totalCalcule: r.totalCalcule,
+       totalCalcule: r.totalCalcule,
+      totalCalculeValide: r.totalCalculeValide,
+      dateValidation: r.dateValidation,
       totalOverride: r.totalOverride,
       total: r.total,
       paye: r.paye,
@@ -600,24 +612,55 @@ const upsertBilanFormationDetail = async (req, res) => {
     if (!mois || !annee) return res.status(400).json({ error: 'Mois et année requis.' });
 
     const bilan = await getOrCreateBilan(teacherId, Number(mois), Number(annee));
-    if (bilan.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
+
+    const { data: before } = await supabase
+      .from('bilan_formation_details')
+      .select('seances, revenus_override, charges_selectionnees')
+      .eq('bilan_id', bilan.id).eq('formation_id', formationId)
+      .maybeSingle();
 
     const patch = { bilan_id: bilan.id, formation_id: formationId, updated_at: new Date().toISOString() };
     if (seances !== undefined) patch.seances = seances === null ? null : Number(seances) || 0;
     if (revenusOverride !== undefined) patch.revenus_override = revenusOverride === null ? null : Number(revenusOverride);
-if (part !== undefined) {
-  patch.part_pct = Number(part); // kept for the DB column, unused for calculation now
-
-  const { error: pfErr } = await supabase.from('professeur_formations')
-    .update({ montant: Number(part), updated_at: new Date().toISOString() })
-    .eq('teacher_id', teacherId)
-    .eq('formation_id', formationId);
-  if (pfErr) throw pfErr;
-}
+    if (part !== undefined) {
+      patch.part_pct = Number(part);
+      const { error: pfErr } = await supabase.from('professeur_formations')
+        .update({ montant: Number(part), updated_at: new Date().toISOString() })
+        .eq('teacher_id', teacherId)
+        .eq('formation_id', formationId);
+      if (pfErr) throw pfErr;
+    }
     if (charges !== undefined) patch.charges_selectionnees = charges;
 
     const { error } = await supabase.from('bilan_formation_details').upsert(patch, { onConflict: 'bilan_id,formation_id' });
     if (error) throw error;
+
+    // history log: only what really changed
+    const n = (v) => (v == null ? null : Number(v));
+    const changes = [];
+    if (seances !== undefined && n(before?.seances) !== n(patch.seances)) {
+      changes.push(`heures : "${before?.seances ?? 'auto'}" → "${patch.seances ?? 'auto'}"`);
+    }
+    if (revenusOverride !== undefined && n(before?.revenus_override) !== n(patch.revenus_override)) {
+      changes.push(`revenus : "${before?.revenus_override != null ? dz(before.revenus_override) : 'auto'}" → "${patch.revenus_override != null ? dz(patch.revenus_override) : 'auto'}"`);
+    }
+    if (part !== undefined) changes.push(`part professeur : ${Number(part)}%`);
+    if (charges !== undefined) {
+      const a = JSON.stringify([...(before?.charges_selectionnees ?? [])].sort());
+      const b = JSON.stringify([...charges].sort());
+      if (a !== b) changes.push(`charges : ${(before?.charges_selectionnees ?? []).length} → ${charges.length} sélectionnée(s)`);
+    }
+    if (changes.length > 0) {
+      const [nom, { data: fo }] = await Promise.all([
+        nomProf(teacherId),
+        supabase.from('formations').select('nom').eq('id', formationId).maybeSingle(),
+      ]);
+      await logHistorique({
+        req, perimetre: 'comptable', action: 'modification', entite: 'bilan_formation', entite_id: bilan.id,
+        description: `a modifié la formation "${fo?.nom ?? '—'}" dans le bilan de ${nom} (${periodeLabel(mois, annee)}) : ${changes.join(' | ')}`,
+      });
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error('upsertBilanFormationDetail:', err);
@@ -638,13 +681,11 @@ const uploadBonMouvement = async (req, res) => {
 
     const { data: mvt, error: selErr } = await supabase
       .from('mouvements_salaire_professeurs')
-      .select('id, bons, bilan:bilan_id(valide)')
+      .select('id, bons, teacher_id, type')
       .eq('id', mouvementId)
       .maybeSingle();
     if (selErr) throw selErr;
     if (!mvt) return res.status(404).json({ error: 'Mouvement introuvable.' });
-    if (mvt.bilan?.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
-
     const ext = file.mimetype.split('/')[1] || 'jpg';
     const path = `mouvements/${mouvementId}/${Date.now()}.${ext}`;
 
@@ -664,6 +705,10 @@ const uploadBonMouvement = async (req, res) => {
       .single();
     if (error) throw error;
 
+      await logHistorique({
+      req, perimetre: 'comptable', action: 'creation', entite: 'bon_mouvement_prof', entite_id: mouvementId,
+      description: `a ajouté un bon à ${TYPE_MVT_LABEL[mvt.type] ?? 'un mouvement'} de ${await nomProf(mvt.teacher_id)}`,
+    });
     res.json(data);
   } catch (err) {
     console.error('uploadBonMouvement:', err);
@@ -684,7 +729,6 @@ const addMouvement = async (req, res) => {
     const moisN = Number(mois);
     const anneeN = Number(annee);
     const bilan = await getOrCreateBilan(teacherId, moisN, anneeN);
-    if (bilan.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
 
     // date of the movement: today if it is in the bilan's month, else the first day of that month
     const today = todayDZ();
@@ -704,6 +748,10 @@ const addMouvement = async (req, res) => {
       .select('*')
       .single();
     if (error) throw error;
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'creation', entite: 'mouvement_salaire_prof', entite_id: data.id,
+      description: `a ajouté ${TYPE_MVT_LABEL[type]} de ${dz(m)} pour ${await nomProf(teacherId)} (${periodeLabel(moisN, anneeN)}) : "${description.trim()}"`,
+    });
     res.status(201).json(data);
   } catch (err) {
     console.error('addMouvement:', err);
@@ -719,15 +767,19 @@ const deleteMouvement = async (req, res) => {
   try {
     const { data: mvt, error: selErr } = await supabase
       .from('mouvements_salaire_professeurs')
-      .select('id, bilan:bilan_id(valide)')
+      .select('id, teacher_id, type, description, montant')
       .eq('id', req.params.mouvementId)
       .maybeSingle();
     if (selErr) throw selErr;
     if (!mvt) return res.status(404).json({ error: 'Mouvement introuvable.' });
-    if (mvt.bilan?.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
 
     const { error } = await supabase.from('mouvements_salaire_professeurs').delete().eq('id', req.params.mouvementId);
     if (error) throw error;
+
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'suppression', entite: 'mouvement_salaire_prof', entite_id: mvt.id,
+      description: `a supprimé ${TYPE_MVT_LABEL[mvt.type] ?? 'un mouvement'} de ${dz(mvt.montant)} pour ${await nomProf(mvt.teacher_id)} : "${mvt.description}"`,
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error('deleteMouvement:', err);
@@ -747,12 +799,20 @@ const setTotalOverride = async (req, res) => {
     if (!mois || !annee) return res.status(400).json({ error: 'Mois et année requis.' });
 
     const bilan = await getOrCreateBilan(teacherId, Number(mois), Number(annee));
-    if (bilan.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
+    const apres = totalOverride === null ? null : Number(totalOverride);
+    const avant = bilan.total_override != null ? Number(bilan.total_override) : null;
 
     const { error } = await supabase.from('bilans_salaires')
-      .update({ total_override: totalOverride === null ? null : Number(totalOverride), updated_at: new Date().toISOString() })
+      .update({ total_override: apres, updated_at: new Date().toISOString() })
       .eq('id', bilan.id);
     if (error) throw error;
+
+    if (avant !== apres) {
+      await logHistorique({
+        req, perimetre: 'comptable', action: 'modification', entite: 'bilan_salaire', entite_id: bilan.id,
+        description: `a modifié le total du mois de ${await nomProf(teacherId)} pour ${periodeLabel(mois, annee)} : "${avant != null ? dz(avant) : 'calcul auto'}" → "${apres != null ? dz(apres) : 'calcul auto'}"`,
+      });
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error('setTotalOverride:', err);
@@ -770,14 +830,38 @@ const validerBilan = async (req, res) => {
     const { teacherId } = req.params;
     const { mois, annee } = req.body;
     if (!mois || !annee) return res.status(400).json({ error: 'Mois et année requis.' });
+    const moisN = Number(mois);
+    const anneeN = Number(annee);
 
-    const bilan = await getOrCreateBilan(teacherId, Number(mois), Number(annee));
-    if (bilan.valide) return res.json({ ok: true }); // déjà validé : rien à faire
+    const bilan = await getOrCreateBilan(teacherId, moisN, anneeN);
+
+    const [professeurs, all] = await Promise.all([
+      buildProfesseurs(moisN, anneeN, teacherId),
+      loadBilanData([teacherId], moisN, anneeN),
+    ]);
+    if (!professeurs[0]) return res.status(404).json({ error: 'Professeur introuvable.' });
+    const formationIds = professeurs[0].formations.filter((f) => f.typeSalaire === 'Pourcentage').map((f) => f.id);
+    const revenusMap = await loadRevenusFormations(formationIds, moisN, anneeN);
+    const { total, totalCalcule } = applyBilan(professeurs[0], bilanDataOf(all, teacherId), revenusMap);
 
     const { error } = await supabase.from('bilans_salaires')
-      .update({ valide: true, date_validation: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .update({
+        valide: true,
+        date_validation: new Date().toISOString(),
+        total_calcule_valide: totalCalcule, // reference for the "Recalculer" warning
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', bilan.id);
     if (error) throw error;
+
+    const nom = await nomProf(teacherId);
+    const periode = periodeLabel(moisN, anneeN);
+    await logHistorique({
+      req, perimetre: 'comptable', action: bilan.valide ? 'modification' : 'creation', entite: 'bilan_salaire', entite_id: bilan.id,
+      description: bilan.valide
+        ? `a mis à jour le salaire validé de ${nom} pour ${periode} : ${dz(total)}`
+        : `a validé le salaire de ${nom} pour ${periode} : ${dz(total)}`,
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error('validerBilan:', err);
@@ -803,6 +887,10 @@ const envoyerBilan = async (req, res) => {
       .update({ envoye: true, date_envoi: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', bilan.id);
     if (error) throw error;
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'modification', entite: 'bilan_salaire', entite_id: bilan.id,
+      description: `a envoyé le bilan de ${await nomProf(teacherId)} pour ${periodeLabel(mois, annee)} au professeur`,
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error('envoyerBilan:', err);
@@ -844,6 +932,12 @@ const setPaye = async (req, res) => {
       .update({ deja_paye: m, updated_at: new Date().toISOString() })
       .eq('id', bilan.id);
     if (error) throw error;
+    if (Number(bilan.deja_paye ?? 0) !== m) {
+      await logHistorique({
+        req, perimetre: 'comptable', action: 'modification', entite: 'bilan_salaire', entite_id: bilan.id,
+        description: `a modifié le montant payé de ${await nomProf(teacherId)} pour ${periodeLabel(moisN, anneeN)} : "${dz(bilan.deja_paye)}" → "${dz(m)}"`,
+      });
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error('setPaye:', err);

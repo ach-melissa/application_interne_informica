@@ -446,8 +446,12 @@ const handlePayeBlur = (e) => {
   if (raw === '' || Number(raw) === Number(paye)) { setPayeDraft(''); return; }
   run(() => putPaye(professeurId, { mois, annee, montant: Number(raw) }));
 };
-
 const handleValider = () => run(() => postValider(professeurId, { mois, annee }));
+// drop the manual total, then re-validate so the fresh auto-calculation becomes the new reference
+const handleRecalculer = () => run(async () => {
+  await putTotal(professeurId, { mois, annee, totalOverride: null });
+  await postValider(professeurId, { mois, annee });
+});
 const handleEnvoyer = () => run(() => postEnvoyer(professeurId, { mois, annee }));
 
   if (loading && !data) {
@@ -457,8 +461,13 @@ const handleEnvoyer = () => run(() => postEnvoyer(professeurId, { mois, annee })
     return <p className="text-red-500 text-sm">{error}</p>;
   }
 
-const { formations, mouvements, charges, total, totalCalcule, totalOverride, paye, valide, envoye } = data;
-  return (
+const { formations, mouvements, charges, total, totalCalcule, totalCalculeValide, dateValidation, totalOverride, paye, valide, envoye } = data;
+// warn only if the AUTO total changed since validation (a manual total is ignored)
+const ecart = valide && totalCalculeValide != null && Number(totalCalculeValide) !== Number(totalCalcule);
+const dateValidationLabel = dateValidation
+  ? new Date(dateValidation).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  : null;
+return (
     <div className="space-y-4">
       <div className="relative flex items-center justify-center gap-3">
         <button onClick={() => changerMois(-1)} className="w-7 h-7 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-slate-50"><ChevronLeft size={14} className="text-[#0369A1]" /></button>
@@ -533,13 +542,28 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
               value={totalDraft !== '' ? totalDraft : total}
               onChange={(e) => setTotalDraft(e.target.value)}
               onBlur={handleTotalBlur}
-              disabled={valide}
+              
               className="w-28 text-right text-lg font-bold text-slate-800 bg-transparent border border-transparent rounded-md px-1.5 py-0.5 hover:border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/30"
             />
             <span className="text-lg font-bold text-slate-800">DA</span>
           </span>
         </div>
 {totalOverride !== null && <p className="text-[10px] text-slate-400 text-right mt-1">(calcul auto: {fmt(totalCalcule)})</p>}
+ {ecart && (
+  <div className="mt-3 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] rounded-md px-3 py-2">
+    <span>
+      Le calcul a changé depuis la validation ({fmt(totalCalculeValide)} → {fmt(totalCalcule)}). Les heures, revenus ou mouvements ont peut-être changé.
+    </span>
+    <button onClick={handleRecalculer} className="shrink-0 font-semibold underline hover:text-amber-900">
+      Recalculer
+    </button>
+  </div>
+)}
+{valide && dateValidationLabel && (
+  <p className="text-[11px] text-emerald-600 mt-3 flex items-center gap-1">
+    <Check size={12} /> Salaire validé le {dateValidationLabel}
+  </p>
+)}
  <div className="flex items-center justify-between text-xs text-slate-400 mt-2">
           <span>Déjà payé</span>
           {valide ? (
@@ -559,9 +583,9 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
         </div>
 
         <div className="flex gap-2 mt-4">
-          <button onClick={handleValider} disabled={valide}
-            className="flex-1 flex items-center justify-center gap-1.5 bg-[#0F2A4A] text-white text-sm font-semibold py-2.5 rounded-lg shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0">
-            <Check size={14} /> {valide ? 'Salaire validé' : 'Valider le salaire'}
+          <button onClick={handleValider}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-[#0F2A4A] text-white text-sm font-semibold py-2.5 rounded-lg shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
+            <Check size={14} /> {valide ? 'Enregistrer le salaire' : 'Valider le salaire'}
           </button>
           <button onClick={handleEnvoyer} disabled={!valide || envoye}
             className="flex-1 flex items-center justify-center gap-1.5 bg-[#0369A1] text-white text-sm font-semibold py-2.5 rounded-lg shadow-[0_3px_0_#024e77] hover:shadow-[0_2px_0_#024e77] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0">
