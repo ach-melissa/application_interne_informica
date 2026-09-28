@@ -536,16 +536,20 @@ const handlePayeBlur = (e) => {
 };
 const handleValider = async () => {
   setValidating(true);
-  const ok = await run(() => postValider(professeurId, { mois, annee }));
+  const draft = totalDraft;
+  const ok = await run(async () => {
+    if (draft !== null) {
+      const value = draft === '' || Number(draft) === Number(totalCalcule) ? null : Number(draft);
+      if (value === null || !Number.isNaN(value)) await putTotal(professeurId, { mois, annee, totalOverride: value });
+    }
+    await postValider(professeurId, { mois, annee });
+  });
   if (ok) setEditingSalaire(false);
   setValidating(false);
 };
 const annulerModif = () => { setTotalDraft(null); setEditingSalaire(false); load(); };
-// drop the manual total, then re-validate so the fresh auto-calculation becomes the new reference
-const handleRecalculer = () => run(async () => {
-  await putTotal(professeurId, { mois, annee, totalOverride: null });
-  await postValider(professeurId, { mois, annee });
-});
+// like the employees page: put the fresh calculation in the field and unlock; nothing is saved until "Enregistrer"
+const handleRecalculer = () => { setTotalDraft(String(totalCalcule)); setEditingSalaire(true); };
 const handleEnvoyer = () => run(() => postEnvoyer(professeurId, { mois, annee }));
 
   if (loading && !data) {
@@ -562,6 +566,8 @@ const dateValidationLabel = dateValidation
   ? new Date(dateValidation).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   : null;
 const verrouille = valide && !editingSalaire;
+// the salary saved at validation (manual total if any, else the auto total at that time)
+const salaireValide = totalOverride ?? totalCalculeValide;
 return (
     <div className="space-y-4">
       <div className="relative flex items-center justify-center gap-3">
@@ -634,7 +640,7 @@ return (
           <span className="flex items-center gap-1">
             <input
               type="number"
-                           value={totalDraft ?? total}
+                                        value={totalDraft ?? (verrouille && salaireValide != null ? salaireValide : total)}
               onChange={(e) => setTotalDraft(e.target.value)}
               onBlur={handleTotalBlur}
               disabled={verrouille}
@@ -648,7 +654,7 @@ return (
  {ecart && !editingSalaire && (
   <div className="mt-3 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] rounded-md px-3 py-2">
     <span>
-      Le calcul a changé depuis la validation ({fmt(totalCalculeValide)} → {fmt(totalCalcule)}). Les heures, revenus ou mouvements ont peut-être changé.
+        Le salaire validé ({fmt(salaireValide)}) ne correspond plus au calcul actuel ({fmt(totalCalcule)}). Les heures, revenus ou mouvements ont peut-être changé.
     </span>
     <button onClick={handleRecalculer} className="shrink-0 font-semibold underline hover:text-amber-900">
       Recalculer

@@ -40,6 +40,7 @@ import ProfFormationNiveaux from './pages/prof/formations/ProfFormationNiveaux';
 import ProfGroupDetail from './pages/prof/formations/ProfGroupDetail';
 // ── Pages comptable (nouvelles) ─────────────────────────────
 import StatistiqueComptable from './pages/comptable/statistique/Statistique';
+import StatistiqueAdmin from './pages/admin/statistique/Statistique';
 import RapportMensuel from './pages/comptable/statistique/RapportMensuel';   
 import PaiementsFormationPage from './pages/comptable/paiements/PaiementsFormationPage';
 import PaiementsAutrePage from './pages/comptable/paiements/PaiementsAutrePage';
@@ -114,9 +115,9 @@ function App() {
               <Students />
             </PrivateRoute>
           } />
-          <Route path="/admin/statistique" element={
+<Route path="/admin/statistique" element={
   <PrivateRoute allowedRoles={['admin']}>
-    <StatistiqueComptable />
+    <StatistiqueAdmin />
   </PrivateRoute>
 } />
 <Route path="/admin/parametre" element={

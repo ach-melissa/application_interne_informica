@@ -144,6 +144,8 @@ const ReportModal = ({ title, r, onClose }) => (
   </div>
 );
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 const RapportMensuel = () => {
   const years = allYears();
   const [year, setYear] = useState(years[0]);
@@ -162,7 +164,7 @@ const RapportMensuel = () => {
         // TODO : adapter à ton client API existant (base URL + header d'auth),
         // même remarque que pour Statistique.jsx.
         const token = localStorage.getItem('token');
-        const res = await fetch(`/api/comptable/statistiques/rapport-mensuel?annee=${year}`, {
+          const res = await fetch(`${API_URL}/api/comptable/statistiques/rapport-mensuel?annee=${year}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok) throw new Error('Erreur lors du chargement du rapport mensuel.');
