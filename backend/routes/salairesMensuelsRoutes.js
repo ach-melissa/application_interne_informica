@@ -5,11 +5,12 @@ const {
   getSalaireMensuel,
   validerSalaireMensuel,
   getHistoriqueSalaires,
+  getSalairesDuMois,
 } = require('../controllers/salairesMensuelsController');
-
 const auth = [verifyToken, requireRole('admin', 'comptable')];
 
 router.get('/historique', ...auth, getHistoriqueSalaires);
+router.get('/mois', ...auth, getSalairesDuMois);
 router.get('/', ...auth, getSalaireMensuel);
 router.post('/', ...auth, validerSalaireMensuel);
 

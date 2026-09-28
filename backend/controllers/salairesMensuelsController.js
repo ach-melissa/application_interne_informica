@@ -139,5 +139,21 @@ const getHistoriqueSalaires = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
+const getSalairesDuMois = async (req, res) => {
+  try {
+    const { debut, fin } = req.query;
+    if (!debut || !fin) return res.status(400).json({ message: 'debut et fin sont requis' });
+    const { data, error } = await supabase
+      .from('salaires_mensuels')
+      .select('employe_id, montant_net, montant_paye, statut, valide_le')
+      .gte('valide_le', `${debut}T00:00:00`)
+      .lte('valide_le', `${fin}T23:59:59.999`);
+    if (error) return res.status(500).json({ message: error.message });
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
 
-module.exports = { getSalaireMensuel, validerSalaireMensuel, getHistoriqueSalaires };
+module.exports = { getSalaireMensuel, validerSalaireMensuel, getHistoriqueSalaires, getSalairesDuMois };

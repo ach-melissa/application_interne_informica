@@ -215,12 +215,20 @@ const avances = mouvements.filter(m => m.type === 'avance').reduce((s, m) => s +
   const estValide = Boolean(salaireMensuel);
     const verrouille = estValide && !editingSalaire;
 // Warn only if the auto-calculation changed since validation (movements added/edited/deleted),
-// NOT when the net was manually overridden.
 const calculeAlaValidation = salaireMensuel?.montant_calcule;
-const ecart =
-  estValide && !editingSalaire && !loadingMouvements &&
-  calculeAlaValidation != null &&
-  Number(calculeAlaValidation) !== netCalcule;
+const validatedAt = salaireMensuel?.valide_le ? new Date(salaireMensuel.valide_le) : null;
+
+// movements created after the validation = not counted in the payment
+const mouvementsApresValidation = Boolean(validatedAt) &&
+  mouvements.some(m => m.created_at && new Date(m.created_at) > validatedAt);
+
+// new rows: compare with the calc saved at validation (also catches edits/deletes)
+// old rows (no saved calc): use the creation time of the movements
+const mouvementsNonPris = calculeAlaValidation != null
+  ? Number(calculeAlaValidation) !== netCalcule
+  : mouvementsApresValidation;
+
+const ecart = estValide && !editingSalaire && !loadingMouvements && mouvementsNonPris;
       const dateValidationBrute = salaireMensuel?.valide_le;
   const dateValidation = dateValidationBrute
     ? new Date(dateValidationBrute).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
