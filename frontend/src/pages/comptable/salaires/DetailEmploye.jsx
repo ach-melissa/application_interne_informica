@@ -5,7 +5,7 @@ import ComptableLayout from '../../../layouts/ComptableLayout';
 import { CARD, fmt, initiales, nomComplet, tarifLabel, typeOf, StatTile, totalEmploye, joursParSemaine, cap, formatDate, employeFromApi, MOUVEMENT_TYPES, mouvementTypeLabel } from './EmployeModal';
 import AjoutMouvementModal from './AjoutMouvementModal';
 
-const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
+const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 const MOUVEMENTS_API_URL = `${import.meta.env.VITE_API_URL}/api/mouvements`;
 const SALAIRES_MENSUELS_API_URL = `${import.meta.env.VITE_API_URL}/api/salaires-mensuels`;
 const HISTORIQUE_API_URL = `${import.meta.env.VITE_API_URL}/api/salaires-mensuels/historique`;
@@ -98,7 +98,7 @@ const DetailEmploye = () => {
   useEffect(() => {
     let cancelled = false;
     setLoadingEmploye(true);
-    fetch(`${API_URL}/${id}`)
+fetch(`${API_URL}/${id}`, { headers: authHeaders() })
       .then(res => { if (!res.ok) throw new Error('Employé introuvable'); return res.json(); })
       .then(data => { if (!cancelled) { setEmploye(employeFromApi(data)); setEmployeError(null); } })
       .catch(err => { if (!cancelled) setEmployeError(err.message); })
@@ -444,8 +444,8 @@ date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode
                   <button onClick={() => setOpenInfo(v => v === p.id ? null : p.id)} className="text-slate-300 hover:text-[#0369A1] shrink-0">
                     <Info size={11} />
                   </button>
-                  {p.type !== 'mensuel' && (
-                    <span className="text-[10px] text-slate-400">
+                  {p.type !== 'mensuel' && p.type !== 'libre' && (
+  <span className="text-[10px] text-slate-400">
                       {p.joursFixes ? p.jours.map(j => cap(j).slice(0, 3)).join(', ') : `${joursParSemaine(p)} j/sem`}
                     </span>
                   )}

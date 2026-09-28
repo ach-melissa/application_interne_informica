@@ -5,7 +5,7 @@ import ComptableLayout from '../../../layouts/ComptableLayout';
 import EmployeModal, { StatTile, TYPES, typeOf, nomComplet, tarifLabel, totalEmploye, fmt, initiales, formatDate, joursParSemaine, cap, posteToApi, employeFromApi } from './EmployeModal';
 const BASE_PATH = '/comptable/salaires/employes';
 const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
-
+const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
 const EmployeCard = ({ employe, onOpen, onEdit, onDelete }) => (
   <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition flex flex-col h-full">
@@ -82,7 +82,7 @@ const SalairesEmployes = () => {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch(API_URL)
+  fetch(API_URL, { headers: authHeaders() })
       .then(res => { if (!res.ok) throw new Error('Erreur lors du chargement des employés'); return res.json(); })
       .then(data => { if (!cancelled) { setEmployes(data.map(employeFromApi)); setLoadError(null); } })
       .catch(err => { if (!cancelled) setLoadError(err.message); })
@@ -114,7 +114,7 @@ const filtered = employes.filter(e =>
 
     const res = await fetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ ...employe, postes: employe.postes.map(posteToApi) }),
     });
     if (!res.ok) {
@@ -130,7 +130,7 @@ const filtered = employes.filter(e =>
     setDeleting(true);
     setDeleteError(null);
     try {
-      const res = await fetch(`${API_URL}/${confirmDelete.id}`, { method: 'DELETE' });
+     const res = await fetch(`${API_URL}/${confirmDelete.id}`, { method: 'DELETE', headers: authHeaders() });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || "Erreur lors de la suppression");
       setEmployes(prev => prev.filter(e => e.id !== confirmDelete.id));
