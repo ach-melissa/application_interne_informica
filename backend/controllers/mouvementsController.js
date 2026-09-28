@@ -1,7 +1,17 @@
 const supabase = require('../supabaseClient');
 const crypto = require('crypto');
+const { logHistorique } = require('../utils/historique');
 const BONS_BUCKET = 'bons-salaires';
 
+const TYPE_LABEL = { avance: 'une avance', retenue: 'une retenue', prime: 'une prime' };
+const typeLabel = (t) => TYPE_LABEL[t] ?? 'un mouvement';
+const dz = (n) => Math.abs(Number(n) || 0).toLocaleString('fr-FR') + ' DA';
+
+const nomEmploye = async (id) => {
+  if (!id) return '—';
+  const { data } = await supabase.from('employes').select('nom, prenom').eq('id', id).single();
+  return data ? `${data.prenom} ${data.nom}` : '—';
+};
 
 const withSignedUrls = async (bons) => {
   if (!bons || bons.length === 0) return [];
@@ -12,7 +22,7 @@ const withSignedUrls = async (bons) => {
 };
 
 // ============================================================
-// MOUVEMENTS — list (filtré par employe_id + mois/année)
+// MOUVEMENTS — list
 // ============================================================
 const getMouvements = async (req, res) => {
   try {
@@ -22,7 +32,7 @@ const getMouvements = async (req, res) => {
     }
 
     const debut = `${annee}-${String(mois).padStart(2, '0')}-01`;
-    const finDate = new Date(Number(annee), Number(mois), 0); // dernier jour du mois
+    const finDate = new Date(Number(annee), Number(mois), 0);
     const fin = finDate.toISOString().slice(0, 10);
 
     const { data, error } = await supabase
@@ -69,6 +79,12 @@ const createMouvement = async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ message: error.message });
+
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'creation', entite: 'mouvement_salaire', entite_id: data.id,
+      description: `a ajouté ${typeLabel(data.type)} de ${dz(data.montant)} pour ${await nomEmploye(data.employe_id)} : "${data.description}"`,
+    });
+
     res.status(201).json(data);
   } catch (err) {
     console.error(err);
@@ -83,6 +99,12 @@ const updateMouvement = async (req, res) => {
   try {
     const { poste_id, type, description, montant } = req.body;
 
+    const { data: before } = await supabase
+      .from('mouvements_salaire')
+      .select('type, description, montant, employe_id')
+      .eq('id', req.params.id)
+      .single();
+
     const { data, error } = await supabase
       .from('mouvements_salaire')
       .update({ poste_id: poste_id || null, type, description, montant })
@@ -91,6 +113,21 @@ const updateMouvement = async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ message: error.message });
+
+    if (before) {
+      const changes = [];
+      if (before.type !== type) changes.push(`type : "${before.type}" → "${type}"`);
+      if (Number(before.montant) !== Number(montant)) changes.push(`montant : "${dz(before.montant)}" → "${dz(montant)}"`);
+      if ((before.description ?? '') !== (description ?? '')) changes.push(`description : "${before.description ?? '—'}" → "${description ?? '—'}"`);
+
+      if (changes.length > 0) {
+        await logHistorique({
+          req, perimetre: 'comptable', action: 'modification', entite: 'mouvement_salaire', entite_id: req.params.id,
+          description: `a modifié ${typeLabel(before.type)} de ${await nomEmploye(before.employe_id)} : ${changes.join(' | ')}`,
+        });
+      }
+    }
+
     res.json(data);
   } catch (err) {
     console.error(err);
@@ -103,8 +140,22 @@ const updateMouvement = async (req, res) => {
 // ============================================================
 const deleteMouvement = async (req, res) => {
   try {
+    const { data: before } = await supabase
+      .from('mouvements_salaire')
+      .select('type, description, montant, employe_id')
+      .eq('id', req.params.id)
+      .single();
+
     const { error } = await supabase.from('mouvements_salaire').delete().eq('id', req.params.id);
     if (error) return res.status(500).json({ message: error.message });
+
+    if (before) {
+      await logHistorique({
+        req, perimetre: 'comptable', action: 'suppression', entite: 'mouvement_salaire', entite_id: req.params.id,
+        description: `a supprimé ${typeLabel(before.type)} de ${dz(before.montant)} pour ${await nomEmploye(before.employe_id)} : "${before.description}"`,
+      });
+    }
+
     res.status(204).send();
   } catch (err) {
     console.error(err);
@@ -112,6 +163,9 @@ const deleteMouvement = async (req, res) => {
   }
 };
 
+// ============================================================
+// BONS
+// ============================================================
 const uploadBon = async (req, res) => {
   try {
     const { id: mouvementId } = req.params;
@@ -119,7 +173,7 @@ const uploadBon = async (req, res) => {
 
     const { data: mouvement, error: mvtError } = await supabase
       .from('mouvements_salaire')
-      .select('id, bons')
+      .select('id, bons, type, employe_id')
       .eq('id', mouvementId)
       .single();
     if (mvtError || !mouvement) return res.status(404).json({ message: 'Mouvement introuvable' });
@@ -145,9 +199,14 @@ const uploadBon = async (req, res) => {
       .update({ bons })
       .eq('id', mouvementId);
     if (updError) {
-      await supabase.storage.from(BONS_BUCKET).remove([storagePath]); // rollback du fichier orphelin
+      await supabase.storage.from(BONS_BUCKET).remove([storagePath]);
       return res.status(500).json({ message: updError.message });
     }
+
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'creation', entite: 'bon_mouvement', entite_id: mouvementId,
+      description: `a ajouté un bon à ${typeLabel(mouvement.type)} de ${await nomEmploye(mouvement.employe_id)}`,
+    });
 
     const [withUrl] = await withSignedUrls([nouveauBon]);
     res.status(201).json(withUrl);
@@ -156,12 +215,13 @@ const uploadBon = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
+
 const deleteBon = async (req, res) => {
   try {
     const { id: mouvementId, bonId } = req.params;
     const { data: mouvement, error: fetchError } = await supabase
       .from('mouvements_salaire')
-      .select('bons')
+      .select('bons, type, employe_id')
       .eq('id', mouvementId)
       .single();
     if (fetchError || !mouvement) return res.status(404).json({ message: 'Mouvement introuvable' });
@@ -177,6 +237,12 @@ const deleteBon = async (req, res) => {
     if (updError) return res.status(500).json({ message: updError.message });
 
     await supabase.storage.from(BONS_BUCKET).remove([bon.storage_path]);
+
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'suppression', entite: 'bon_mouvement', entite_id: mouvementId,
+      description: `a supprimé un bon de ${typeLabel(mouvement.type)} de ${await nomEmploye(mouvement.employe_id)}`,
+    });
+
     res.status(204).send();
   } catch (err) {
     console.error(err);

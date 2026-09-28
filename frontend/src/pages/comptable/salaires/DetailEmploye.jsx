@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Wallet, CalendarDays, Phone, Plus, Check, Info, RotateCcw, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Wallet, CalendarDays, Phone, Plus, Check, Info, RotateCcw, Pencil, Image as ImageIcon } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
 import { CARD, fmt, initiales, nomComplet, tarifLabel, typeOf, StatTile, totalEmploye, joursParSemaine, cap, formatDate, employeFromApi, MOUVEMENT_TYPES, mouvementTypeLabel } from './EmployeModal';
 import AjoutMouvementModal from './AjoutMouvementModal';
 
+const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 const MOUVEMENTS_API_URL = `${import.meta.env.VITE_API_URL}/api/mouvements`;
 const SALAIRES_MENSUELS_API_URL = `${import.meta.env.VITE_API_URL}/api/salaires-mensuels`;
@@ -45,9 +46,10 @@ const joursPrevusPosteMois = (p, periode) => {
     }
     return count;
   }
-  // pas de jours fixes: estimation via nb jours/semaine × semaines réelles du mois
-    return Math.round(joursParSemaine(p) * ((daysInMonth - debut + 1) / 7));
-};
+  // jours variables : nb jours/semaine × 4 semaines (même règle que la liste)
+  const semaines = debut === 1 ? 4 : 4 * ((daysInMonth - debut + 1) / daysInMonth);
+  return Math.round(joursParSemaine(p) * semaines);
+  };
 
 const montantPosteMois = (p, periode) => {
     if (jourDebutDansMois(p, periode) === null) return 0;
@@ -120,7 +122,7 @@ const [showPicker, setShowPicker] = useState(false);
     setLoadingMouvements(true);
     const mois = periode.getMonth() + 1;
     const annee = periode.getFullYear();
-    fetch(`${MOUVEMENTS_API_URL}?employe_id=${employe.id}&mois=${mois}&annee=${annee}`)
+     fetch(`${MOUVEMENTS_API_URL}?employe_id=${employe.id}&mois=${mois}&annee=${annee}`, { headers: authHeaders() })
       .then(res => { if (!res.ok) throw new Error('Erreur lors du chargement des mouvements'); return res.json(); })
       .then(data => { if (!cancelled) { setMouvements(data.map(mouvementFromApi)); setMouvementsError(null); } })
       .catch(err => { if (!cancelled) setMouvementsError(err.message); })
@@ -150,7 +152,8 @@ const dateForPeriode = (periode) => {
   const [loadingSalaireMensuel, setLoadingSalaireMensuel] = useState(false);
   const [salaireError, setSalaireError] = useState(null);
   const [validatingSalaire, setValidatingSalaire] = useState(false);
-const [historique, setHistorique] = useState([]);
+  const [editingSalaire, setEditingSalaire] = useState(false);
+  const [historique, setHistorique] = useState([]);
 const [loadingHistorique, setLoadingHistorique] = useState(false);
 const [historiqueError, setHistoriqueError] = useState(null);
 
@@ -158,7 +161,7 @@ useEffect(() => {
   if (!employe || tab !== 'historique') return;
   let cancelled = false;
   setLoadingHistorique(true);
-  fetch(`${HISTORIQUE_API_URL}?employe_id=${employe.id}`)
+  fetch(`${HISTORIQUE_API_URL}?employe_id=${employe.id}`, { headers: authHeaders() })
     .then(res => { if (!res.ok) throw new Error("Erreur lors du chargement de l'historique"); return res.json(); })
     .then(data => { if (!cancelled) { setHistorique(data); setHistoriqueError(null); } })
     .catch(err => { if (!cancelled) setHistoriqueError(err.message); })
@@ -172,13 +175,14 @@ useEffect(() => {
     setLoadingSalaireMensuel(true);
     const mois = periode.getMonth() + 1;
     const annee = periode.getFullYear();
-    fetch(`${SALAIRES_MENSUELS_API_URL}?employe_id=${employe.id}&mois=${mois}&annee=${annee}`)
+    fetch(`${SALAIRES_MENSUELS_API_URL}?employe_id=${employe.id}&mois=${mois}&annee=${annee}`, { headers: authHeaders() })
       .then(res => { if (!res.ok) throw new Error('Erreur lors du chargement du salaire validé'); return res.json(); })
       .then(data => {
         if (cancelled) return;
         setSalaireMensuel(data);
         // si le montant validé diffère du calcul auto (ex: override saisi avant validation), on le restitue dans le champ
         setSalaireOverride(data ? data.montant_net : null);
+                setEditingSalaire(false);
         setSalaireError(null);
       })
       .catch(err => { if (!cancelled) setSalaireError(err.message); })
@@ -209,6 +213,13 @@ const avances = mouvements.filter(m => m.type === 'avance').reduce((s, m) => s +
   const restant = net - paye;
   const statutMois = salaireMensuel?.statut ?? (paye <= 0 ? 'non_paye' : paye < net ? 'partiel' : 'paye');
   const estValide = Boolean(salaireMensuel);
+    const verrouille = estValide && !editingSalaire;
+      const ecart = estValide && !editingSalaire && !loadingMouvements && Number(salaireMensuel.montant_net) !== netCalcule;
+const dateValidationBrute = salaireMensuel?.valide_le;
+  const dateValidation = dateValidationBrute
+    ? new Date(dateValidationBrute).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : null;
+  const annulerModif = () => { setSalaireOverride(salaireMensuel.montant_net); setEditingSalaire(false); };
    const openAdd = () => {
     setEditingId(null); setEditingMouvement(null); setForm(emptyForm);
     setFormError(null); setConfirm(null); setPendingBons([]);
@@ -249,7 +260,7 @@ date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode
       const method = editingId ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
@@ -271,7 +282,7 @@ date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode
             for (const p of pendingBons) {
               const body = new FormData();
               body.append('fichier', p.file);
-              const bonRes = await fetch(`${MOUVEMENTS_API_URL}/${saved.id}/bons`, { method: 'POST', body });
+const bonRes = await fetch(`${MOUVEMENTS_API_URL}/${saved.id}/bons`, { method: 'POST', body, headers: authHeaders() });
               if (bonRes.ok) bons.push(await bonRes.json());
             }
           } finally {
@@ -306,7 +317,7 @@ date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode
     try {
       const body = new FormData();
       body.append('fichier', file);
-      const res = await fetch(`${MOUVEMENTS_API_URL}/${editingId}/bons`, { method: 'POST', body });
+      const res = await fetch(`${MOUVEMENTS_API_URL}/${editingId}/bons`, { method: 'POST', body, headers: authHeaders() });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || "Erreur lors de l'envoi du bon");
@@ -334,7 +345,7 @@ date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode
     setEditingMouvement((prev) => prev ? { ...prev, bons: (prev.bons || []).filter((b) => b.id !== bonId) } : prev);
     setMouvements((list) => list.map((m) => m.id === editingId ? { ...m, bons: (m.bons || []).filter((b) => b.id !== bonId) } : m));
     try {
-      const res = await fetch(`${MOUVEMENTS_API_URL}/${editingId}/bons/${bonId}`, { method: 'DELETE' });
+      const res = await fetch(`${MOUVEMENTS_API_URL}/${editingId}/bons/${bonId}`, { method: 'DELETE', headers: authHeaders() });
       if (!res.ok) throw new Error();
     } catch {
       setEditingMouvement((prev) => prev ? { ...prev, bons: bonsAvant } : prev);
@@ -356,7 +367,7 @@ date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode
     try {
       const res = await fetch(SALAIRES_MENSUELS_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           employe_id: employe.id,
           mois: periode.getMonth() + 1,
@@ -372,6 +383,7 @@ date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode
             const saved = await res.json();
       setSalaireMensuel(saved);
       setSalaireOverride(saved.montant_net);
+            setEditingSalaire(false);
     } catch (err) {
       setSalaireError(err.message);
     } finally {
@@ -528,7 +540,7 @@ date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode
                 <button onClick={() => setShowFormule(v => !v)} className="text-slate-300 hover:text-[#0369A1]">
                   <Info size={11} />
                 </button>
-                {overrideActif && (
+                {overrideActif && !verrouille && (
                   <button onClick={resetSalaire} title="Réinitialiser au calcul automatique" className="text-slate-300 hover:text-amber-500">
                     <RotateCcw size={11} />
                   </button>
@@ -538,7 +550,8 @@ date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode
                 <input
                   type="number"
                   value={net}
-                  onChange={handleSalaireChange}
+                                   onChange={handleSalaireChange}
+                  disabled={verrouille}
                   className="w-28 text-right text-lg font-bold text-slate-800 bg-transparent border border-transparent rounded-md px-1.5 py-0.5 hover:border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/30 focus:border-[#0369A1]/40"
                 />
                 <span className="text-lg font-bold text-slate-800">DA</span>
@@ -553,12 +566,47 @@ date: editingId ? mouvements.find(m => m.id === editingId).date : dateForPeriode
             )}
             <div className="flex justify-between text-xs text-slate-400 mt-2"><span>Déjà payé</span><span>{fmt(paye)}</span></div>
             {salaireError && <p className="text-red-500 text-[11px] bg-red-50 px-2.5 py-1.5 rounded-md mt-2">{salaireError}</p>}
-            <button
-              onClick={validerSalaire}
-              disabled={validatingSalaire || loadingSalaireMensuel}
-              className={`w-full mt-4 flex items-center justify-center gap-1.5 text-sm font-semibold py-2.5 rounded-lg shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-60 disabled:pointer-events-none ${estValide ? 'bg-emerald-600 shadow-[0_3px_0_#065F46] hover:shadow-[0_2px_0_#065F46]' : 'bg-[#0F2A4A]'} text-white`}>
-              <Check size={14} /> {validatingSalaire ? 'Validation…' : estValide ? 'Salaire validé — revalider' : 'Valider le salaire'}
-            </button>
+                       {ecart && (
+              <div className="mt-3 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] rounded-md px-3 py-2">
+                <span>
+                  Le salaire validé ({fmt(salaireMensuel.montant_net)}) ne correspond plus au calcul actuel ({fmt(netCalcule)}). Les mouvements ont peut-être changé.
+                </span>
+                <button
+                  onClick={() => { setSalaireOverride(null); setEditingSalaire(true); }}
+                  className="shrink-0 font-semibold underline hover:text-amber-900">
+                  Recalculer
+                </button>
+              </div>
+            )}
+            {estValide && dateValidation && (
+              <p className="text-[11px] text-emerald-600 mt-3 flex items-center gap-1">
+                <Check size={12} /> Salaire validé le {dateValidation}
+              </p>
+            )}
+
+            {verrouille ? (
+              <button
+                onClick={() => setEditingSalaire(true)}
+                className="w-full mt-3 flex items-center justify-center gap-1.5 text-sm font-semibold py-2.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-700/20 hover:bg-amber-100 transition">
+                <Pencil size={14} /> Modifier le salaire
+              </button>
+            ) : (
+              <div className="flex gap-2 mt-4">
+                {estValide && (
+                  <button
+                    onClick={annulerModif}
+                    className="px-4 text-sm font-medium py-2.5 rounded-lg text-slate-500 bg-slate-100 hover:bg-slate-200 transition">
+                    Annuler
+                  </button>
+                )}
+                <button
+                  onClick={validerSalaire}
+                  disabled={validatingSalaire || loadingSalaireMensuel}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold py-2.5 rounded-lg bg-[#0F2A4A] text-white shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-60 disabled:pointer-events-none">
+                  <Check size={14} /> {validatingSalaire ? 'Enregistrement…' : estValide ? 'Enregistrer' : 'Valider le salaire'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Tableau mouvements */}
