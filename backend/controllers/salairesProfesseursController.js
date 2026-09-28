@@ -572,8 +572,8 @@ const r = applyBilan(professeur, bilanData, revenusMap);
 
     res.json({
       formations: r.formations,
-      mouvements: data.mouvements,
-      charges: data.charges,
+       mouvements: bilanData.mouvements,
+      charges: bilanData.charges,
       totalCalcule: r.totalCalcule,
       totalOverride: r.totalOverride,
       total: r.total,
