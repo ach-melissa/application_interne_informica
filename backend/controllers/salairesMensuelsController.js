@@ -46,7 +46,7 @@ const getSalaireMensuel = async (req, res) => {
 // ============================================================
 const validerSalaireMensuel = async (req, res) => {
   try {
-    const { employe_id, mois, annee, montant_net, montant_paye } = req.body;
+   const { employe_id, mois, annee, montant_net, montant_calcule, montant_paye } = req.body;
     if (!employe_id || !mois || !annee || montant_net === undefined) {
       return res.status(400).json({ message: 'Champs requis manquants' });
     }
@@ -71,6 +71,7 @@ const validerSalaireMensuel = async (req, res) => {
           mois,
           annee,
           montant_net,
+          montant_calcule: montant_calcule ?? null,
           montant_paye: paye,
           statut,
           valide_le: new Date().toISOString(),

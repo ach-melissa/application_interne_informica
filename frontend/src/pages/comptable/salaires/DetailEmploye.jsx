@@ -214,8 +214,14 @@ const avances = mouvements.filter(m => m.type === 'avance').reduce((s, m) => s +
   const statutMois = salaireMensuel?.statut ?? (paye <= 0 ? 'non_paye' : paye < net ? 'partiel' : 'paye');
   const estValide = Boolean(salaireMensuel);
     const verrouille = estValide && !editingSalaire;
-      const ecart = estValide && !editingSalaire && !loadingMouvements && Number(salaireMensuel.montant_net) !== netCalcule;
-const dateValidationBrute = salaireMensuel?.valide_le;
+// Warn only if the auto-calculation changed since validation (movements added/edited/deleted),
+// NOT when the net was manually overridden.
+const calculeAlaValidation = salaireMensuel?.montant_calcule;
+const ecart =
+  estValide && !editingSalaire && !loadingMouvements &&
+  calculeAlaValidation != null &&
+  Number(calculeAlaValidation) !== netCalcule;
+      const dateValidationBrute = salaireMensuel?.valide_le;
   const dateValidation = dateValidationBrute
     ? new Date(dateValidationBrute).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : null;
@@ -373,6 +379,7 @@ const bonRes = await fetch(`${MOUVEMENTS_API_URL}/${saved.id}/bons`, { method: '
           mois: periode.getMonth() + 1,
           annee: periode.getFullYear(),
           montant_net: net,
+          montant_calcule: netCalcule,
           montant_paye: net, // valider = marquer le mois comme payé intégralement
         }),
       });
@@ -394,7 +401,7 @@ const bonRes = await fetch(`${MOUVEMENTS_API_URL}/${saved.id}/bons`, { method: '
   const requestDelete = () => setConfirm('delete');
   const doDelete = async () => {
     try {
-      const res = await fetch(`${MOUVEMENTS_API_URL}/${editingId}`, { method: 'DELETE' });
+           const res = await fetch(`${MOUVEMENTS_API_URL}/${editingId}`, { method: 'DELETE', headers: authHeaders() });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || 'Erreur lors de la suppression');
