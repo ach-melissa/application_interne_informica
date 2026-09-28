@@ -1,5 +1,5 @@
 const supabase = require('../supabaseClient');
-const { logHistorique, buildDiffDescription } = require('./historiqueController');
+const { logHistorique, buildDiffDescription } = require('../utils/historique');
 // ============================================================
 // EMPLOYES — list (avec leurs postes)
 // ============================================================
@@ -90,8 +90,8 @@ const createEmploye = async (req, res) => {
 
       await logHistorique({
         req,
-        perimetre: 'employes',
-        action: 'création',
+       perimetre: 'comptable',
+       action: 'creation',
         entite: 'employe',
         entite_id: employe.id,
         description: `Employé créé : ${nom} ${prenom} (${postesData.length} poste${postesData.length > 1 ? 's' : ''})`,
@@ -102,8 +102,8 @@ const createEmploye = async (req, res) => {
 
     await logHistorique({
       req,
-      perimetre: 'employes',
-      action: 'création',
+      perimetre: 'comptable',
+    action: 'creation',
       entite: 'employe',
       entite_id: employe.id,
       description: `Employé créé : ${nom} ${prenom}`,
@@ -151,7 +151,7 @@ const updateEmploye = async (req, res) => {
       if (champsChanges.length > 0) {
         await logHistorique({
           req,
-          perimetre: 'employes',
+     perimetre: 'comptable',
           action: 'modification',
           entite: 'employe',
           entite_id: employeId,
@@ -228,7 +228,7 @@ const updateEmploye = async (req, res) => {
     if (allChanges.length > 0) {
       await logHistorique({
         req,
-        perimetre: 'employes',
+       perimetre: 'comptable',
         action: 'modification',
         entite: 'employe',
         entite_id: employeId,
@@ -292,7 +292,7 @@ const deleteEmploye = async (req, res) => {
 
     await logHistorique({
       req,
-      perimetre: 'employes',
+     perimetre: 'comptable',
       action: 'suppression',
       entite: 'employe',
       entite_id: employeId,
