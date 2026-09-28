@@ -1,5 +1,5 @@
 const supabase = require('../supabaseClient');
-
+const crypto = require('crypto');
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -530,6 +530,12 @@ const updateFormationRemuneration = async (req, res) => {
     if (!(m > 0)) return res.status(400).json({ error: 'Montant invalide.' });
     if (type === 'pourcentage' && m > 100) return res.status(400).json({ error: 'Le pourcentage doit être entre 1 et 100.' });
 
+    const { data: before } = await supabase
+      .from('professeur_formations')
+      .select('type_salaire, montant')
+      .eq('teacher_id', teacherId).eq('formation_id', formationId)
+      .maybeSingle();
+
     const { error } = await supabase.from('professeur_formations').upsert(
       {
         teacher_id: teacherId,
@@ -542,6 +548,20 @@ const updateFormationRemuneration = async (req, res) => {
       { onConflict: 'teacher_id,formation_id' }
     );
     if (error) throw error;
+
+    const fmtRem = (t, v) => !t ? 'non défini' : t === 'pourcentage' ? `${Number(v)}%` : t === 'heure' ? `${dz(v)} / h` : `${dz(v)} / mois`;
+    const avant = before ? fmtRem(before.type_salaire, before.montant) : 'non défini';
+    const apres = fmtRem(type, m);
+      if (!before || before.type_salaire !== type || Number(before.montant) !== m) {
+      const [nom, { data: fo }] = await Promise.all([
+        nomProf(teacherId),
+        supabase.from('formations').select('nom').eq('id', formationId).maybeSingle(),
+      ]);
+      await logHistorique({
+        req, perimetre: 'comptable', action: before ? 'modification' : 'creation', entite: 'remuneration_prof', entite_id: formationId,
+        description: `a modifié la rémunération de ${nom} pour la formation "${fo?.nom ?? '—'}" : "${before ? `${TYPE_TO_LABEL[before.type_salaire]} ${avant}` : 'non défini'}" → "${typeSalaire} ${apres}"`,
+      });
+    }
 
     res.json({ typeSalaire, montant: m, heures: 0 });
   } catch (err) {
@@ -582,7 +602,10 @@ const r = applyBilan(professeur, bilanData, revenusMap);
 
     res.json({
       formations: r.formations,
-       mouvements: bilanData.mouvements,
+         mouvements: bilanData.mouvements.map((m) => ({
+        ...m,
+        bons: (m.bons ?? []).map((b) => ({ ...b, id: b.id ?? b.url })),
+      })),
       charges: bilanData.charges,
        totalCalcule: r.totalCalcule,
       totalCalculeValide: r.totalCalculeValide,
@@ -622,7 +645,11 @@ const upsertBilanFormationDetail = async (req, res) => {
     const patch = { bilan_id: bilan.id, formation_id: formationId, updated_at: new Date().toISOString() };
     if (seances !== undefined) patch.seances = seances === null ? null : Number(seances) || 0;
     if (revenusOverride !== undefined) patch.revenus_override = revenusOverride === null ? null : Number(revenusOverride);
+    let partAvant = null;
     if (part !== undefined) {
+      const { data: cfg } = await supabase.from('professeur_formations')
+        .select('montant').eq('teacher_id', teacherId).eq('formation_id', formationId).maybeSingle();
+      partAvant = cfg?.montant != null ? Number(cfg.montant) : null;
       patch.part_pct = Number(part);
       const { error: pfErr } = await supabase.from('professeur_formations')
         .update({ montant: Number(part), updated_at: new Date().toISOString() })
@@ -644,7 +671,7 @@ const upsertBilanFormationDetail = async (req, res) => {
     if (revenusOverride !== undefined && n(before?.revenus_override) !== n(patch.revenus_override)) {
       changes.push(`revenus : "${before?.revenus_override != null ? dz(before.revenus_override) : 'auto'}" → "${patch.revenus_override != null ? dz(patch.revenus_override) : 'auto'}"`);
     }
-    if (part !== undefined) changes.push(`part professeur : ${Number(part)}%`);
+    if (part !== undefined && partAvant !== Number(part)) changes.push(`part professeur : ${partAvant ?? '—'}% → ${Number(part)}%`);
     if (charges !== undefined) {
       const a = JSON.stringify([...(before?.charges_selectionnees ?? [])].sort());
       const b = JSON.stringify([...charges].sort());
@@ -696,26 +723,65 @@ const uploadBonMouvement = async (req, res) => {
 
     const { data: { publicUrl } } = supabase.storage.from('bons-paiement').getPublicUrl(path);
 
-    const newBons = [...(mvt.bons ?? []), { url: publicUrl }];
-    const { data, error } = await supabase
+    const bon = { id: crypto.randomUUID(), url: publicUrl, path };
+    const newBons = [...(mvt.bons ?? []), bon];
+    const { error } = await supabase
       .from('mouvements_salaire_professeurs')
       .update({ bons: newBons })
-      .eq('id', mouvementId)
-      .select()
-      .single();
+      .eq('id', mouvementId);
     if (error) throw error;
 
-      await logHistorique({
+    await logHistorique({
       req, perimetre: 'comptable', action: 'creation', entite: 'bon_mouvement_prof', entite_id: mouvementId,
       description: `a ajouté un bon à ${TYPE_MVT_LABEL[mvt.type] ?? 'un mouvement'} de ${await nomProf(mvt.teacher_id)}`,
     });
-    res.json(data);
+    res.status(201).json(bon);
   } catch (err) {
     console.error('uploadBonMouvement:', err);
     res.status(500).json({ error: err.message || 'Erreur serveur' });
   }
 };
+// old bons have no id → the url is used as key
+const bonKey = (b) => b.id ?? b.url;
+const bonPath = (b) => b.path ?? decodeURIComponent((b.url ?? '').split('/bons-paiement/')[1] ?? '');
 
+const deleteBonMouvement = async (req, res) => {
+  try {
+    const { mouvementId, bonId } = req.params;
+    const { data: mvt, error: selErr } = await supabase
+      .from('mouvements_salaire_professeurs')
+      .select('id, bons, teacher_id, type')
+      .eq('id', mouvementId)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (!mvt) return res.status(404).json({ error: 'Mouvement introuvable.' });
+
+    const bons = mvt.bons ?? [];
+    const bon = bons.find((b) => bonKey(b) === bonId);
+    if (!bon) return res.status(404).json({ error: 'Bon introuvable.' });
+
+    const path = bonPath(bon);
+    if (path) {
+      const { error: rmErr } = await supabase.storage.from('bons-paiement').remove([path]);
+      if (rmErr) console.error('deleteBonMouvement storage:', rmErr);
+    }
+
+    const { error } = await supabase
+      .from('mouvements_salaire_professeurs')
+      .update({ bons: bons.filter((b) => bonKey(b) !== bonId) })
+      .eq('id', mouvementId);
+    if (error) throw error;
+
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'suppression', entite: 'bon_mouvement_prof', entite_id: mouvementId,
+      description: `a supprimé un bon de ${TYPE_MVT_LABEL[mvt.type] ?? 'un mouvement'} de ${await nomProf(mvt.teacher_id)}`,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('deleteBonMouvement:', err);
+    res.status(500).json({ error: err.message || 'Erreur serveur' });
+  }
+};
 const addMouvement = async (req, res) => {
   try {
     const { teacherId } = req.params;
@@ -762,7 +828,50 @@ const addMouvement = async (req, res) => {
 /* ------------------------------------------------------------------ */
 /*  DELETE /api/salaires-professeurs/mouvements/:mouvementId           */
 /* ------------------------------------------------------------------ */
+const updateMouvement = async (req, res) => {
+  try {
+    const { mouvementId } = req.params;
+    const { type, description, montant, formationId } = req.body;
+    if (!TYPES_MVT_VALID.includes(type)) return res.status(400).json({ error: 'Type de mouvement invalide.' });
+    if (!description?.trim()) return res.status(400).json({ error: 'Description requise.' });
+    const m = Number(montant);
+    if (!(m > 0)) return res.status(400).json({ error: 'Montant invalide.' });
 
+    const { data: before, error: selErr } = await supabase
+      .from('mouvements_salaire_professeurs')
+      .select('type, description, montant, teacher_id')
+      .eq('id', mouvementId)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (!before) return res.status(404).json({ error: 'Mouvement introuvable.' });
+
+    const patch = { type, description: description.trim(), montant: m };
+    if (formationId !== undefined) patch.formation_id = formationId || null;
+
+    const { data, error } = await supabase
+      .from('mouvements_salaire_professeurs')
+      .update(patch)
+      .eq('id', mouvementId)
+      .select('*')
+      .single();
+    if (error) throw error;
+
+    const changes = [];
+    if (before.type !== type) changes.push(`type : "${before.type}" → "${type}"`);
+    if (Number(before.montant) !== m) changes.push(`montant : "${dz(before.montant)}" → "${dz(m)}"`);
+    if ((before.description ?? '') !== description.trim()) changes.push(`description : "${before.description ?? '—'}" → "${description.trim()}"`);
+    if (changes.length > 0) {
+      await logHistorique({
+        req, perimetre: 'comptable', action: 'modification', entite: 'mouvement_salaire_prof', entite_id: mouvementId,
+        description: `a modifié ${TYPE_MVT_LABEL[before.type] ?? 'un mouvement'} de ${await nomProf(before.teacher_id)} : ${changes.join(' | ')}`,
+      });
+    }
+    res.json(data);
+  } catch (err) {
+    console.error('updateMouvement:', err);
+    res.status(500).json({ error: err.message || 'Erreur serveur' });
+  }
+};
 const deleteMouvement = async (req, res) => {
   try {
     const { data: mvt, error: selErr } = await supabase
@@ -992,8 +1101,8 @@ const getHistorique = async (req, res) => {
 
 module.exports = {
   getProfesseurs, getProfesseur, buildProfesseurs, updateFormationRemuneration,
-  getBilan, upsertBilanFormationDetail, addMouvement, deleteMouvement,
+ getBilan, upsertBilanFormationDetail, addMouvement, updateMouvement, deleteMouvement,
   setTotalOverride, validerBilan, envoyerBilan, setPaye, getHistorique,
-  uploadBonMouvement, upload,
+   uploadBonMouvement, deleteBonMouvement, upload,
   applyBilan, loadBilanData, bilanDataOf, loadRevenusFormations,getMesSalaires 
 };
