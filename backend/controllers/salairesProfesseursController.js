@@ -77,7 +77,28 @@ const nomProf = async (teacherId) => {
 /*  Core: professors + their formations + séances for the month        */
 /*  (exported so GET /:id can reuse it with teacherId)                 */
 /* ------------------------------------------------------------------ */
-
+const fetchAllSessions = async (groupIds, start, end) => {
+  const PAGE = 1000;
+  let from = 0;
+  const all = [];
+  while (true) {
+    const { data, error } = await supabase
+      .from('sessions')
+      .select('id, group_id, duree_effectuee, heure_debut, heure_fin')
+      .in('group_id', groupIds)
+      .eq('statut', 'effectuee')
+      .not('finalized_at', 'is', null)
+      .gte('date', start)
+      .lt('date', end)
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    all.push(...(data ?? []));
+    if ((data ?? []).length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+};
 const buildProfesseurs = async (mois, annee, teacherId = null) => {
   const { start, end } = monthRange(mois, annee);
 
@@ -117,25 +138,16 @@ groups(
   //    The professor is the one of the GROUP (sessions.prof_id is only the creator).
   const groupIds = activeTeachers.flatMap((t) => t.groups.map((g) => g.id));
   const perGroup = {}; // group_id → { nb, heures, sansDuree }
-  if (groupIds.length) {
-    const { data: sessions, error: sErr } = await supabase
-      .from('sessions')
-      .select('group_id, duree_effectuee, heure_debut, heure_fin')
-      .in('group_id', groupIds)
-      .eq('statut', 'effectuee')
-      .not('finalized_at', 'is', null)
-      .gte('date', start)
-      .lt('date', end);
-    if (sErr) throw sErr;
-
-    (sessions ?? []).forEach((s) => {
-      const acc = (perGroup[s.group_id] ??= { nb: 0, heures: 0, sansDuree: 0 });
-      acc.nb += 1;
-      const h = sessionHours(s);
-      if (h === null) acc.sansDuree += 1;
-      else acc.heures += h;
-    });
-  }
+if (groupIds.length) {
+  const sessions = await fetchAllSessions(groupIds, start, end);
+  sessions.forEach((s) => {
+    const acc = (perGroup[s.group_id] ??= { nb: 0, heures: 0, sansDuree: 0 });
+    acc.nb += 1;
+    const h = sessionHours(s);
+    if (h === null) acc.sansDuree += 1;
+    else acc.heures += h;
+  });
+}
 
   // 3. Assemble: professor → formations
   return activeTeachers.map((t) => {
@@ -178,8 +190,14 @@ f.nbSeances += perGroup[g.id]?.nb ?? 0;
 f.heuresEffectuees += perGroup[g.id]?.heures ?? 0;
 f.seancesSansDuree += perGroup[g.id]?.sansDuree ?? 0;
 f.groupIds.push(g.id);   // ← ADD THIS LINE
-f.groupes.push({ id: g.id, nom: g.nom, heures: Math.round((perGroup[g.id]?.heures ?? 0) * 100) / 100 });
-      });
+f.groupes.push({
+  id: g.id,
+  nom: g.nom,
+  heures: Math.round((perGroup[g.id]?.heures ?? 0) * 100) / 100,
+  nbSeances: perGroup[g.id]?.nb ?? 0,
+  sansDuree: perGroup[g.id]?.sansDuree ?? 0,
+});   
+});
 
     return {
       id: t.id,

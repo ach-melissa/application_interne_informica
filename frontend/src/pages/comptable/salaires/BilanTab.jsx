@@ -407,6 +407,27 @@ const [saving, setSaving] = useState(false);
 <span className="text-slate-500">heure(s) effectuée(s)</span>
               </div>
 <p className="text-slate-400">{seances || 0} heure(s) × {fmt(Number(f.montant))} = <b className="text-slate-800">{fmt(montant)}</b></p>
+{f.groupes?.length > 0 && (
+  <div className="border border-slate-200 rounded-md divide-y divide-slate-100 overflow-hidden mt-2">
+    {f.groupes.map((g) => (
+      <div key={g.id} className="flex justify-between px-2.5 py-1.5 bg-white">
+        <span className="text-slate-600">
+          {g.nom} <span className="text-slate-400">({g.nbSeances} séance{g.nbSeances > 1 ? 's' : ''})</span>
+        </span>
+        <span className="font-medium text-slate-700">
+          {g.heures} h{g.sansDuree > 0 && <span className="text-amber-600"> · {g.sansDuree} sans durée</span>}
+        </span>
+      </div>
+    ))}
+    <div className="flex justify-between px-2.5 py-1.5 bg-slate-50 font-semibold text-slate-700">
+      <span>Total groupes</span>
+      <span>{Math.round(f.groupes.reduce((s, g) => s + g.heures, 0) * 100) / 100} h</span>
+    </div>
+  </div>
+)}
+{f.heuresOverride != null && (
+  <p className="text-[10px] text-amber-600">Heures modifiées manuellement : le total ne suit plus les groupes.</p>
+)}
 {f.heuresOverride == null && f.seancesSansDuree > 0 && (
   <p className="text-amber-600">{f.seancesSansDuree} séance(s) sans durée : comptées 0h.</p>
 )}
