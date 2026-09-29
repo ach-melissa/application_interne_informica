@@ -87,7 +87,6 @@ const fetchAllSessions = async (groupIds, start, end) => {
       .select('id, group_id, duree_effectuee, heure_debut, heure_fin')
       .in('group_id', groupIds)
       .eq('statut', 'effectuee')
-      .not('finalized_at', 'is', null)
       .gte('date', start)
       .lt('date', end)
       .order('id')
