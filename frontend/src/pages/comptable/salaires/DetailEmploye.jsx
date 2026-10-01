@@ -46,10 +46,10 @@ const joursPrevusPosteMois = (p, periode) => {
     }
     return count;
   }
-  // jours variables : nb jours/semaine × 4 semaines (même règle que la liste)
-  const semaines = debut === 1 ? 4 : 4 * ((daysInMonth - debut + 1) / daysInMonth);
-  return Math.round(joursParSemaine(p) * semaines);
-  };
+  // jours variables : nb jours/semaine × (jours restants dans le mois / 7)
+  const joursRestants = daysInMonth - debut + 1;
+  return Math.round(joursParSemaine(p) * joursRestants / 7);
+};
 
 const montantPosteMois = (p, periode) => {
     if (jourDebutDansMois(p, periode) === null) return 0;

@@ -45,8 +45,9 @@ const joursDansMois = (p, date = new Date()) => {
 export const estimationMensuelle = (p) => {
   if (p.type === 'libre') return 0; // pas de montant fixe : saisi chaque mois
   const m = Number(p.montant) || 0;
-const jm = p.joursFixes ? joursDansMois(p) : joursParSemaine(p) * 4;
-  if (p.type === 'jour') return Math.round(m * jm);
+const nbJoursMois = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+const jm = p.joursFixes ? joursDansMois(p) : Math.round(joursParSemaine(p) * nbJoursMois / 7);
+if (p.type === 'jour') return Math.round(m * jm);
   if (p.type === 'heure') return Math.round(m * (Number(p.heuresParJour) || 0) * jm);
   return m;
 };

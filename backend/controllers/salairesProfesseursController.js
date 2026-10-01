@@ -363,7 +363,7 @@ const computeGroupesForFormation = async (f, mois, annee) => {
       const part = totalRevenus > 0 ? revenus[i] / totalRevenus : 1 / groupes.length;
       const montant = i === groupes.length - 1 ? restant : Math.round(f.montantPeriode * part);
       restant -= montant;
-      return { nom: g.nom, montant };
+           return { nom: g.nom, montant, revenus: revenus[i] };
     });
   }
   return [];
@@ -418,7 +418,13 @@ const formations = await Promise.all(
         formation_nom: f.nom,
         type,
         ...(type === 'heure' ? { taux_horaire: Number(f.montant) } : {}),
-        ...(type === 'pourcentage' ? { pourcentage: Number(f.part ?? f.montant) } : {}),
+        ...(type === 'pourcentage' ? {
+          pourcentage: Number(f.part ?? f.montant),
+          revenus: f.revenusOverride ?? f.revenusAuto ?? 0,
+          charges_total: bilanData.charges
+            .filter((c) => (f.charges ?? []).includes(c.id))
+            .reduce((s, c) => s + Number(c.montant), 0),
+        } : {}),
         ...(type === 'fixe' ? { forfait: Number(f.montant) } : {}),
             montant: f.montantPeriode,
         ...(type === 'heure' ? { heures: f.heuresEffectuees } : {}),
@@ -638,10 +644,18 @@ await Promise.all(pctFormations.map(async (f) => {
 }));
 
 const bilanData = bilanDataOf(all, teacherId);
-const r = applyBilan(professeur, bilanData, revenusMap);
+const r = applyBilan(professeur, bilanData, revenusMap, revenusProfMap);
+
+// revenue of each group (display only)
+const revenusGroupesMap = {};
+await Promise.all(pctFormations.flatMap((f) => f.groupes.map(async (g) => {
+  revenusGroupesMap[g.id] = await loadRevenusParGroupes(f.id, [g.id], mois, annee);
+})));
 
     res.json({
-      formations: r.formations,
+      formations: r.formations.map((f) => f.typeSalaire === 'Pourcentage'
+        ? { ...f, groupes: f.groupes.map((g) => ({ ...g, revenus: revenusGroupesMap[g.id] ?? 0 })) }
+        : f),
          mouvements: bilanData.mouvements.map((m) => ({
         ...m,
         bons: (m.bons ?? []).map((b) => ({ ...b, id: b.id ?? b.url })),

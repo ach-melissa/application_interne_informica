@@ -309,6 +309,16 @@ const revenus = state.revenusOverride ?? f.revenusAuto ?? 0;
     dont {fmt(f.revenusProfesseur)} venant de vos groupes.
   </p>
 )}
+{f.groupes?.length > 0 && (
+  <div className="border border-slate-200 rounded-md divide-y divide-slate-100 overflow-hidden mt-2">
+    {f.groupes.map((g) => (
+      <div key={g.id} className="flex justify-between px-2.5 py-1.5 bg-white">
+        <span className="text-slate-600">{g.nom}</span>
+        <span className="font-medium text-slate-700">{fmt(g.revenus ?? 0)}</span>
+      </div>
+    ))}
+  </div>
+)}
 </div>
 
       <div className="relative">

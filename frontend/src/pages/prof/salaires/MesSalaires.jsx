@@ -87,8 +87,13 @@ const FormationBlock = ({ f }) => {
         </>
       ) : f.type === 'fixe' ? (
         <Line label="Forfait fixe" value={`${fmt(f.forfait)} / mois`} />
-      ) : (
-        <Line label="Ma part" value={`${f.pourcentage} %`} />
+        ) : (
+        <>
+          <Line label="Revenus de la formation" value={fmt(f.revenus)} />
+          {f.charges_total > 0 && <Line label="Charges déduites" value={`− ${fmt(f.charges_total)}`} />}
+          <Line label="Revenu après charges" value={fmt(f.revenus - f.charges_total)} />
+          <Line label="Ma part" value={`${f.pourcentage} %`} />
+        </>
       )}
 
       {groupes.length > 0 && <p className="text-[11px] font-medium text-slate-500 mt-3 mb-0.5">Détail par groupe</p>}
@@ -98,6 +103,9 @@ const FormationBlock = ({ f }) => {
             <p className="text-slate-700 truncate">{g.nom}</p>
             {isHeure && (
               <p className="text-[11px] text-slate-400">{g.heures} h × {fmt(f.taux_horaire)}/h</p>
+            )}
+            {f.type === 'pourcentage' && g.revenus != null && (
+              <p className="text-[11px] text-slate-400">Revenus du groupe : {fmt(g.revenus)}</p>
             )}
           </div>
           <span className="font-semibold text-slate-700 whitespace-nowrap">{fmt(g.montant)}</span>
