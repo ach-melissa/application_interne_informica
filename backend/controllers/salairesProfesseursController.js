@@ -420,7 +420,8 @@ const formations = await Promise.all(
         ...(type === 'heure' ? { taux_horaire: Number(f.montant) } : {}),
         ...(type === 'pourcentage' ? { pourcentage: Number(f.part ?? f.montant) } : {}),
         ...(type === 'fixe' ? { forfait: Number(f.montant) } : {}),
-        montant: type === 'fixe' || hasGroupes ? f.montantPeriode : 0,
+            montant: f.montantPeriode,
+        ...(type === 'heure' ? { heures: f.heuresEffectuees } : {}),
         groupes: type !== 'fixe' && hasGroupes ? await computeGroupesForFormation(f, b.mois, annee) : [],
       };
     })

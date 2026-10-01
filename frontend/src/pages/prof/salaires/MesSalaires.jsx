@@ -67,8 +67,7 @@ const MouvementsBlock = ({ mouvements }) => {
 const FormationBlock = ({ f }) => {
   const isHeure = f.type === 'heure';
   const groupes = f.groupes || [];
-  const totalHeures = groupes.reduce((a, g) => a + Number(g.heures || 0), 0);
-
+   const totalHeures = f.heures ?? groupes.reduce((a, g) => a + Number(g.heures || 0), 0);
   return (
     <div className="rounded-lg border border-slate-100 p-3">
       <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -92,7 +91,7 @@ const FormationBlock = ({ f }) => {
         <Line label="Ma part" value={`${f.pourcentage} %`} />
       )}
 
-      <p className="text-[11px] font-medium text-slate-500 mt-3 mb-0.5">Détail par groupe</p>
+      {groupes.length > 0 && <p className="text-[11px] font-medium text-slate-500 mt-3 mb-0.5">Détail par groupe</p>}
       {groupes.map((g, i) => (
         <div key={i} className="flex items-center justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0 text-xs">
           <div className="min-w-0">
