@@ -104,7 +104,7 @@ const FormationBlock = ({ f }) => {
             {isHeure && (
               <p className="text-[11px] text-slate-400">{g.heures} h × {fmt(f.taux_horaire)}/h</p>
             )}
-            {f.type === 'pourcentage' && g.revenus != null && (
+                       {f.type === 'pourcentage' && g.revenus > 0 && (
               <p className="text-[11px] text-slate-400">Revenus du groupe : {fmt(g.revenus)}</p>
             )}
           </div>

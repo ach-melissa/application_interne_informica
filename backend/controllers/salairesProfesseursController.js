@@ -349,21 +349,22 @@ const computeGroupesForFormation = async (f, mois, annee) => {
     const heuresBrutesTotal = groupes.reduce((s, g) => s + g.heures, 0);
     // si le comptable a saisi un nombre d'heures manuel, on garde la même proportion
     const scale = heuresBrutesTotal > 0 && f.heuresEffectuees != null ? f.heuresEffectuees / heuresBrutesTotal : 1;
-    return groupes.map((g) => {
+    return groupes.filter((g) => g.nbSeances > 0).map((g) => {
       const heures = Math.round(g.heures * scale * 100) / 100;
       return { nom: g.nom, heures, montant: Math.round(Number(f.montant) * heures) };
     });
   }
 
-  if (f.typeSalaire === 'Pourcentage') {
-    const revenus = await Promise.all(groupes.map((g) => loadRevenusParGroupes(f.id, [g.id], mois, annee)));
-    const totalRevenus = revenus.reduce((s, r) => s + r, 0);
+   if (f.typeSalaire === 'Pourcentage') {
+    const revenusAll = await Promise.all(groupes.map((g) => loadRevenusParGroupes(f.id, [g.id], mois, annee)));
+    // seulement les groupes qui ont encaissé ce mois-ci
+    const actifs = groupes.map((g, i) => ({ g, rev: revenusAll[i] })).filter((x) => x.rev > 0);
+    const totalRevenus = actifs.reduce((s, x) => s + x.rev, 0);
     let restant = f.montantPeriode;
-    return groupes.map((g, i) => {
-      const part = totalRevenus > 0 ? revenus[i] / totalRevenus : 1 / groupes.length;
-      const montant = i === groupes.length - 1 ? restant : Math.round(f.montantPeriode * part);
+    return actifs.map(({ g, rev }, i) => {
+      const montant = i === actifs.length - 1 ? restant : Math.round(f.montantPeriode * (rev / totalRevenus));
       restant -= montant;
-           return { nom: g.nom, montant, revenus: revenus[i] };
+      return { nom: g.nom, montant, revenus: rev };
     });
   }
   return [];

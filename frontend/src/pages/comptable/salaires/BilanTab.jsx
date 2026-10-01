@@ -309,9 +309,9 @@ const revenus = state.revenusOverride ?? f.revenusAuto ?? 0;
     dont {fmt(f.revenusProfesseur)} venant de vos groupes.
   </p>
 )}
-{f.groupes?.length > 0 && (
+{f.groupes?.some((g) => g.revenus > 0) && (
   <div className="border border-slate-200 rounded-md divide-y divide-slate-100 overflow-hidden mt-2">
-    {f.groupes.map((g) => (
+    {f.groupes.filter((g) => g.revenus > 0).map((g) => (
       <div key={g.id} className="flex justify-between px-2.5 py-1.5 bg-white">
         <span className="text-slate-600">{g.nom}</span>
         <span className="font-medium text-slate-700">{fmt(g.revenus ?? 0)}</span>
@@ -417,9 +417,9 @@ const [saving, setSaving] = useState(false);
 <span className="text-slate-500">heure(s) effectuée(s)</span>
               </div>
 <p className="text-slate-400">{seances || 0} heure(s) × {fmt(Number(f.montant))} = <b className="text-slate-800">{fmt(montant)}</b></p>
-{f.groupes?.length > 0 && (
+{f.groupes?.some((g) => g.nbSeances > 0) && (
   <div className="border border-slate-200 rounded-md divide-y divide-slate-100 overflow-hidden mt-2">
-    {f.groupes.map((g) => (
+    {f.groupes.filter((g) => g.nbSeances > 0).map((g) => (
       <div key={g.id} className="flex justify-between px-2.5 py-1.5 bg-white">
         <span className="text-slate-600">
           {g.nom} <span className="text-slate-400">({g.nbSeances} séance{g.nbSeances > 1 ? 's' : ''})</span>
