@@ -580,13 +580,16 @@ const handleEnvoyer = () => run(() => postEnvoyer(professeurId, { mois, annee })
     return <p className="text-red-500 text-sm">{error}</p>;
   }
 
-const { formations, mouvements, charges, total, totalCalcule, totalCalculeValide, dateValidation, totalOverride, paye, valide, envoye } = data;
+const { formations, mouvements, charges, total, totalCalcule, totalCalculeValide, totalCalculeEnvoye, dateValidation, totalOverride, paye, valide, envoye } = data;
 // warn only if the AUTO total changed since validation (a manual total is ignored)
 const ecart = valide && totalCalculeValide != null && Number(totalCalculeValide) !== Number(totalCalcule);
 const dateValidationLabel = dateValidation
   ? new Date(dateValidation).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   : null;
 const verrouille = valide && !editingSalaire;
+// already sent, but the validated total changed since → can be resent
+const aRenvoyer = envoye && totalCalculeEnvoye != null && Number(totalCalculeEnvoye) !== Number(totalCalculeValide);
+const peutEnvoyer = valide && !ecart && !editingSalaire && (!envoye || aRenvoyer);
 // the salary saved at validation (manual total if any, else the auto total at that time)
 const salaireValide = totalOverride ?? totalCalculeValide;
 return (
@@ -722,12 +725,13 @@ return (
               </button>
             </>
           )}
-          <button onClick={handleEnvoyer} disabled={!valide || envoye}
+                <button onClick={handleEnvoyer} disabled={!peutEnvoyer}
             className="flex-1 flex items-center justify-center gap-1.5 bg-[#0369A1] text-white text-sm font-semibold py-2.5 rounded-lg shadow-[0_3px_0_#024e77] hover:shadow-[0_2px_0_#024e77] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0">
-            <Send size={14} /> {envoye ? 'Envoyé' : 'Envoyer au professeur'}
+              <Send size={14} /> {aRenvoyer ? 'Renvoyer au professeur' : envoye ? 'Envoyé' : 'Envoyer au professeur'}
           </button>
         </div>
-        {envoye && <p className="text-[10px] text-emerald-600 text-center mt-1.5">Le professeur peut consulter ce bilan.</p>}
+        {envoye && !aRenvoyer && !ecart && <p className="text-[10px] text-emerald-600 text-center mt-1.5">Le professeur peut consulter ce bilan.</p>}
+        {envoye && (ecart || aRenvoyer) && <p className="text-[10px] text-amber-600 text-center mt-1.5">Le professeur ne voit plus ce bilan tant que vous ne l'avez pas renvoyé.</p>}
       </div>
 
       <div className="flex items-center gap-2">

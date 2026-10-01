@@ -288,6 +288,7 @@ const applyBilan = (professeur, { bilan, details, mouvements, charges }, revenus
     totalOverride,
     total,
     totalCalculeValide: bilan?.total_calcule_valide != null ? Number(bilan.total_calcule_valide) : null,
+    totalCalculeEnvoye: bilan?.total_calcule_envoye != null ? Number(bilan.total_calcule_envoye) : null,
     dateValidation: bilan?.date_validation ?? null,
     paye,
     valide,
@@ -382,7 +383,7 @@ const getMesSalaires = async (req, res) => {
     const dernierMois = annee === anneeCourante ? moisCourant : 12;
 
 const { data: bilans, error: bErr } = await supabase
-  .from('bilans_salaires').select('mois, valide, envoye')
+   .from('bilans_salaires').select('mois, valide, envoye, total_calcule_envoye')
   .eq('teacher_id', teacherId).eq('annee', annee).lte('mois', dernierMois);
 if (bErr) throw bErr;
 if (!bilans?.length) return res.json([]);
@@ -399,6 +400,11 @@ if (!b.envoye) return { mois: b.mois, statut: 'attente', total: 0, formations: [
 const revenusMap = await loadRevenusFormations(pctFormations.map((f) => f.id), b.mois, annee); 
       const bilanData = bilanDataOf(all, teacherId);
 const r = applyBilan(professeur, bilanData, revenusMap);
+
+// the teacher only sees what was sent: if the calculation changed since the last send, hide until resent
+if (b.total_calcule_envoye != null && Number(b.total_calcule_envoye) !== Number(r.totalCalcule)) {
+  return { mois: b.mois, statut: 'attente', total: 0, formations: [], mouvements: [] };
+}
 // APRÈS
 const formations = await Promise.all(
   r.formations
@@ -642,6 +648,7 @@ const r = applyBilan(professeur, bilanData, revenusMap);
       charges: bilanData.charges,
        totalCalcule: r.totalCalcule,
       totalCalculeValide: r.totalCalculeValide,
+      totalCalculeEnvoye: r.totalCalculeEnvoye,
       dateValidation: r.dateValidation,
       totalOverride: r.totalOverride,
       total: r.total,
@@ -1025,13 +1032,18 @@ const envoyerBilan = async (req, res) => {
     const bilan = await getOrCreateBilan(teacherId, Number(mois), Number(annee));
     if (!bilan.valide) return res.status(400).json({ error: 'Le bilan doit être validé avant envoi.' });
 
-    const { error } = await supabase.from('bilans_salaires')
-      .update({ envoye: true, date_envoi: new Date().toISOString(), updated_at: new Date().toISOString() })
+     const { error } = await supabase.from('bilans_salaires')
+      .update({
+        envoye: true,
+        date_envoi: new Date().toISOString(),
+        total_calcule_envoye: bilan.total_calcule_valide,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', bilan.id);
     if (error) throw error;
     await logHistorique({
       req, perimetre: 'comptable', action: 'modification', entite: 'bilan_salaire', entite_id: bilan.id,
-      description: `a envoyé le bilan de ${await nomProf(teacherId)} pour ${periodeLabel(mois, annee)} au professeur`,
+         description: `a ${bilan.envoye ? 'renvoyé' : 'envoyé'} le bilan de ${await nomProf(teacherId)} pour ${periodeLabel(mois, annee)} au professeur`,
     });
     res.json({ ok: true });
   } catch (err) {
