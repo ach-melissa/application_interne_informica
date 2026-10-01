@@ -388,29 +388,37 @@ if (bErr) throw bErr;
 if (!bilans?.length) return res.json([]);
 
 const resultats = await Promise.all(bilans.map(async (b) => {
-  if (!b.envoye) return { mois: b.mois, statut: 'attente', total: 0, formations: [] };
-      const [professeurs, all] = await Promise.all([
+if (!b.envoye) return { mois: b.mois, statut: 'attente', total: 0, formations: [], mouvements: [] }; 
+  const [professeurs, all] = await Promise.all([
         buildProfesseurs(b.mois, annee, teacherId),
         loadBilanData([teacherId], b.mois, annee),
       ]);
       const professeur = professeurs[0];
-      if (!professeur) return { mois: b.mois, statut: 'attente', total: 0, formations: [] };
-
+    if (!professeur) return { mois: b.mois, statut: 'attente', total: 0, formations: [], mouvements: [] };
       const pctFormations = professeur.formations.filter((f) => f.typeSalaire === 'Pourcentage');
 const revenusMap = await loadRevenusFormations(pctFormations.map((f) => f.id), b.mois, annee); 
       const bilanData = bilanDataOf(all, teacherId);
 const r = applyBilan(professeur, bilanData, revenusMap);
 // APRÈS
-const formations = await Promise.all(r.formations.map(async (f) => {
-  const hasGroupes = (f.groupes ?? []).length > 0;
-  return {
-    formation_nom: f.nom,
-    type: f.typeSalaire === "À l'heure" ? 'heure' : 'pourcentage',
-    ...(f.typeSalaire === "À l'heure" ? { taux_horaire: Number(f.montant) } : { pourcentage: Number(f.part ?? f.montant) }),
-    montant: hasGroupes ? f.montantPeriode : 0,
-    groupes: hasGroupes ? await computeGroupesForFormation(f, b.mois, annee) : [],
-  };
-}));
+const formations = await Promise.all(
+  r.formations
+    .filter((f) => f.typeSalaire) // skip formations with no pay configured
+    .map(async (f) => {
+      const hasGroupes = (f.groupes ?? []).length > 0;
+      const type = f.typeSalaire === "À l'heure" ? 'heure'
+                 : f.typeSalaire === 'Fixe' ? 'fixe'
+                 : 'pourcentage';
+      return {
+        formation_nom: f.nom,
+        type,
+        ...(type === 'heure' ? { taux_horaire: Number(f.montant) } : {}),
+        ...(type === 'pourcentage' ? { pourcentage: Number(f.part ?? f.montant) } : {}),
+        ...(type === 'fixe' ? { forfait: Number(f.montant) } : {}),
+        montant: type === 'fixe' || hasGroupes ? f.montantPeriode : 0,
+        groupes: type !== 'fixe' && hasGroupes ? await computeGroupesForFormation(f, b.mois, annee) : [],
+      };
+    })
+);
 
 // Le total du mois doit rester cohérent avec les montants affichés ci-dessus
 // (sauf si le comptable a fixé un total manuel — dans ce cas on le respecte tel quel)
@@ -424,6 +432,14 @@ return {
   statut: r.paye >= totalAffiche && totalAffiche > 0 ? 'paye' : 'attente',
   total: totalAffiche,
   formations,
+  mouvements: bilanData.mouvements.map((m) => ({
+    id: m.id,
+    type: m.type,                    // avance | retenue | prime | particulier
+    description: m.description,
+    montant: Number(m.montant),
+    date: m.date,
+    bons: (m.bons ?? []).map((b) => ({ id: b.id ?? b.url, url: b.url })), // optional
+  })),
 };
     }));
 
