@@ -300,10 +300,8 @@ const getPartEnseignantParFormation = async (dateFrom, dateTo) => {
 // ============================================================
 const getSalairesEmployesPeriode = async (dateFrom, dateTo) => {
   const { data: staff, error } = await supabase
-    .from('users')
-    .select('id, nom, prenom, role')
-    .eq('archived', false)
-    .neq('role', 'prof');
+    .from('employes')
+    .select('id, nom, prenom');
   if (error) throw error;
 
   const { data: salairesMensuels, error: smErr } = await supabase
@@ -315,13 +313,43 @@ const getSalairesEmployesPeriode = async (dateFrom, dateTo) => {
 
   const parEmploye = {};
   (staff ?? []).forEach((u) => {
-    parEmploye[u.id] = { id: u.id, nom: `${u.nom ?? ''} ${u.prenom ?? ''}`.trim(), role: u.role, montant: 0 };
+    parEmploye[u.id] = { id: u.id, nom: `${u.nom ?? ''} ${u.prenom ?? ''}`.trim(), role: null, montant: 0 };
   });
   retenus.forEach((s) => {
     if (parEmploye[s.employe_id]) parEmploye[s.employe_id].montant += Number(s.montant_paye || 0);
   });
 
   return Object.values(parEmploye);
+};
+
+// ============================================================
+// 5bis. Salaires employés VALIDÉS (montant_net, valide_le non nul)
+//       Utilisé uniquement par le rapport mensuel. Ne liste que les employés
+//       qui ont un salaire validé sur la période.
+// ============================================================
+const getSalairesEmployesValidesPeriode = async (dateFrom, dateTo) => {
+  const { data: staff, error } = await supabase
+    .from('employes')
+    .select('id, nom, prenom');
+  if (error) throw error;
+
+  const { data: salaires, error: smErr } = await supabase
+    .from('salaires_mensuels')
+    .select('employe_id, mois, annee, montant_net')
+    .not('valide_le', 'is', null);
+  if (smErr) throw smErr;
+
+  const retenus = (salaires ?? []).filter((s) => monthOverlapsRange(s.mois, s.annee, dateFrom, dateTo));
+
+  const parEmploye = {};
+  (staff ?? []).forEach((u) => {
+    parEmploye[u.id] = { id: u.id, nom: `${u.nom ?? ''} ${u.prenom ?? ''}`.trim(), montant: 0 };
+  });
+  retenus.forEach((s) => {
+    if (parEmploye[s.employe_id]) parEmploye[s.employe_id].montant += Number(s.montant_net || 0);
+  });
+
+  return Object.values(parEmploye).filter((e) => e.montant > 0);
 };
 
 // ============================================================
@@ -423,7 +451,7 @@ const buildRapportMois = async (mois, annee) => {
     getAutresRevenusPeriode(dateFrom, dateTo),
     getChargesPeriode(formationIds, dateFrom, dateTo),
     getPartEnseignantParFormation(dateFrom, dateTo),
-    getSalairesEmployesPeriode(dateFrom, dateTo),
+    getSalairesEmployesValidesPeriode(dateFrom, dateTo),
     getGroupesActifsAvecEtudiants(formationIds),
   ]);
   const { chargesFormation, chargesAutres } = chargesRes;
@@ -445,22 +473,22 @@ const buildRapportMois = async (mois, annee) => {
         part: d.part,
       }));
     const profTotal = sum(profPaiements, 'montant');
+    const hasPourcentage = profPaiements.some((p) => p.typeSalaire === 'Pourcentage');
 
     return {
       nom: f.nom,
       etudiants: f.nb_etudiants,
       groupes: groupesByFormation[f.id] || [],
-      attendu: f.attendu,
       obtenu: f.encaisse,
       charges: chargesListe,
       chargesTotal,
       profPaiements,
       profTotal,
+      partEcole: hasPourcentage ? f.encaisse - profTotal : null,
       benefice: f.encaisse - chargesTotal - profTotal,
     };
   });
 
-  const revenuAttenduTotal = sum(formationsMois, 'attendu');
   const revenuObtenuTotal = sum(formationsMois, 'obtenu');
   const chFTotal = sum(chargesFormation);
   const autresRevTotal = sum(autresRevenus);
@@ -486,7 +514,7 @@ const buildRapportMois = async (mois, annee) => {
       part: d.part,
     })),
     emp: employes.map((e) => ({ nom: e.nom, poste: e.role, montant: e.montant })),
-    revenuAttenduTotal, revenuObtenuTotal, chFTotal, autresRevTotal, chATotal,
+    revenuObtenuTotal, chFTotal, autresRevTotal, chATotal,
     profsTotal, empTotal, totalSalaires, totalRevenus, totalCharges,
     benefice: totalRevenus - totalCharges,
     empty: totalRevenus === 0 && totalCharges === 0,
