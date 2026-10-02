@@ -1,5 +1,5 @@
 const supabase = require('../supabaseClient');
-
+const crypto = require('crypto');
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -63,13 +63,41 @@ const computeMontantPeriode = (f) => {
   return 0;
 };
 
-const MSG_BILAN_VALIDE = 'Ce bilan est validé : il ne peut plus être modifié.';
+const { logHistorique } = require('../utils/historique');
 
+const dz = (n) => Math.abs(Number(n) || 0).toLocaleString('fr-FR') + ' DA';
+const periodeLabel = (mois, annee) => `${pad(mois)}/${annee}`;
+const TYPE_MVT_LABEL = { avance: 'une avance', retenue: 'une retenue', prime: 'une prime', particulier: 'un mouvement particulier' };
+
+const nomProf = async (teacherId) => {
+  const { data } = await supabase.from('teachers').select('user:user_id(nom, prenom)').eq('id', teacherId).maybeSingle();
+  return data?.user ? [data.user.prenom, data.user.nom].filter(Boolean).join(' ') : '—';
+};
 /* ------------------------------------------------------------------ */
 /*  Core: professors + their formations + séances for the month        */
 /*  (exported so GET /:id can reuse it with teacherId)                 */
 /* ------------------------------------------------------------------ */
-
+const fetchAllSessions = async (groupIds, start, end) => {
+  const PAGE = 1000;
+  let from = 0;
+  const all = [];
+  while (true) {
+    const { data, error } = await supabase
+      .from('sessions')
+      .select('id, group_id, duree_effectuee, heure_debut, heure_fin')
+      .in('group_id', groupIds)
+      .eq('statut', 'effectuee')
+      .gte('date', start)
+      .lt('date', end)
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    all.push(...(data ?? []));
+    if ((data ?? []).length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+};
 const buildProfesseurs = async (mois, annee, teacherId = null) => {
   const { start, end } = monthRange(mois, annee);
 
@@ -109,25 +137,16 @@ groups(
   //    The professor is the one of the GROUP (sessions.prof_id is only the creator).
   const groupIds = activeTeachers.flatMap((t) => t.groups.map((g) => g.id));
   const perGroup = {}; // group_id → { nb, heures, sansDuree }
-  if (groupIds.length) {
-    const { data: sessions, error: sErr } = await supabase
-      .from('sessions')
-      .select('group_id, duree_effectuee, heure_debut, heure_fin')
-      .in('group_id', groupIds)
-      .eq('statut', 'effectuee')
-      .not('finalized_at', 'is', null)
-      .gte('date', start)
-      .lt('date', end);
-    if (sErr) throw sErr;
-
-    (sessions ?? []).forEach((s) => {
-      const acc = (perGroup[s.group_id] ??= { nb: 0, heures: 0, sansDuree: 0 });
-      acc.nb += 1;
-      const h = sessionHours(s);
-      if (h === null) acc.sansDuree += 1;
-      else acc.heures += h;
-    });
-  }
+if (groupIds.length) {
+  const sessions = await fetchAllSessions(groupIds, start, end);
+  sessions.forEach((s) => {
+    const acc = (perGroup[s.group_id] ??= { nb: 0, heures: 0, sansDuree: 0 });
+    acc.nb += 1;
+    const h = sessionHours(s);
+    if (h === null) acc.sansDuree += 1;
+    else acc.heures += h;
+  });
+}
 
   // 3. Assemble: professor → formations
   return activeTeachers.map((t) => {
@@ -170,8 +189,14 @@ f.nbSeances += perGroup[g.id]?.nb ?? 0;
 f.heuresEffectuees += perGroup[g.id]?.heures ?? 0;
 f.seancesSansDuree += perGroup[g.id]?.sansDuree ?? 0;
 f.groupIds.push(g.id);   // ← ADD THIS LINE
-f.groupes.push({ id: g.id, nom: g.nom, heures: Math.round((perGroup[g.id]?.heures ?? 0) * 100) / 100 });
-      });
+f.groupes.push({
+  id: g.id,
+  nom: g.nom,
+  heures: Math.round((perGroup[g.id]?.heures ?? 0) * 100) / 100,
+  nbSeances: perGroup[g.id]?.nb ?? 0,
+  sansDuree: perGroup[g.id]?.sansDuree ?? 0,
+});   
+});
 
     return {
       id: t.id,
@@ -262,6 +287,9 @@ const applyBilan = (professeur, { bilan, details, mouvements, charges }, revenus
     totalCalcule,
     totalOverride,
     total,
+    totalCalculeValide: bilan?.total_calcule_valide != null ? Number(bilan.total_calcule_valide) : null,
+    totalCalculeEnvoye: bilan?.total_calcule_envoye != null ? Number(bilan.total_calcule_envoye) : null,
+    dateValidation: bilan?.date_validation ?? null,
     paye,
     valide,
     envoye: bilan?.envoye ?? false,
@@ -321,21 +349,22 @@ const computeGroupesForFormation = async (f, mois, annee) => {
     const heuresBrutesTotal = groupes.reduce((s, g) => s + g.heures, 0);
     // si le comptable a saisi un nombre d'heures manuel, on garde la même proportion
     const scale = heuresBrutesTotal > 0 && f.heuresEffectuees != null ? f.heuresEffectuees / heuresBrutesTotal : 1;
-    return groupes.map((g) => {
+    return groupes.filter((g) => g.nbSeances > 0).map((g) => {
       const heures = Math.round(g.heures * scale * 100) / 100;
       return { nom: g.nom, heures, montant: Math.round(Number(f.montant) * heures) };
     });
   }
 
-  if (f.typeSalaire === 'Pourcentage') {
-    const revenus = await Promise.all(groupes.map((g) => loadRevenusParGroupes(f.id, [g.id], mois, annee)));
-    const totalRevenus = revenus.reduce((s, r) => s + r, 0);
+   if (f.typeSalaire === 'Pourcentage') {
+    const revenusAll = await Promise.all(groupes.map((g) => loadRevenusParGroupes(f.id, [g.id], mois, annee)));
+    // seulement les groupes qui ont encaissé ce mois-ci
+    const actifs = groupes.map((g, i) => ({ g, rev: revenusAll[i] })).filter((x) => x.rev > 0);
+    const totalRevenus = actifs.reduce((s, x) => s + x.rev, 0);
     let restant = f.montantPeriode;
-    return groupes.map((g, i) => {
-      const part = totalRevenus > 0 ? revenus[i] / totalRevenus : 1 / groupes.length;
-      const montant = i === groupes.length - 1 ? restant : Math.round(f.montantPeriode * part);
+    return actifs.map(({ g, rev }, i) => {
+      const montant = i === actifs.length - 1 ? restant : Math.round(f.montantPeriode * (rev / totalRevenus));
       restant -= montant;
-      return { nom: g.nom, montant };
+      return { nom: g.nom, montant, revenus: rev };
     });
   }
   return [];
@@ -355,34 +384,55 @@ const getMesSalaires = async (req, res) => {
     const dernierMois = annee === anneeCourante ? moisCourant : 12;
 
 const { data: bilans, error: bErr } = await supabase
-  .from('bilans_salaires').select('mois, valide, envoye')
+   .from('bilans_salaires').select('mois, valide, envoye, total_calcule_envoye')
   .eq('teacher_id', teacherId).eq('annee', annee).lte('mois', dernierMois);
 if (bErr) throw bErr;
 if (!bilans?.length) return res.json([]);
 
 const resultats = await Promise.all(bilans.map(async (b) => {
-  if (!b.envoye) return { mois: b.mois, statut: 'attente', total: 0, formations: [] };
-      const [professeurs, all] = await Promise.all([
+if (!b.envoye) return { mois: b.mois, statut: 'attente', total: 0, formations: [], mouvements: [] }; 
+  const [professeurs, all] = await Promise.all([
         buildProfesseurs(b.mois, annee, teacherId),
         loadBilanData([teacherId], b.mois, annee),
       ]);
       const professeur = professeurs[0];
-      if (!professeur) return { mois: b.mois, statut: 'attente', total: 0, formations: [] };
-
+    if (!professeur) return { mois: b.mois, statut: 'attente', total: 0, formations: [], mouvements: [] };
       const pctFormations = professeur.formations.filter((f) => f.typeSalaire === 'Pourcentage');
 const revenusMap = await loadRevenusFormations(pctFormations.map((f) => f.id), b.mois, annee); 
       const bilanData = bilanDataOf(all, teacherId);
 const r = applyBilan(professeur, bilanData, revenusMap);
-const formations = await Promise.all(r.formations.map(async (f) => {
-  const hasGroupes = (f.groupes ?? []).length > 0;
-  return {
-    formation_nom: f.nom,
-    type: f.typeSalaire === "À l'heure" ? 'heure' : 'pourcentage',
-    ...(f.typeSalaire === "À l'heure" ? { taux_horaire: Number(f.montant) } : { pourcentage: Number(f.part ?? f.montant) }),
-    montant: hasGroupes ? f.montantPeriode : 0,
-    groupes: hasGroupes ? await computeGroupesForFormation(f, b.mois, annee) : [],
-  };
-}));
+
+// the teacher only sees what was sent: if the calculation changed since the last send, hide until resent
+if (b.total_calcule_envoye != null && Number(b.total_calcule_envoye) !== Number(r.totalCalcule)) {
+  return { mois: b.mois, statut: 'attente', total: 0, formations: [], mouvements: [] };
+}
+// APRÈS
+const formations = await Promise.all(
+  r.formations
+    .filter((f) => f.typeSalaire) // skip formations with no pay configured
+    .map(async (f) => {
+      const hasGroupes = (f.groupes ?? []).length > 0;
+      const type = f.typeSalaire === "À l'heure" ? 'heure'
+                 : f.typeSalaire === 'Fixe' ? 'fixe'
+                 : 'pourcentage';
+      return {
+        formation_nom: f.nom,
+        type,
+        ...(type === 'heure' ? { taux_horaire: Number(f.montant) } : {}),
+        ...(type === 'pourcentage' ? {
+          pourcentage: Number(f.part ?? f.montant),
+          revenus: f.revenusOverride ?? f.revenusAuto ?? 0,
+          charges_total: bilanData.charges
+            .filter((c) => (f.charges ?? []).includes(c.id))
+            .reduce((s, c) => s + Number(c.montant), 0),
+        } : {}),
+        ...(type === 'fixe' ? { forfait: Number(f.montant) } : {}),
+            montant: f.montantPeriode,
+        ...(type === 'heure' ? { heures: f.heuresEffectuees } : {}),
+        groupes: type !== 'fixe' && hasGroupes ? await computeGroupesForFormation(f, b.mois, annee) : [],
+      };
+    })
+);
 
 // Le total du mois doit rester cohérent avec les montants affichés ci-dessus
 // (sauf si le comptable a fixé un total manuel — dans ce cas on le respecte tel quel)
@@ -396,6 +446,14 @@ return {
   statut: r.paye >= totalAffiche && totalAffiche > 0 ? 'paye' : 'attente',
   total: totalAffiche,
   formations,
+  mouvements: bilanData.mouvements.map((m) => ({
+    id: m.id,
+    type: m.type,                    // avance | retenue | prime | particulier
+    description: m.description,
+    montant: Number(m.montant),
+    date: m.date,
+    bons: (m.bons ?? []).map((b) => ({ id: b.id ?? b.url, url: b.url })), // optional
+  })),
 };
     }));
 
@@ -519,6 +577,12 @@ const updateFormationRemuneration = async (req, res) => {
     if (!(m > 0)) return res.status(400).json({ error: 'Montant invalide.' });
     if (type === 'pourcentage' && m > 100) return res.status(400).json({ error: 'Le pourcentage doit être entre 1 et 100.' });
 
+    const { data: before } = await supabase
+      .from('professeur_formations')
+      .select('type_salaire, montant')
+      .eq('teacher_id', teacherId).eq('formation_id', formationId)
+      .maybeSingle();
+
     const { error } = await supabase.from('professeur_formations').upsert(
       {
         teacher_id: teacherId,
@@ -531,6 +595,20 @@ const updateFormationRemuneration = async (req, res) => {
       { onConflict: 'teacher_id,formation_id' }
     );
     if (error) throw error;
+
+    const fmtRem = (t, v) => !t ? 'non défini' : t === 'pourcentage' ? `${Number(v)}%` : t === 'heure' ? `${dz(v)} / h` : `${dz(v)} / mois`;
+    const avant = before ? fmtRem(before.type_salaire, before.montant) : 'non défini';
+    const apres = fmtRem(type, m);
+      if (!before || before.type_salaire !== type || Number(before.montant) !== m) {
+      const [nom, { data: fo }] = await Promise.all([
+        nomProf(teacherId),
+        supabase.from('formations').select('nom').eq('id', formationId).maybeSingle(),
+      ]);
+      await logHistorique({
+        req, perimetre: 'comptable', action: before ? 'modification' : 'creation', entite: 'remuneration_prof', entite_id: formationId,
+        description: `a modifié la rémunération de ${nom} pour la formation "${fo?.nom ?? '—'}" : "${before ? `${TYPE_TO_LABEL[before.type_salaire]} ${avant}` : 'non défini'}" → "${typeSalaire} ${apres}"`,
+      });
+    }
 
     res.json({ typeSalaire, montant: m, heures: 0 });
   } catch (err) {
@@ -567,13 +645,27 @@ await Promise.all(pctFormations.map(async (f) => {
 }));
 
 const bilanData = bilanDataOf(all, teacherId);
-const r = applyBilan(professeur, bilanData, revenusMap);
+const r = applyBilan(professeur, bilanData, revenusMap, revenusProfMap);
+
+// revenue of each group (display only)
+const revenusGroupesMap = {};
+await Promise.all(pctFormations.flatMap((f) => f.groupes.map(async (g) => {
+  revenusGroupesMap[g.id] = await loadRevenusParGroupes(f.id, [g.id], mois, annee);
+})));
 
     res.json({
-      formations: r.formations,
-      mouvements: data.mouvements,
-      charges: data.charges,
-      totalCalcule: r.totalCalcule,
+      formations: r.formations.map((f) => f.typeSalaire === 'Pourcentage'
+        ? { ...f, groupes: f.groupes.map((g) => ({ ...g, revenus: revenusGroupesMap[g.id] ?? 0 })) }
+        : f),
+         mouvements: bilanData.mouvements.map((m) => ({
+        ...m,
+        bons: (m.bons ?? []).map((b) => ({ ...b, id: b.id ?? b.url })),
+      })),
+      charges: bilanData.charges,
+       totalCalcule: r.totalCalcule,
+      totalCalculeValide: r.totalCalculeValide,
+      totalCalculeEnvoye: r.totalCalculeEnvoye,
+      dateValidation: r.dateValidation,
       totalOverride: r.totalOverride,
       total: r.total,
       paye: r.paye,
@@ -599,24 +691,59 @@ const upsertBilanFormationDetail = async (req, res) => {
     if (!mois || !annee) return res.status(400).json({ error: 'Mois et année requis.' });
 
     const bilan = await getOrCreateBilan(teacherId, Number(mois), Number(annee));
-    if (bilan.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
+
+    const { data: before } = await supabase
+      .from('bilan_formation_details')
+      .select('seances, revenus_override, charges_selectionnees')
+      .eq('bilan_id', bilan.id).eq('formation_id', formationId)
+      .maybeSingle();
 
     const patch = { bilan_id: bilan.id, formation_id: formationId, updated_at: new Date().toISOString() };
     if (seances !== undefined) patch.seances = seances === null ? null : Number(seances) || 0;
     if (revenusOverride !== undefined) patch.revenus_override = revenusOverride === null ? null : Number(revenusOverride);
-if (part !== undefined) {
-  patch.part_pct = Number(part); // kept for the DB column, unused for calculation now
-
-  const { error: pfErr } = await supabase.from('professeur_formations')
-    .update({ montant: Number(part), updated_at: new Date().toISOString() })
-    .eq('teacher_id', teacherId)
-    .eq('formation_id', formationId);
-  if (pfErr) throw pfErr;
-}
+    let partAvant = null;
+    if (part !== undefined) {
+      const { data: cfg } = await supabase.from('professeur_formations')
+        .select('montant').eq('teacher_id', teacherId).eq('formation_id', formationId).maybeSingle();
+      partAvant = cfg?.montant != null ? Number(cfg.montant) : null;
+      patch.part_pct = Number(part);
+      const { error: pfErr } = await supabase.from('professeur_formations')
+        .update({ montant: Number(part), updated_at: new Date().toISOString() })
+        .eq('teacher_id', teacherId)
+        .eq('formation_id', formationId);
+      if (pfErr) throw pfErr;
+    }
     if (charges !== undefined) patch.charges_selectionnees = charges;
 
     const { error } = await supabase.from('bilan_formation_details').upsert(patch, { onConflict: 'bilan_id,formation_id' });
     if (error) throw error;
+
+    // history log: only what really changed
+    const n = (v) => (v == null ? null : Number(v));
+    const changes = [];
+    if (seances !== undefined && n(before?.seances) !== n(patch.seances)) {
+      changes.push(`heures : "${before?.seances ?? 'auto'}" → "${patch.seances ?? 'auto'}"`);
+    }
+    if (revenusOverride !== undefined && n(before?.revenus_override) !== n(patch.revenus_override)) {
+      changes.push(`revenus : "${before?.revenus_override != null ? dz(before.revenus_override) : 'auto'}" → "${patch.revenus_override != null ? dz(patch.revenus_override) : 'auto'}"`);
+    }
+    if (part !== undefined && partAvant !== Number(part)) changes.push(`part professeur : ${partAvant ?? '—'}% → ${Number(part)}%`);
+    if (charges !== undefined) {
+      const a = JSON.stringify([...(before?.charges_selectionnees ?? [])].sort());
+      const b = JSON.stringify([...charges].sort());
+      if (a !== b) changes.push(`charges : ${(before?.charges_selectionnees ?? []).length} → ${charges.length} sélectionnée(s)`);
+    }
+    if (changes.length > 0) {
+      const [nom, { data: fo }] = await Promise.all([
+        nomProf(teacherId),
+        supabase.from('formations').select('nom').eq('id', formationId).maybeSingle(),
+      ]);
+      await logHistorique({
+        req, perimetre: 'comptable', action: 'modification', entite: 'bilan_formation', entite_id: bilan.id,
+        description: `a modifié la formation "${fo?.nom ?? '—'}" dans le bilan de ${nom} (${periodeLabel(mois, annee)}) : ${changes.join(' | ')}`,
+      });
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error('upsertBilanFormationDetail:', err);
@@ -637,13 +764,11 @@ const uploadBonMouvement = async (req, res) => {
 
     const { data: mvt, error: selErr } = await supabase
       .from('mouvements_salaire_professeurs')
-      .select('id, bons, bilan:bilan_id(valide)')
+      .select('id, bons, teacher_id, type')
       .eq('id', mouvementId)
       .maybeSingle();
     if (selErr) throw selErr;
     if (!mvt) return res.status(404).json({ error: 'Mouvement introuvable.' });
-    if (mvt.bilan?.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
-
     const ext = file.mimetype.split('/')[1] || 'jpg';
     const path = `mouvements/${mouvementId}/${Date.now()}.${ext}`;
 
@@ -654,22 +779,65 @@ const uploadBonMouvement = async (req, res) => {
 
     const { data: { publicUrl } } = supabase.storage.from('bons-paiement').getPublicUrl(path);
 
-    const newBons = [...(mvt.bons ?? []), { url: publicUrl }];
-    const { data, error } = await supabase
+    const bon = { id: crypto.randomUUID(), url: publicUrl, path };
+    const newBons = [...(mvt.bons ?? []), bon];
+    const { error } = await supabase
       .from('mouvements_salaire_professeurs')
       .update({ bons: newBons })
-      .eq('id', mouvementId)
-      .select()
-      .single();
+      .eq('id', mouvementId);
     if (error) throw error;
 
-    res.json(data);
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'creation', entite: 'bon_mouvement_prof', entite_id: mouvementId,
+      description: `a ajouté un bon à ${TYPE_MVT_LABEL[mvt.type] ?? 'un mouvement'} de ${await nomProf(mvt.teacher_id)}`,
+    });
+    res.status(201).json(bon);
   } catch (err) {
     console.error('uploadBonMouvement:', err);
     res.status(500).json({ error: err.message || 'Erreur serveur' });
   }
 };
+// old bons have no id → the url is used as key
+const bonKey = (b) => b.id ?? b.url;
+const bonPath = (b) => b.path ?? decodeURIComponent((b.url ?? '').split('/bons-paiement/')[1] ?? '');
 
+const deleteBonMouvement = async (req, res) => {
+  try {
+    const { mouvementId, bonId } = req.params;
+    const { data: mvt, error: selErr } = await supabase
+      .from('mouvements_salaire_professeurs')
+      .select('id, bons, teacher_id, type')
+      .eq('id', mouvementId)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (!mvt) return res.status(404).json({ error: 'Mouvement introuvable.' });
+
+    const bons = mvt.bons ?? [];
+    const bon = bons.find((b) => bonKey(b) === bonId);
+    if (!bon) return res.status(404).json({ error: 'Bon introuvable.' });
+
+    const path = bonPath(bon);
+    if (path) {
+      const { error: rmErr } = await supabase.storage.from('bons-paiement').remove([path]);
+      if (rmErr) console.error('deleteBonMouvement storage:', rmErr);
+    }
+
+    const { error } = await supabase
+      .from('mouvements_salaire_professeurs')
+      .update({ bons: bons.filter((b) => bonKey(b) !== bonId) })
+      .eq('id', mouvementId);
+    if (error) throw error;
+
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'suppression', entite: 'bon_mouvement_prof', entite_id: mouvementId,
+      description: `a supprimé un bon de ${TYPE_MVT_LABEL[mvt.type] ?? 'un mouvement'} de ${await nomProf(mvt.teacher_id)}`,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('deleteBonMouvement:', err);
+    res.status(500).json({ error: err.message || 'Erreur serveur' });
+  }
+};
 const addMouvement = async (req, res) => {
   try {
     const { teacherId } = req.params;
@@ -683,7 +851,6 @@ const addMouvement = async (req, res) => {
     const moisN = Number(mois);
     const anneeN = Number(annee);
     const bilan = await getOrCreateBilan(teacherId, moisN, anneeN);
-    if (bilan.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
 
     // date of the movement: today if it is in the bilan's month, else the first day of that month
     const today = todayDZ();
@@ -703,6 +870,10 @@ const addMouvement = async (req, res) => {
       .select('*')
       .single();
     if (error) throw error;
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'creation', entite: 'mouvement_salaire_prof', entite_id: data.id,
+      description: `a ajouté ${TYPE_MVT_LABEL[type]} de ${dz(m)} pour ${await nomProf(teacherId)} (${periodeLabel(moisN, anneeN)}) : "${description.trim()}"`,
+    });
     res.status(201).json(data);
   } catch (err) {
     console.error('addMouvement:', err);
@@ -713,20 +884,67 @@ const addMouvement = async (req, res) => {
 /* ------------------------------------------------------------------ */
 /*  DELETE /api/salaires-professeurs/mouvements/:mouvementId           */
 /* ------------------------------------------------------------------ */
+const updateMouvement = async (req, res) => {
+  try {
+    const { mouvementId } = req.params;
+    const { type, description, montant, formationId } = req.body;
+    if (!TYPES_MVT_VALID.includes(type)) return res.status(400).json({ error: 'Type de mouvement invalide.' });
+    if (!description?.trim()) return res.status(400).json({ error: 'Description requise.' });
+    const m = Number(montant);
+    if (!(m > 0)) return res.status(400).json({ error: 'Montant invalide.' });
 
+    const { data: before, error: selErr } = await supabase
+      .from('mouvements_salaire_professeurs')
+      .select('type, description, montant, teacher_id')
+      .eq('id', mouvementId)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (!before) return res.status(404).json({ error: 'Mouvement introuvable.' });
+
+    const patch = { type, description: description.trim(), montant: m };
+    if (formationId !== undefined) patch.formation_id = formationId || null;
+
+    const { data, error } = await supabase
+      .from('mouvements_salaire_professeurs')
+      .update(patch)
+      .eq('id', mouvementId)
+      .select('*')
+      .single();
+    if (error) throw error;
+
+    const changes = [];
+    if (before.type !== type) changes.push(`type : "${before.type}" → "${type}"`);
+    if (Number(before.montant) !== m) changes.push(`montant : "${dz(before.montant)}" → "${dz(m)}"`);
+    if ((before.description ?? '') !== description.trim()) changes.push(`description : "${before.description ?? '—'}" → "${description.trim()}"`);
+    if (changes.length > 0) {
+      await logHistorique({
+        req, perimetre: 'comptable', action: 'modification', entite: 'mouvement_salaire_prof', entite_id: mouvementId,
+        description: `a modifié ${TYPE_MVT_LABEL[before.type] ?? 'un mouvement'} de ${await nomProf(before.teacher_id)} : ${changes.join(' | ')}`,
+      });
+    }
+    res.json(data);
+  } catch (err) {
+    console.error('updateMouvement:', err);
+    res.status(500).json({ error: err.message || 'Erreur serveur' });
+  }
+};
 const deleteMouvement = async (req, res) => {
   try {
     const { data: mvt, error: selErr } = await supabase
       .from('mouvements_salaire_professeurs')
-      .select('id, bilan:bilan_id(valide)')
+      .select('id, teacher_id, type, description, montant')
       .eq('id', req.params.mouvementId)
       .maybeSingle();
     if (selErr) throw selErr;
     if (!mvt) return res.status(404).json({ error: 'Mouvement introuvable.' });
-    if (mvt.bilan?.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
 
     const { error } = await supabase.from('mouvements_salaire_professeurs').delete().eq('id', req.params.mouvementId);
     if (error) throw error;
+
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'suppression', entite: 'mouvement_salaire_prof', entite_id: mvt.id,
+      description: `a supprimé ${TYPE_MVT_LABEL[mvt.type] ?? 'un mouvement'} de ${dz(mvt.montant)} pour ${await nomProf(mvt.teacher_id)} : "${mvt.description}"`,
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error('deleteMouvement:', err);
@@ -746,12 +964,20 @@ const setTotalOverride = async (req, res) => {
     if (!mois || !annee) return res.status(400).json({ error: 'Mois et année requis.' });
 
     const bilan = await getOrCreateBilan(teacherId, Number(mois), Number(annee));
-    if (bilan.valide) return res.status(409).json({ error: MSG_BILAN_VALIDE });
+    const apres = totalOverride === null ? null : Number(totalOverride);
+    const avant = bilan.total_override != null ? Number(bilan.total_override) : null;
 
     const { error } = await supabase.from('bilans_salaires')
-      .update({ total_override: totalOverride === null ? null : Number(totalOverride), updated_at: new Date().toISOString() })
+      .update({ total_override: apres, updated_at: new Date().toISOString() })
       .eq('id', bilan.id);
     if (error) throw error;
+
+    if (avant !== apres) {
+      await logHistorique({
+        req, perimetre: 'comptable', action: 'modification', entite: 'bilan_salaire', entite_id: bilan.id,
+        description: `a modifié le total du mois de ${await nomProf(teacherId)} pour ${periodeLabel(mois, annee)} : "${avant != null ? dz(avant) : 'calcul auto'}" → "${apres != null ? dz(apres) : 'calcul auto'}"`,
+      });
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error('setTotalOverride:', err);
@@ -769,14 +995,38 @@ const validerBilan = async (req, res) => {
     const { teacherId } = req.params;
     const { mois, annee } = req.body;
     if (!mois || !annee) return res.status(400).json({ error: 'Mois et année requis.' });
+    const moisN = Number(mois);
+    const anneeN = Number(annee);
 
-    const bilan = await getOrCreateBilan(teacherId, Number(mois), Number(annee));
-    if (bilan.valide) return res.json({ ok: true }); // déjà validé : rien à faire
+    const bilan = await getOrCreateBilan(teacherId, moisN, anneeN);
+
+    const [professeurs, all] = await Promise.all([
+      buildProfesseurs(moisN, anneeN, teacherId),
+      loadBilanData([teacherId], moisN, anneeN),
+    ]);
+    if (!professeurs[0]) return res.status(404).json({ error: 'Professeur introuvable.' });
+    const formationIds = professeurs[0].formations.filter((f) => f.typeSalaire === 'Pourcentage').map((f) => f.id);
+    const revenusMap = await loadRevenusFormations(formationIds, moisN, anneeN);
+    const { total, totalCalcule } = applyBilan(professeurs[0], bilanDataOf(all, teacherId), revenusMap);
 
     const { error } = await supabase.from('bilans_salaires')
-      .update({ valide: true, date_validation: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .update({
+        valide: true,
+        date_validation: new Date().toISOString(),
+        total_calcule_valide: totalCalcule, // reference for the "Recalculer" warning
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', bilan.id);
     if (error) throw error;
+
+    const nom = await nomProf(teacherId);
+    const periode = periodeLabel(moisN, anneeN);
+    await logHistorique({
+      req, perimetre: 'comptable', action: bilan.valide ? 'modification' : 'creation', entite: 'bilan_salaire', entite_id: bilan.id,
+      description: bilan.valide
+        ? `a mis à jour le salaire validé de ${nom} pour ${periode} : ${dz(total)}`
+        : `a validé le salaire de ${nom} pour ${periode} : ${dz(total)}`,
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error('validerBilan:', err);
@@ -798,10 +1048,19 @@ const envoyerBilan = async (req, res) => {
     const bilan = await getOrCreateBilan(teacherId, Number(mois), Number(annee));
     if (!bilan.valide) return res.status(400).json({ error: 'Le bilan doit être validé avant envoi.' });
 
-    const { error } = await supabase.from('bilans_salaires')
-      .update({ envoye: true, date_envoi: new Date().toISOString(), updated_at: new Date().toISOString() })
+     const { error } = await supabase.from('bilans_salaires')
+      .update({
+        envoye: true,
+        date_envoi: new Date().toISOString(),
+        total_calcule_envoye: bilan.total_calcule_valide,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', bilan.id);
     if (error) throw error;
+    await logHistorique({
+      req, perimetre: 'comptable', action: 'modification', entite: 'bilan_salaire', entite_id: bilan.id,
+         description: `a ${bilan.envoye ? 'renvoyé' : 'envoyé'} le bilan de ${await nomProf(teacherId)} pour ${periodeLabel(mois, annee)} au professeur`,
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error('envoyerBilan:', err);
@@ -843,6 +1102,12 @@ const setPaye = async (req, res) => {
       .update({ deja_paye: m, updated_at: new Date().toISOString() })
       .eq('id', bilan.id);
     if (error) throw error;
+    if (Number(bilan.deja_paye ?? 0) !== m) {
+      await logHistorique({
+        req, perimetre: 'comptable', action: 'modification', entite: 'bilan_salaire', entite_id: bilan.id,
+        description: `a modifié le montant payé de ${await nomProf(teacherId)} pour ${periodeLabel(moisN, anneeN)} : "${dz(bilan.deja_paye)}" → "${dz(m)}"`,
+      });
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error('setPaye:', err);
@@ -897,8 +1162,8 @@ const getHistorique = async (req, res) => {
 
 module.exports = {
   getProfesseurs, getProfesseur, buildProfesseurs, updateFormationRemuneration,
-  getBilan, upsertBilanFormationDetail, addMouvement, deleteMouvement,
+ getBilan, upsertBilanFormationDetail, addMouvement, updateMouvement, deleteMouvement,
   setTotalOverride, validerBilan, envoyerBilan, setPaye, getHistorique,
-  uploadBonMouvement, upload,
+   uploadBonMouvement, deleteBonMouvement, upload,
   applyBilan, loadBilanData, bilanDataOf, loadRevenusFormations,getMesSalaires 
 };

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 const {
   getEmployes,
   getEmployeById,
@@ -8,10 +9,12 @@ const {
   deleteEmploye,
 } = require('../controllers/employesController');
 
-router.get('/', getEmployes);
-router.get('/:id', getEmployeById);
-router.post('/', createEmploye);
-router.put('/:id', updateEmploye);
-router.delete('/:id', deleteEmploye);
+const auth = [verifyToken, requireRole('admin', 'comptable')];
+
+router.get('/', ...auth, getEmployes);
+router.get('/:id', ...auth, getEmployeById);
+router.post('/', ...auth, createEmploye);
+router.put('/:id', ...auth, updateEmploye);
+router.delete('/:id', ...auth, deleteEmploye);
 
 module.exports = router;

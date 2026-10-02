@@ -32,12 +32,42 @@ const Line = ({ label, value }) => (
     <span className="font-medium text-slate-700">{value}</span>
   </div>
 );
+const TYPES_MVT = {
+  particulier: { label: 'Particulier', signe: 1 },
+  avance:      { label: 'Avance',      signe: -1 },
+  prime:       { label: 'Prime',       signe: 1 },
+  retenue:     { label: 'Retenue',     signe: -1 },
+};
 
+const MouvementsBlock = ({ mouvements }) => {
+  if (!mouvements?.length) return null;
+  return (
+    <div className="rounded-lg border border-slate-100 p-3">
+      <p className="text-sm font-semibold text-slate-800 mb-1.5">Avances, primes & retenues</p>
+      {mouvements.map((mv) => {
+        const t = TYPES_MVT[mv.type] ?? { label: mv.type, signe: 1 };
+        const plus = t.signe > 0;
+        return (
+          <div key={mv.id} className="flex items-center justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0 text-xs">
+            <div className="min-w-0 flex items-center gap-1.5">
+              <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${plus ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+                {t.label}
+              </span>
+              <span className="text-slate-600 truncate">{mv.description}</span>
+            </div>
+            <span className={`font-semibold whitespace-nowrap ${plus ? 'text-emerald-600' : 'text-red-500'}`}>
+              {plus ? '+' : '−'}{fmt(mv.montant)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 const FormationBlock = ({ f }) => {
   const isHeure = f.type === 'heure';
   const groupes = f.groupes || [];
-  const totalHeures = groupes.reduce((a, g) => a + Number(g.heures || 0), 0);
-
+   const totalHeures = f.heures ?? groupes.reduce((a, g) => a + Number(g.heures || 0), 0);
   return (
     <div className="rounded-lg border border-slate-100 p-3">
       <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -45,7 +75,7 @@ const FormationBlock = ({ f }) => {
         <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium ${
           isHeure ? 'bg-[#DCEBFA] text-[#0369A1]' : 'bg-purple-50 text-purple-600'
         }`}>
-          {isHeure ? 'Par heure' : 'Pourcentage'}
+          {isHeure ? 'Par heure' : f.type === 'fixe' ? 'Fixe' : 'Pourcentage'}
         </span>
       </div>
 
@@ -55,17 +85,27 @@ const FormationBlock = ({ f }) => {
           <Line label="Total des heures" value={`${totalHeures} h`} />
           <Line label="Taux horaire" value={`${fmt(f.taux_horaire)}/h`} />
         </>
-      ) : (
-        <Line label="Ma part" value={`${f.pourcentage} %`} />
+      ) : f.type === 'fixe' ? (
+        <Line label="Forfait fixe" value={`${fmt(f.forfait)} / mois`} />
+        ) : (
+        <>
+          <Line label="Revenus de la formation" value={fmt(f.revenus)} />
+          {f.charges_total > 0 && <Line label="Charges déduites" value={`− ${fmt(f.charges_total)}`} />}
+          <Line label="Revenu après charges" value={fmt(f.revenus - f.charges_total)} />
+          <Line label="Ma part" value={`${f.pourcentage} %`} />
+        </>
       )}
 
-      <p className="text-[11px] font-medium text-slate-500 mt-3 mb-0.5">Détail par groupe</p>
+      {groupes.length > 0 && <p className="text-[11px] font-medium text-slate-500 mt-3 mb-0.5">Détail par groupe</p>}
       {groupes.map((g, i) => (
         <div key={i} className="flex items-center justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0 text-xs">
           <div className="min-w-0">
             <p className="text-slate-700 truncate">{g.nom}</p>
             {isHeure && (
               <p className="text-[11px] text-slate-400">{g.heures} h × {fmt(f.taux_horaire)}/h</p>
+            )}
+                       {f.type === 'pourcentage' && g.revenus > 0 && (
+              <p className="text-[11px] text-slate-400">Revenus du groupe : {fmt(g.revenus)}</p>
             )}
           </div>
           <span className="font-semibold text-slate-700 whitespace-nowrap">{fmt(g.montant)}</span>
@@ -188,10 +228,12 @@ const MesSalaires = () => {
                       {paid ? 'Payé' : 'En attente'}
                     </span>
                   </div>
-
-                  <div className="p-5 grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-                    {m.formations.map((f, i) => <FormationBlock key={i} f={f} />)}
-                  </div>
+<div className="p-5 space-y-3">
+  <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+    {m.formations.map((f, i) => <FormationBlock key={i} f={f} />)}
+  </div>
+  <MouvementsBlock mouvements={m.mouvements} />
+</div>
 
                   <div className="flex items-center justify-between px-5 py-3 bg-[#DCEBFA]/50">
                     <span className="text-xs font-bold text-[#0F2A4A]">Total du mois</span>

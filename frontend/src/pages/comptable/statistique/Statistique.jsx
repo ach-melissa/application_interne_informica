@@ -65,6 +65,7 @@ const Card = ({ icon: Icon, title, children, className = '' }) => (
     {children}
   </div>
 );
+const API_URL = import.meta.env.VITE_API_URL;
 
 const Statistique = () => {
   const [dateFrom, setDateFrom] = useState('');
@@ -91,7 +92,7 @@ const Statistique = () => {
         // Exemple ci-dessous avec un token stocké en localStorage — remplace
         // par ton instance axios / apiFetch si tu en as déjà une dans le projet.
         const token = localStorage.getItem('token');
-        const res = await fetch(`/api/comptable/statistiques?${params.toString()}`, {
+                const res = await fetch(`${API_URL}/api/comptable/statistiques?${params.toString()}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok) throw new Error('Erreur lors du chargement des statistiques.');

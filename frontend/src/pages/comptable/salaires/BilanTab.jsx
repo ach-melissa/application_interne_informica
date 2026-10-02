@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Wallet, Plus, Check, X, RotateCcw,
   Camera, ZoomIn, Image as ImageIcon, DollarSign, Receipt, GraduationCap, PieChart, School, Send,
+  Trash2, Loader2, Pencil,
 } from 'lucide-react';
 import { fmt, API, getHeaders } from './SalairesProfesseurs';
 
@@ -59,6 +60,11 @@ const postBonMouvement = (teacherId, mouvementId, file) => {
 const deleteMouvementApi = (mouvementId) =>
   fetch(`${API}/api/salaires-professeurs/mouvements/${mouvementId}`, { method: 'DELETE', headers: getHeaders() }).then(jsonOrThrow);
 
+const putMouvementApi = (mouvementId, payload) =>
+  fetch(`${API}/api/salaires-professeurs/mouvements/${mouvementId}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
+
+const deleteBonApi = (mouvementId, bonId) =>
+  fetch(`${API}/api/salaires-professeurs/mouvements/${mouvementId}/bons/${encodeURIComponent(bonId)}`, { method: 'DELETE', headers: getHeaders() }).then(jsonOrThrow);
 const putTotal = (teacherId, payload) =>
   fetch(`${API}/api/salaires-professeurs/${teacherId}/bilan/total`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(payload) }).then(jsonOrThrow);
 
@@ -74,46 +80,84 @@ const postEnvoyer = (teacherId, payload) =>
 /* ------------------------------------------------------------------ */
 /*  Modal d'ajout d'un mouvement                                       */
 /* ------------------------------------------------------------------ */
-const AjoutMouvementModal = ({ formations, professeurId, onClose, onSubmit }) => {
-  const [type, setType] = useState('avance');
-  const [source, setSource] = useState('existante');
-  const [formation, setFormation] = useState(formations[0]?.id ?? '');
-  const [description, setDescription] = useState('');
-  const [montant, setMontant] = useState('');
+const AjoutMouvementModal = ({ formations, mouvement, onClose, onSubmit, onDelete, onUploadBon, onDeleteBon }) => {
+  const editing = Boolean(mouvement);
+  const [type, setType] = useState(mouvement?.type ?? 'avance');
+  const [source, setSource] = useState(mouvement && !mouvement.formation_id ? 'autre' : 'existante');
+  const [formation, setFormation] = useState(mouvement?.formation_id ?? formations[0]?.id ?? '');
+  const [description, setDescription] = useState(mouvement?.description ?? '');
+  const [montant, setMontant] = useState(mouvement ? String(mouvement.montant) : '');
   const [error, setError] = useState('');
+  const [confirm, setConfirm] = useState(null); // 'save' | 'delete' | null
   const [saving, setSaving] = useState(false);
-  const [pendingBons, setPendingBons] = useState([]); // TODO API: upload vers Supabase Storage pas encore branché
+  const [uploadingBon, setUploadingBon] = useState(false);
+  const [pendingBons, setPendingBons] = useState([]);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileInputRef = useRef(null);
 
-  const submit = async () => {
+  const buildPayload = () => {
     const isFormationMvt = type === 'particulier' && source === 'existante';
     const formationSel = isFormationMvt ? formations.find((f) => f.id === formation) : null;
     const desc = isFormationMvt ? (formationSel?.nom ?? '') : description;
-    if (!desc.trim()) return setError('Renseignez une description.');
-    if (!(Number(montant) > 0)) return setError('Renseignez un montant.');
+    if (!desc.trim()) { setError('Renseignez une description.'); return null; }
+    if (!(Number(montant) > 0)) { setError('Renseignez un montant.'); return null; }
     setError('');
+    return { type, description: desc, montant: Number(montant), formationId: formationSel?.id ?? null };
+  };
+
+  const requestSave = () => {
+    if (!buildPayload()) return;
+    editing ? setConfirm('save') : doSave();
+  };
+
+  const doSave = async () => {
+    setConfirm(null);
+    const payload = buildPayload();
+    if (!payload) return;
     setSaving(true);
-try {
-  const created = await onSubmit({ type, description: desc, montant: Number(montant), formationId: formationSel?.id });
-  for (const p of pendingBons) {
-    await postBonMouvement(professeurId, created.id, p.file);
-  }
-  onClose();
-} catch (err) {
+    try {
+      const saved = await onSubmit(payload, mouvement?.id);
+      if (!editing) {
+        for (const p of pendingBons) await onUploadBon(saved.id, p.file);
+        pendingBons.forEach((p) => URL.revokeObjectURL(p.preview));
+      }
+      onClose();
+    } catch (err) {
       setError(err.message || "Le mouvement n'a pas pu être enregistré.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleFileChange = (e) => {
+  const doDelete = async () => {
+    setConfirm(null);
+    try { await onDelete(mouvement.id); onClose(); }
+    catch (err) { setError(err.message || 'Erreur lors de la suppression.'); }
+  };
+
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPendingBons((prev) => [...prev, { file, preview: URL.createObjectURL(file) }]);
     e.target.value = '';
+    if (!editing) {
+      setPendingBons((prev) => [...prev, { file, preview: URL.createObjectURL(file) }]);
+      return;
+    }
+    setUploadingBon(true); setError('');
+    try { await onUploadBon(mouvement.id, file); }
+    catch (err) { setError(err.message || "Erreur lors de l'envoi du bon."); }
+    finally { setUploadingBon(false); }
   };
-  const removeBon = (idx) => setPendingBons((prev) => { URL.revokeObjectURL(prev[idx].preview); return prev.filter((_, i) => i !== idx); });
+
+  const removePendingBon = (idx) => setPendingBons((prev) => { URL.revokeObjectURL(prev[idx].preview); return prev.filter((_, i) => i !== idx); });
+  const deleteExistingBon = async (bonId) => {
+    try { await onDeleteBon(mouvement.id, bonId); }
+    catch (err) { setError(err.message || 'Erreur lors de la suppression du bon.'); }
+  };
+
+  const thumbs = editing
+    ? (mouvement.bons ?? []).map((b) => ({ key: b.id, url: b.url, remove: () => deleteExistingBon(b.id) }))
+    : pendingBons.map((p, i) => ({ key: i, url: p.preview, remove: () => removePendingBon(i) }));
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={onClose}>
@@ -122,11 +166,29 @@ try {
           <div className="flex items-center justify-between px-5 py-4">
             <h2 className="text-sm font-bold text-[#1E293B] flex items-center gap-2">
               <span className="w-8 h-8 rounded-xl bg-[#0369A1] flex items-center justify-center shrink-0"><Wallet size={14} className="text-white" /></span>
-              Ajouter un mouvement
+              {editing ? 'Modifier le mouvement' : 'Ajouter un mouvement'}
             </h2>
             <button onClick={onClose} className="text-slate-300 hover:text-slate-600"><X size={16} /></button>
           </div>
           {error && <p className="text-red-500 text-xs bg-red-50 px-3 py-2 mx-5 mb-3 rounded-md">{error}</p>}
+          {confirm === 'save' && (
+            <div className="flex items-center justify-between gap-3 mx-5 mb-3 rounded-md p-3 bg-[#DCEBFA]/50 text-[#0369A1]">
+              <p className="text-xs">Confirmer la modification ?</p>
+              <div className="flex gap-2 shrink-0">
+                <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+                <button onClick={doSave} className="text-xs px-3 py-1.5 rounded-md text-white bg-[#0F2A4A] hover:bg-[#16385f]">Oui</button>
+              </div>
+            </div>
+          )}
+          {confirm === 'delete' && (
+            <div className="flex items-center justify-between gap-3 mx-5 mb-3 rounded-md p-3 bg-red-50 text-red-600">
+              <p className="text-xs">Supprimer ce mouvement ? Action irréversible.</p>
+              <div className="flex gap-2 shrink-0">
+                <button onClick={() => setConfirm(null)} className="text-xs px-3 py-1.5 rounded-md text-slate-500 hover:bg-white">Non</button>
+                <button onClick={doDelete} className="text-xs px-3 py-1.5 rounded-md text-white bg-red-500 hover:bg-red-600">Oui</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="p-5 space-y-3">
@@ -178,30 +240,37 @@ try {
           <div>
             <Label text="Bons (photos)" />
             <div className="flex flex-wrap gap-2">
-              {pendingBons.map((p, idx) => (
-                <div key={idx} className="relative group">
-                  <button type="button" onClick={() => setLightboxUrl(p.preview)}>
-                    <img src={p.preview} alt="bon" className="w-14 h-14 rounded-md object-cover border border-slate-200 group-hover:opacity-80 transition" />
+              {thumbs.map((t) => (
+                <div key={t.key} className="relative group">
+                  <button type="button" onClick={() => setLightboxUrl(t.url)}>
+                    <img src={t.url} alt="bon" className="w-14 h-14 rounded-md object-cover border border-slate-200 group-hover:opacity-80 transition" />
                     <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><ZoomIn size={14} className="text-white drop-shadow" /></span>
                   </button>
-                  <button type="button" onClick={() => removeBon(idx)} className="absolute -top-1.5 -right-1.5 bg-white rounded-full p-0.5 shadow text-slate-400 hover:text-red-500 transition"><X size={11} /></button>
+                  <button type="button" onClick={t.remove} className="absolute -top-1.5 -right-1.5 bg-white rounded-full p-0.5 shadow text-slate-400 hover:text-red-500 transition"><X size={11} /></button>
                 </div>
               ))}
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="w-14 h-14 rounded-md border border-dashed border-slate-300 hover:border-[#0369A1]/50 flex items-center justify-center text-slate-400 hover:text-[#0369A1] transition"><Camera size={16} /></button>
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingBon} className="w-14 h-14 rounded-md border border-dashed border-slate-300 hover:border-[#0369A1]/50 flex items-center justify-center text-slate-400 hover:text-[#0369A1] transition disabled:opacity-40">
+                {uploadingBon ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+              </button>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-</div>
+          </div>
 
           <div className="flex justify-end gap-2 pt-1">
+            {editing && (
+              <button onClick={() => setConfirm('delete')} className="text-xs px-3 py-1.5 rounded-md text-red-600 bg-red-50 hover:bg-red-100 mr-auto font-medium flex items-center gap-1">
+                <Trash2 size={12} /> Supprimer
+              </button>
+            )}
             <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:bg-[#F1F5F9]">Annuler</button>
-            <button onClick={submit} disabled={saving} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium flex items-center gap-1 disabled:opacity-50">
-              <Check size={12} /> Enregistrer
+            <button onClick={requestSave} disabled={saving} className="text-xs px-3 py-1.5 rounded-md bg-[#0F2A4A] text-white hover:bg-[#16385f] font-medium flex items-center gap-1 disabled:opacity-50">
+              <Plus size={12} /> {editing ? 'Modifier' : 'Ajouter'}
             </button>
           </div>
         </div>
       </div>
       {lightboxUrl && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setLightboxUrl(null)}>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={(e) => { e.stopPropagation(); setLightboxUrl(null); }}>
           <img src={lightboxUrl} alt="Bon" className="max-w-lg w-full rounded-md shadow-2xl object-contain max-h-[80vh]" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
@@ -239,6 +308,16 @@ const revenus = state.revenusOverride ?? f.revenusAuto ?? 0;
   <p className="text-[10px] text-slate-400 mt-0.5">
     dont {fmt(f.revenusProfesseur)} venant de vos groupes.
   </p>
+)}
+{f.groupes?.some((g) => g.revenus > 0) && (
+  <div className="border border-slate-200 rounded-md divide-y divide-slate-100 overflow-hidden mt-2">
+    {f.groupes.filter((g) => g.revenus > 0).map((g) => (
+      <div key={g.id} className="flex justify-between px-2.5 py-1.5 bg-white">
+        <span className="text-slate-600">{g.nom}</span>
+        <span className="font-medium text-slate-700">{fmt(g.revenus ?? 0)}</span>
+      </div>
+    ))}
+  </div>
 )}
 </div>
 
@@ -338,6 +417,27 @@ const [saving, setSaving] = useState(false);
 <span className="text-slate-500">heure(s) effectuée(s)</span>
               </div>
 <p className="text-slate-400">{seances || 0} heure(s) × {fmt(Number(f.montant))} = <b className="text-slate-800">{fmt(montant)}</b></p>
+{f.groupes?.some((g) => g.nbSeances > 0) && (
+  <div className="border border-slate-200 rounded-md divide-y divide-slate-100 overflow-hidden mt-2">
+    {f.groupes.filter((g) => g.nbSeances > 0).map((g) => (
+      <div key={g.id} className="flex justify-between px-2.5 py-1.5 bg-white">
+        <span className="text-slate-600">
+          {g.nom} <span className="text-slate-400">({g.nbSeances} séance{g.nbSeances > 1 ? 's' : ''})</span>
+        </span>
+        <span className="font-medium text-slate-700">
+          {g.heures} h{g.sansDuree > 0 && <span className="text-amber-600"> · {g.sansDuree} sans durée</span>}
+        </span>
+      </div>
+    ))}
+    <div className="flex justify-between px-2.5 py-1.5 bg-slate-50 font-semibold text-slate-700">
+      <span>Total groupes</span>
+      <span>{Math.round(f.groupes.reduce((s, g) => s + g.heures, 0) * 100) / 100} h</span>
+    </div>
+  </div>
+)}
+{f.heuresOverride != null && (
+  <p className="text-[10px] text-amber-600">Heures modifiées manuellement : le total ne suit plus les groupes.</p>
+)}
 {f.heuresOverride == null && f.seancesSansDuree > 0 && (
   <p className="text-amber-600">{f.seancesSansDuree} séance(s) sans durée : comptées 0h.</p>
 )}
@@ -376,11 +476,13 @@ export const BilanMensuel = ({ professeurId, professeur, initialMois, initialAnn
   
   const [modalFormation, setModalFormation] = useState(null);
   const [showForm, setShowForm] = useState(false);
-
+  const [editingId, setEditingId] = useState(null);
+  const [validating, setValidating] = useState(false);
+  const [editingSalaire, setEditingSalaire] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [totalDraft, setTotalDraft] = useState(''); // saisie en cours dans le champ "Total du mois"
+  const [totalDraft, setTotalDraft] = useState(null); // null = nothing typed, otherwise the text being typed in "Total du mois"
   const [payeDraft, setPayeDraft] = useState(''); // saisie en cours dans le champ "Déjà payé"
   const [actionError, setActionError] = useState('');
 
@@ -393,7 +495,7 @@ export const BilanMensuel = ({ professeurId, professeur, initialMois, initialAnn
     try {
       const res = await fetchBilan(professeurId, mois, annee);
       setData(res);
-      setTotalDraft(res.totalOverride !== null ? String(res.totalOverride) : '');
+      setTotalDraft(null);
       setPayeDraft('');
       setError('');
     } catch (err) {
@@ -411,43 +513,74 @@ useEffect(() => {
 }, [mois, annee, initialMois, initialAnnee]);
   const changerMois = (delta) => setPeriode((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1));
 
-const run = async (fn) => {
-  try { setActionError(''); await fn(); await load(); onChange?.(); }
-  catch (err) { setActionError(err.message); }
+// every action goes through ONE queue: a blur on "Total du mois" and a click on "Valider" no longer run at the same time
+const queueRef = useRef(Promise.resolve());
+const run = (fn) => {
+  const job = queueRef.current.then(async () => {
+    try { setActionError(''); await fn(); await load(); onChange?.(); return true; }
+    catch (err) { setActionError(err.message); return false; }
+  });
+  queueRef.current = job;
+  return job;
 };
 
-const handleAjout = async (payload) => {
-  const created = await postMouvement(professeurId, { mois, annee, ...payload });
+useEffect(() => { setEditingSalaire(false); }, [professeurId, mois, annee]);
+
+const handleSubmitMouvement = async (payload, id) => {
+  const saved = id
+    ? await putMouvementApi(id, payload)
+    : await postMouvement(professeurId, { mois, annee, ...payload });
   await load();
   onChange?.();
-  return created;
+  return saved;
 };
+const handleUploadBon = async (mouvementId, file) => { await postBonMouvement(professeurId, mouvementId, file); await load(); onChange?.(); };
+const handleDeleteBon = async (mouvementId, bonId) => { await deleteBonApi(mouvementId, bonId); await load(); onChange?.(); };
 
 const saveFormation = async (formationId, patch) => {
   await putFormationDetail(professeurId, formationId, { mois, annee, ...patch });
   await load();
   onChange?.();
 };
-const handleDeleteMouvement = (id) => run(() => deleteMouvementApi(id));
-
+const handleDeleteMouvement = async (id) => { await deleteMouvementApi(id); await load(); onChange?.(); };
 const commitTotal = (raw) => {
   const value = raw === '' ? null : Number(raw);
   if (raw !== '' && Number.isNaN(value)) return;
   return run(() => putTotal(professeurId, { mois, annee, totalOverride: value }));
 };
-const handleTotalBlur = (e) => {
-  const raw = e.target.value;
-  if (raw === String(total)) return;
-  commitTotal(raw === String(totalCalcule) ? '' : raw);
+const handleTotalBlur = () => {
+  if (totalDraft === null) return; // nothing typed
+  const raw = totalDraft;
+  if (raw === '' || Number(raw) === Number(totalCalcule)) {
+    setTotalDraft(null);
+    if (totalOverride !== null) commitTotal(''); // empty or same as auto → back to auto
+    return;
+  }
+  if (Number(raw) === Number(total)) { setTotalDraft(null); return; }
+  commitTotal(raw);
 };
-const resetTotal = () => { setTotalDraft(''); commitTotal(''); };
+const resetTotal = () => { setTotalDraft(null); commitTotal(''); };
 const handlePayeBlur = (e) => {
   const raw = e.target.value;
   if (raw === '' || Number(raw) === Number(paye)) { setPayeDraft(''); return; }
   run(() => putPaye(professeurId, { mois, annee, montant: Number(raw) }));
 };
-
-const handleValider = () => run(() => postValider(professeurId, { mois, annee }));
+const handleValider = async () => {
+  setValidating(true);
+  const draft = totalDraft;
+  const ok = await run(async () => {
+    if (draft !== null) {
+      const value = draft === '' || Number(draft) === Number(totalCalcule) ? null : Number(draft);
+      if (value === null || !Number.isNaN(value)) await putTotal(professeurId, { mois, annee, totalOverride: value });
+    }
+    await postValider(professeurId, { mois, annee });
+  });
+  if (ok) setEditingSalaire(false);
+  setValidating(false);
+};
+const annulerModif = () => { setTotalDraft(null); setEditingSalaire(false); load(); };
+// like the employees page: put the fresh calculation in the field and unlock; nothing is saved until "Enregistrer"
+const handleRecalculer = () => { setTotalDraft(String(totalCalcule)); setEditingSalaire(true); };
 const handleEnvoyer = () => run(() => postEnvoyer(professeurId, { mois, annee }));
 
   if (loading && !data) {
@@ -457,8 +590,19 @@ const handleEnvoyer = () => run(() => postEnvoyer(professeurId, { mois, annee })
     return <p className="text-red-500 text-sm">{error}</p>;
   }
 
-const { formations, mouvements, charges, total, totalCalcule, totalOverride, paye, valide, envoye } = data;
-  return (
+const { formations, mouvements, charges, total, totalCalcule, totalCalculeValide, totalCalculeEnvoye, dateValidation, totalOverride, paye, valide, envoye } = data;
+// warn only if the AUTO total changed since validation (a manual total is ignored)
+const ecart = valide && totalCalculeValide != null && Number(totalCalculeValide) !== Number(totalCalcule);
+const dateValidationLabel = dateValidation
+  ? new Date(dateValidation).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  : null;
+const verrouille = valide && !editingSalaire;
+// already sent, but the validated total changed since → can be resent
+const aRenvoyer = envoye && totalCalculeEnvoye != null && Number(totalCalculeEnvoye) !== Number(totalCalculeValide);
+const peutEnvoyer = valide && !ecart && !editingSalaire && (!envoye || aRenvoyer);
+// the salary saved at validation (manual total if any, else the auto total at that time)
+const salaireValide = totalOverride ?? totalCalculeValide;
+return (
     <div className="space-y-4">
       <div className="relative flex items-center justify-center gap-3">
         <button onClick={() => changerMois(-1)} className="w-7 h-7 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center hover:bg-slate-50"><ChevronLeft size={14} className="text-[#0369A1]" /></button>
@@ -523,23 +667,39 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
         <div className="flex items-center justify-between bg-white border border-[#E2E8F0] rounded-lg px-3 py-2.5">
           <span className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
             <Wallet size={14} className="text-[#0369A1]" /> Total du mois
-            {totalOverride !== null && (
+                      {totalOverride !== null && !verrouille && (
               <button onClick={resetTotal} title="Réinitialiser au calcul automatique" className="text-slate-300 hover:text-amber-500"><RotateCcw size={11} /></button>
             )}
           </span>
           <span className="flex items-center gap-1">
             <input
               type="number"
-              value={totalDraft !== '' ? totalDraft : total}
+                                        value={totalDraft ?? (verrouille && salaireValide != null ? salaireValide : total)}
               onChange={(e) => setTotalDraft(e.target.value)}
               onBlur={handleTotalBlur}
-              disabled={valide}
+              disabled={verrouille}
+              
               className="w-28 text-right text-lg font-bold text-slate-800 bg-transparent border border-transparent rounded-md px-1.5 py-0.5 hover:border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0369A1]/30"
             />
             <span className="text-lg font-bold text-slate-800">DA</span>
           </span>
         </div>
 {totalOverride !== null && <p className="text-[10px] text-slate-400 text-right mt-1">(calcul auto: {fmt(totalCalcule)})</p>}
+ {ecart && !editingSalaire && (
+  <div className="mt-3 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] rounded-md px-3 py-2">
+    <span>
+        Le salaire validé ({fmt(salaireValide)}) ne correspond plus au calcul actuel ({fmt(totalCalcule)}). Les heures, revenus ou mouvements ont peut-être changé.
+    </span>
+    <button onClick={handleRecalculer} className="shrink-0 font-semibold underline hover:text-amber-900">
+      Recalculer
+    </button>
+  </div>
+)}
+{valide && dateValidationLabel && (
+  <p className="text-[11px] text-emerald-600 mt-3 flex items-center gap-1">
+    <Check size={12} /> Salaire validé le {dateValidationLabel}
+  </p>
+)}
  <div className="flex items-center justify-between text-xs text-slate-400 mt-2">
           <span>Déjà payé</span>
           {valide ? (
@@ -559,16 +719,29 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
         </div>
 
         <div className="flex gap-2 mt-4">
-          <button onClick={handleValider} disabled={valide}
-            className="flex-1 flex items-center justify-center gap-1.5 bg-[#0F2A4A] text-white text-sm font-semibold py-2.5 rounded-lg shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0">
-            <Check size={14} /> {valide ? 'Salaire validé' : 'Valider le salaire'}
-          </button>
-          <button onClick={handleEnvoyer} disabled={!valide || envoye}
+           {verrouille ? (
+            <button onClick={() => setEditingSalaire(true)}
+              className="flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold py-2.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-700/20 hover:bg-amber-100 transition">
+              <Pencil size={14} /> Modifier le salaire
+            </button>
+          ) : (
+            <>
+              {valide && (
+                <button onClick={annulerModif} className="px-4 text-sm font-medium py-2.5 rounded-lg text-slate-500 bg-slate-100 hover:bg-slate-200 transition">Annuler</button>
+              )}
+              <button onClick={handleValider} disabled={validating}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-[#0F2A4A] text-white text-sm font-semibold py-2.5 rounded-lg shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-60 disabled:pointer-events-none">
+                <Check size={14} /> {validating ? 'Enregistrement…' : valide ? 'Enregistrer' : 'Valider le salaire'}
+              </button>
+            </>
+          )}
+                <button onClick={handleEnvoyer} disabled={!peutEnvoyer}
             className="flex-1 flex items-center justify-center gap-1.5 bg-[#0369A1] text-white text-sm font-semibold py-2.5 rounded-lg shadow-[0_3px_0_#024e77] hover:shadow-[0_2px_0_#024e77] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0">
-            <Send size={14} /> {envoye ? 'Envoyé' : 'Envoyer au professeur'}
+              <Send size={14} /> {aRenvoyer ? 'Renvoyer au professeur' : envoye ? 'Envoyé' : 'Envoyer au professeur'}
           </button>
         </div>
-        {envoye && <p className="text-[10px] text-emerald-600 text-center mt-1.5">Le professeur peut consulter ce bilan.</p>}
+        {envoye && !aRenvoyer && !ecart && <p className="text-[10px] text-emerald-600 text-center mt-1.5">Le professeur peut consulter ce bilan.</p>}
+        {envoye && (ecart || aRenvoyer) && <p className="text-[10px] text-amber-600 text-center mt-1.5">Le professeur ne voit plus ce bilan tant que vous ne l'avez pas renvoyé.</p>}
       </div>
 
       <div className="flex items-center gap-2">
@@ -600,34 +773,48 @@ const { formations, mouvements, charges, total, totalCalcule, totalOverride, pay
         <div className={`${CARD} overflow-hidden`}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
             <p className="text-sm font-semibold text-slate-800">Avances & retenues</p>
-            <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3 py-1.5 rounded-md text-[11px] font-medium shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
+           <button onClick={() => { setEditingId(null); setShowForm(true); }} className="flex items-center gap-1.5 bg-[#0F2A4A] text-white px-3 py-1.5 rounded-md text-[11px] font-medium shadow-[0_3px_0_#0A1E36] hover:shadow-[0_2px_0_#0A1E36] hover:translate-y-[1px] active:shadow-none active:translate-y-[3px] transition-all">
+            
               <Plus size={12} /> Ajouter
             </button>
           </div>
           <table className="w-full text-xs">
             <thead className="bg-[#0F2A4A]">
-              <tr>{['Type', 'Description', 'Montant', ''].map((h, i, arr) => (
-                <th key={h} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] ${i === 0 ? 'border-l' : ''} ${i === arr.length - 1 ? 'border-r' : ''}`}>{h}</th>
+         <tr>{['Type', 'Description', 'Bons', 'Montant'].map((h, i, arr) => (
+                <th key={h} className={`text-left px-3 py-2.5 text-white font-semibold text-[10px] tracking-wide uppercase border-b border-[#0F2A4A] ${i === 0 ? 'border-l' : ''} ${i === arr.length - 1 ? 'text-right border-r' : ''}`}>{h}</th>
               ))}</tr>
             </thead>
             <tbody>
               {mouvements.length === 0 ? (
                 <tr><td colSpan={4} className="text-center py-8 text-slate-400 bg-white">Aucun mouvement.</td></tr>
               ) : mouvements.map((m, i) => (
-                <tr key={m.id} className={i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}>
+                    <tr key={m.id} onClick={() => { setEditingId(m.id); setShowForm(true); }} className={`cursor-pointer hover:bg-slate-50/60 transition ${i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                   <td className="px-3 py-2 text-slate-500 border-b border-l border-slate-100">{TYPES_MVT[m.type].label}</td>
                   <td className="px-3 py-2 text-slate-600 border-b border-slate-100">{m.description}</td>
-                  <td className={`px-3 py-2 text-right font-medium border-b border-slate-100 ${TYPES_MVT[m.type].signe > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{TYPES_MVT[m.type].signe > 0 && '+'}{fmt(TYPES_MVT[m.type].signe * Number(m.montant))}</td>
-                  <td className="px-3 py-2 text-right border-b border-r border-slate-100">
-                    <button onClick={() => handleDeleteMouvement(m.id)} className="text-slate-300 hover:text-red-500"><X size={12} /></button>
+                  <td className="px-3 py-2 text-right whitespace-nowrap border-b border-slate-100">
+                    {(m.bons?.length ?? 0) === 0 ? <span className="text-slate-300">—</span> : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#DCEBFA] text-[#0369A1]"><ImageIcon size={11} /> {m.bons.length}</span>
+                    )}
                   </td>
+                  <td className={`px-3 py-2 text-right font-medium border-b border-r border-slate-100 ${TYPES_MVT[m.type].signe > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{TYPES_MVT[m.type].signe > 0 && '+'}{fmt(TYPES_MVT[m.type].signe * Number(m.montant))}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-{showForm && <AjoutMouvementModal formations={formations} professeurId={professeurId} onClose={() => setShowForm(false)} onSubmit={handleAjout} />}
+{showForm && (
+  <AjoutMouvementModal
+    key={editingId ?? 'new'}
+    formations={formations}
+    mouvement={editingId ? mouvements.find((m) => m.id === editingId) : null}
+    onClose={() => { setShowForm(false); setEditingId(null); }}
+    onSubmit={handleSubmitMouvement}
+    onDelete={handleDeleteMouvement}
+    onUploadBon={handleUploadBon}
+    onDeleteBon={handleDeleteBon}
+  />
+)}
 {modalFormation && (
   <FormationModal
     f={modalFormation} professeur={professeur}

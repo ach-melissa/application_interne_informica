@@ -1,4 +1,5 @@
 const supabase = require('../supabaseClient');
+const { logHistorique } = require('../utils/historique');
 
 const calculStatut = (montantPaye, montantNet) => {
   if (montantPaye <= 0) return 'non_paye';
@@ -6,11 +7,17 @@ const calculStatut = (montantPaye, montantNet) => {
   return 'paye';
 };
 
+const dz = (n) => Math.abs(Number(n) || 0).toLocaleString('fr-FR') + ' DA';
+
+const nomEmploye = async (id) => {
+  if (!id) return '—';
+  const { data } = await supabase.from('employes').select('nom, prenom').eq('id', id).single();
+  return data ? `${data.prenom} ${data.nom}` : '—';
+};
+
 // ============================================================
 // SALAIRES MENSUELS — get one (employe_id + mois + annee)
 // ============================================================
-// Renvoie null (200) si aucun enregistrement : ça veut dire que le mois
-// n'a jamais été validé, le frontend retombe alors sur le calcul auto.
 const getSalaireMensuel = async (req, res) => {
   try {
     const { employe_id, mois, annee } = req.query;
@@ -34,19 +41,24 @@ const getSalaireMensuel = async (req, res) => {
   }
 };
 
-
 // ============================================================
 // SALAIRES MENSUELS — valider / mettre à jour (upsert)
 // ============================================================
-// Appelé par le bouton "Valider le salaire". Fige le montant net du mois
-// et enregistre le montant payé, pour que "Reste à payer" et le statut
-// survivent à un refresh au lieu d'être recalculés à chaque fois.
 const validerSalaireMensuel = async (req, res) => {
   try {
-    const { employe_id, mois, annee, montant_net, montant_paye } = req.body;
+   const { employe_id, mois, annee, montant_net, montant_calcule, montant_paye } = req.body;
     if (!employe_id || !mois || !annee || montant_net === undefined) {
       return res.status(400).json({ message: 'Champs requis manquants' });
     }
+
+    // état avant, pour savoir s'il s'agit d'une validation ou d'une modification
+    const { data: before } = await supabase
+      .from('salaires_mensuels')
+      .select('montant_net, montant_paye')
+      .eq('employe_id', employe_id)
+      .eq('mois', mois)
+      .eq('annee', annee)
+      .maybeSingle();
 
     const paye = montant_paye ?? montant_net;
     const statut = calculStatut(Number(paye), Number(montant_net));
@@ -59,6 +71,7 @@ const validerSalaireMensuel = async (req, res) => {
           mois,
           annee,
           montant_net,
+          montant_calcule: montant_calcule ?? null,
           montant_paye: paye,
           statut,
           valide_le: new Date().toISOString(),
@@ -69,6 +82,31 @@ const validerSalaireMensuel = async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ message: error.message });
+
+    const periode = `${String(mois).padStart(2, '0')}/${annee}`;
+    const nom = await nomEmploye(employe_id);
+
+    if (!before) {
+      await logHistorique({
+        req, perimetre: 'comptable', action: 'creation', entite: 'salaire_mensuel', entite_id: data.id,
+        description: `a validé le salaire de ${nom} pour ${periode} : ${dz(montant_net)}`,
+      });
+    } else {
+      const changes = [];
+      if (Number(before.montant_net) !== Number(montant_net)) {
+        changes.push(`salaire net : "${dz(before.montant_net)}" → "${dz(montant_net)}"`);
+      }
+      if (Number(before.montant_paye) !== Number(paye)) {
+        changes.push(`payé : "${dz(before.montant_paye)}" → "${dz(paye)}"`);
+      }
+      if (changes.length > 0) {
+        await logHistorique({
+          req, perimetre: 'comptable', action: 'modification', entite: 'salaire_mensuel', entite_id: data.id,
+          description: `a modifié le salaire de ${nom} pour ${periode} : ${changes.join(' | ')}`,
+        });
+      }
+    }
+
     res.json(data);
   } catch (err) {
     console.error(err);
@@ -101,5 +139,21 @@ const getHistoriqueSalaires = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
+const getSalairesDuMois = async (req, res) => {
+  try {
+    const { debut, fin } = req.query;
+    if (!debut || !fin) return res.status(400).json({ message: 'debut et fin sont requis' });
+    const { data, error } = await supabase
+      .from('salaires_mensuels')
+      .select('employe_id, montant_net, montant_paye, statut, valide_le')
+      .gte('valide_le', `${debut}T00:00:00`)
+      .lte('valide_le', `${fin}T23:59:59.999`);
+    if (error) return res.status(500).json({ message: error.message });
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
 
-module.exports = { getSalaireMensuel, validerSalaireMensuel, getHistoriqueSalaires };
+module.exports = { getSalaireMensuel, validerSalaireMensuel, getHistoriqueSalaires, getSalairesDuMois };

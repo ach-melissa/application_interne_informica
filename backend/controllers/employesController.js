@@ -1,5 +1,30 @@
 const supabase = require('../supabaseClient');
-const { logHistorique, buildDiffDescription } = require('./historiqueController');
+const { logHistorique, buildDiffDescription } = require('../utils/historique');
+
+// ------------------------------------------------------------
+// Aide : décrire précisément ce qui a changé dans un poste
+// ------------------------------------------------------------
+const POSTE_LABELS = {
+  poste: 'poste',
+  type: 'type',
+  montant: 'montant',
+  jours: 'jours',
+  jours_fixes: 'jours fixes',
+  nb_jours: 'jours/semaine',
+  heures_par_jour: 'heures/jour',
+  date_debut: 'date de début',
+};
+const NUMERIC = ['montant', 'nb_jours', 'heures_par_jour'];
+const norm = (v) => (Array.isArray(v) ? v.join(', ') : v === null || v === undefined ? '' : String(v));
+
+const diffPoste = (avant, apres) =>
+  Object.keys(POSTE_LABELS)
+    .filter((k) => k in apres)
+    .filter((k) => (NUMERIC.includes(k)
+      ? Number(avant[k] || 0) !== Number(apres[k] || 0)
+      : norm(avant[k]) !== norm(apres[k])))
+    .map((k) => `${POSTE_LABELS[k]} : "${norm(avant[k]) || '—'}" → "${norm(apres[k]) || '—'}"`);
+
 // ============================================================
 // EMPLOYES — list (avec leurs postes)
 // ============================================================
@@ -90,11 +115,11 @@ const createEmploye = async (req, res) => {
 
       await logHistorique({
         req,
-        perimetre: 'employes',
-        action: 'création',
+        perimetre: 'comptable',
+        action: 'creation',
         entite: 'employe',
         entite_id: employe.id,
-        description: `Employé créé : ${nom} ${prenom} (${postesData.length} poste${postesData.length > 1 ? 's' : ''})`,
+        description: `a ajouté l'employé ${prenom} ${nom} (${postesData.length} poste${postesData.length > 1 ? 's' : ''})`,
       });
 
       return res.status(201).json({ ...employe, postes: postesData });
@@ -102,11 +127,11 @@ const createEmploye = async (req, res) => {
 
     await logHistorique({
       req,
-      perimetre: 'employes',
-      action: 'création',
+      perimetre: 'comptable',
+      action: 'creation',
       entite: 'employe',
       entite_id: employe.id,
-      description: `Employé créé : ${nom} ${prenom}`,
+      description: `a ajouté l'employé ${prenom} ${nom}`,
     });
 
     res.status(201).json({ ...employe, postes: [] });
@@ -119,10 +144,6 @@ const createEmploye = async (req, res) => {
 // ============================================================
 // EMPLOYES — update (infos + diff des postes)
 // ============================================================
-// Le frontend doit renvoyer, pour chaque poste :
-//   - un `id` existant si le poste n'a pas changé de nature (juste modifié)
-//   - pas d'`id` (ou id: null) si c'est un nouveau poste ajouté dans le formulaire
-// Un poste présent en base mais absent du tableau envoyé = poste supprimé par l'utilisateur.
 const updateEmploye = async (req, res) => {
   const employeId = req.params.id;
   try {
@@ -151,19 +172,19 @@ const updateEmploye = async (req, res) => {
       if (champsChanges.length > 0) {
         await logHistorique({
           req,
-          perimetre: 'employes',
+          perimetre: 'comptable',
           action: 'modification',
           entite: 'employe',
           entite_id: employeId,
-          description: `Employé modifié : ${nom} ${prenom}`,
-          details: champsChanges.join(' | '),
+          description: `a modifié l'employé ${before.prenom} ${before.nom} : ${champsChanges.join(' | ')}`,
         });
       }
       return res.json({ ...employe, postes: [] });
     }
+
     const { data: postesExistants, error: fetchError } = await supabase
       .from('postes')
-      .select('id')
+      .select('*')
       .eq('employe_id', employeId);
 
     if (fetchError) return res.status(500).json({ message: fetchError.message });
@@ -191,21 +212,21 @@ const updateEmploye = async (req, res) => {
       }
     }
 
-    // 2. Insérer les nouveaux postes en premier (si ça échoue, rien n'est perdu côté existant)
+    // 2. Insérer les nouveaux postes
     if (aInserer.length > 0) {
       const payload = aInserer.map(({ id, ...rest }) => ({ ...rest, employe_id: employeId }));
       const { error: insError } = await supabase.from('postes').insert(payload);
       if (insError) return res.status(500).json({ message: insError.message });
     }
 
-    // 3. Mettre à jour les postes existants (id stable conservé)
+    // 3. Mettre à jour les postes existants
     for (const p of aModifier) {
       const { id, ...rest } = p;
       const { error: updError } = await supabase.from('postes').update(rest).eq('id', id);
       if (updError) return res.status(500).json({ message: updError.message });
     }
 
-    // 4. Supprimer les postes retirés (déjà vérifié : aucun mouvement lié)
+    // 4. Supprimer les postes retirés
     if (idsASupprimer.length > 0) {
       const { error: delError } = await supabase.from('postes').delete().in('id', idsASupprimer);
       if (delError) return res.status(500).json({ message: delError.message });
@@ -219,21 +240,30 @@ const updateEmploye = async (req, res) => {
     if (finalError) return res.status(500).json({ message: finalError.message });
 
     const posteChanges = [];
-    if (aInserer.length > 0) posteChanges.push(`${aInserer.length} poste${aInserer.length > 1 ? 's' : ''} ajouté${aInserer.length > 1 ? 's' : ''}`);
-    if (aModifier.length > 0) posteChanges.push(`${aModifier.length} poste${aModifier.length > 1 ? 's' : ''} modifié${aModifier.length > 1 ? 's' : ''}`);
-    if (idsASupprimer.length > 0) posteChanges.push(`${idsASupprimer.length} poste${idsASupprimer.length > 1 ? 's' : ''} supprimé${idsASupprimer.length > 1 ? 's' : ''}`);
+
+    for (const p of aInserer) {
+      posteChanges.push(`poste ajouté : "${p.poste}"`);
+    }
+    for (const p of aModifier) {
+      const avant = postesExistants.find((x) => x.id === p.id);
+      const diffs = avant ? diffPoste(avant, p) : [];
+      if (diffs.length > 0) posteChanges.push(`poste "${avant.poste}" (${diffs.join(', ')})`);
+    }
+    for (const id of idsASupprimer) {
+      const avant = postesExistants.find((x) => x.id === id);
+      posteChanges.push(`poste supprimé : "${avant?.poste ?? '—'}"`);
+    }
 
     const allChanges = [...champsChanges, ...posteChanges];
 
     if (allChanges.length > 0) {
       await logHistorique({
         req,
-        perimetre: 'employes',
+        perimetre: 'comptable',
         action: 'modification',
         entite: 'employe',
         entite_id: employeId,
-        description: `Employé modifié : ${nom} ${prenom}`,
-        details: allChanges.join(' | '),
+        description: `a modifié l'employé ${before.prenom} ${before.nom} : ${allChanges.join(' | ')}`,
       });
     }
 
@@ -292,11 +322,11 @@ const deleteEmploye = async (req, res) => {
 
     await logHistorique({
       req,
-      perimetre: 'employes',
+      perimetre: 'comptable',
       action: 'suppression',
       entite: 'employe',
       entite_id: employeId,
-      description: `Employé supprimé : ${employeInfo.nom} ${employeInfo.prenom}`,
+      description: `a supprimé l'employé ${employeInfo.prenom} ${employeInfo.nom}`,
     });
 
     res.status(204).send();

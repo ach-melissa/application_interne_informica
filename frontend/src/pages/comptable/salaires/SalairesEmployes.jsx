@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Wallet, Pencil, Phone, Users2, Calendar, ChevronRight, ChevronDown, X, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Wallet, Pencil, Phone, Users2, Calendar, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, AlertTriangle } from 'lucide-react';
 import ComptableLayout from '../../../layouts/ComptableLayout';
 import EmployeModal, { StatTile, TYPES, typeOf, nomComplet, tarifLabel, totalEmploye, fmt, initiales, formatDate, joursParSemaine, cap, posteToApi, employeFromApi } from './EmployeModal';
 const BASE_PATH = '/comptable/salaires/employes';
 const API_URL = `${import.meta.env.VITE_API_URL}/api/employes`;
-
-
+const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
+const SALAIRES_MOIS_URL = `${import.meta.env.VITE_API_URL}/api/salaires-mensuels/mois`;
 const EmployeCard = ({ employe, onOpen, onEdit, onDelete }) => (
   <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm hover:shadow-md hover:border-[#DCEBFA] transition flex flex-col h-full">
     <div className="flex items-center gap-3 mb-4">
@@ -78,11 +78,28 @@ const SalairesEmployes = () => {
   const [modal, setModal] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+   const [deleting, setDeleting] = useState(false);
+
+  const [salairesValides, setSalairesValides] = useState([]);
+  const pad = (n) => String(n).padStart(2, '0');
+  const now = new Date();
+  const defDebut = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+  const defFin = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate())}`;
+  const debutEff = dateDebut || defDebut;
+  const finEff = dateFin || defFin;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${SALAIRES_MOIS_URL}?debut=${debutEff}&fin=${finEff}`, { headers: authHeaders() })
+      .then(res => { if (!res.ok) throw new Error(); return res.json(); })
+      .then(data => { if (!cancelled) setSalairesValides(data); })
+      .catch(() => { if (!cancelled) setSalairesValides([]); });
+    return () => { cancelled = true; };
+  }, [debutEff, finEff]);
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch(API_URL)
+  fetch(API_URL, { headers: authHeaders() })
       .then(res => { if (!res.ok) throw new Error('Erreur lors du chargement des employés'); return res.json(); })
       .then(data => { if (!cancelled) { setEmployes(data.map(employeFromApi)); setLoadError(null); } })
       .catch(err => { if (!cancelled) setLoadError(err.message); })
@@ -104,9 +121,16 @@ const filtered = employes.filter(e =>
   (!typeFiltre || e.postes.some(p => p.type === typeFiltre)) &&
   dansPeriode(e)
 );
-  const total = filtered.reduce((s, e) => s + totalEmploye(e), 0);
-  const payes = filtered.filter(e => e.statut === 'payé').reduce((s, e) => s + totalEmploye(e), 0);
-
+  // name + type filters apply; the date range filters on VALIDATION date (default: current month)
+  const idsFiltres = new Set(
+    employes
+      .filter(e => nomComplet(e).toLowerCase().includes(search.toLowerCase()) && (!typeFiltre || e.postes.some(p => p.type === typeFiltre)))
+      .map(e => String(e.id))
+  );
+  const valides = salairesValides.filter(s => idsFiltres.has(String(s.employe_id)));
+  const total = valides.reduce((sum, s) => sum + Number(s.montant_net), 0);
+  const payes = valides.reduce((sum, s) => sum + Number(s.montant_paye), 0);
+  const nbValides = new Set(valides.map(s => String(s.employe_id))).size;
   const handleSave = async (employe) => {
     const isEdit = employes.some(e => e.id === employe.id);
     const url = isEdit ? `${API_URL}/${employe.id}` : API_URL;
@@ -114,7 +138,7 @@ const filtered = employes.filter(e =>
 
     const res = await fetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ ...employe, postes: employe.postes.map(posteToApi) }),
     });
     if (!res.ok) {
@@ -130,7 +154,7 @@ const filtered = employes.filter(e =>
     setDeleting(true);
     setDeleteError(null);
     try {
-      const res = await fetch(`${API_URL}/${confirmDelete.id}`, { method: 'DELETE' });
+     const res = await fetch(`${API_URL}/${confirmDelete.id}`, { method: 'DELETE', headers: authHeaders() });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || "Erreur lors de la suppression");
       setEmployes(prev => prev.filter(e => e.id !== confirmDelete.id));
@@ -161,13 +185,11 @@ const filtered = employes.filter(e =>
         </button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <StatTile icon={Wallet} label="Total des salaires (estimé)" value={fmt(total)} color="blue" />
-        <StatTile icon={Users2} label="Nombre d'employés" value={filtered.length} color="blue" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <StatTile icon={Wallet} label="Total validé" value={fmt(total)} color="blue" />
+        <StatTile icon={Users2} label="Employés validés" value={nbValides} color="blue" />
         <StatTile icon={Wallet} label="Salaires payés" value={fmt(payes)} color="emerald" />
-        <StatTile icon={Wallet} label="Salaires restants" value={fmt(total - payes)} color="amber" />
       </div>
-
       {deleteError && (
         <div className="mb-4 flex items-center justify-between gap-2 bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg px-3 py-2">
           <span>{deleteError}</span>

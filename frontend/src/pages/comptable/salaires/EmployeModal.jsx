@@ -31,10 +31,23 @@ export const typeOf = (k) => TYPES.find(t => t.key === k) ?? TYPES[0];
 export const nomComplet = (e) => `${e.prenom ?? ''} ${e.nom ?? ''}`.trim();
 export const tarifLabel = (p) => p.type === 'libre' ? 'Montant libre (défini chaque mois)' : `${fmt(Number(p.montant) || 0)} ${typeOf(p.type).unit}`;
 export const joursParSemaine = (p) => (p.joursFixes ? p.jours.length : Number(p.nbJours) || 0);
+// Nombre réel de jours travaillés dans le mois courant (jours fixes)
+const joursDansMois = (p, date = new Date()) => {
+  const y = date.getFullYear(), mo = date.getMonth();
+  const nbJoursMois = new Date(y, mo + 1, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= nbJoursMois; d++) {
+    if (p.jours.includes(JOURS[new Date(y, mo, d).getDay()])) count++;
+  }
+  return count;
+};
+
 export const estimationMensuelle = (p) => {
   if (p.type === 'libre') return 0; // pas de montant fixe : saisi chaque mois
-  const m = Number(p.montant) || 0, jm = joursParSemaine(p) * (52 / 12);
-  if (p.type === 'jour') return Math.round(m * jm);
+  const m = Number(p.montant) || 0;
+const nbJoursMois = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+const jm = p.joursFixes ? joursDansMois(p) : Math.round(joursParSemaine(p) * nbJoursMois / 7);
+if (p.type === 'jour') return Math.round(m * jm);
   if (p.type === 'heure') return Math.round(m * (Number(p.heuresParJour) || 0) * jm);
   return m;
 };
@@ -43,10 +56,12 @@ export const totalEmploye = (e) => e.postes.reduce((s, p) => s + estimationMensu
 // Conversion camelCase (utilisé côté UI) <-> snake_case (colonnes SQL de l'API)
 export const posteFromApi = (p) => ({
   ...p,
-  joursFixes: p.jours_fixes,
-  nbJours: p.nb_jours,
-  heuresParJour: p.heures_par_jour,
-  dateDebut: p.date_debut,
+  montant: p.montant ?? '',
+  jours: p.jours ?? [],
+  joursFixes: p.jours_fixes ?? true,
+  nbJours: p.nb_jours ?? '',
+  heuresParJour: p.heures_par_jour ?? '',
+  dateDebut: p.date_debut ?? '',
 });
 export const posteToApi = (p) => ({
   id: typeof p.id === 'string' ? p.id : undefined,
@@ -119,19 +134,30 @@ const EmployeModal = ({ employe, onClose, onSave }) => {
   };
 
   const submit = async () => {
-    const msg = validate();
-    if (msg) return setError(msg);
-    try {
-      await onSave({
-        ...(employe ?? { id: Date.now(), statut: 'en_attente' }),
-        ...Object.fromEntries(Object.entries(infos).map(([k, v]) => [k, v.trim()])),
-        postes: postes.map(p => ({ ...p, poste: p.poste.trim(), montant: Number(p.montant), nbJours: Number(p.nbJours) || 0, heuresParJour: Number(p.heuresParJour) || 0 })),
-      });
-      onClose();
-    } catch (err) {
-      setError(err.message || "Erreur lors de l'enregistrement");
-    }
-  };
+  const msg = validate();
+  if (msg) return setError(msg);
+  try {
+    await onSave({
+      ...(employe ?? { id: Date.now(), statut: 'en_attente' }),
+      ...Object.fromEntries(Object.entries(infos).map(([k, v]) => [k, v.trim()])),
+      postes: postes.map(p => {
+        const usesDays = p.type === 'jour' || p.type === 'heure';
+        return {
+          ...p,
+          poste: p.poste.trim(),
+          montant: p.type === 'libre' ? 0 : Number(p.montant),
+          jours: usesDays ? p.jours : [],
+          joursFixes: usesDays ? p.joursFixes : true,
+          nbJours: usesDays ? Number(p.nbJours) || 0 : 0,
+          heuresParJour: usesDays ? Number(p.heuresParJour) || 0 : 0,
+        };
+      }),
+    });
+    onClose();
+  } catch (err) {
+    setError(err.message || "Erreur lors de l'enregistrement");
+  }
+};
 
   const totalEstime = postes.reduce((s, p) => s + estimationMensuelle(p), 0);
 
