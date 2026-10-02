@@ -373,7 +373,6 @@ const resultats = await Promise.all(bilans.map(async (b) => {
 const revenusMap = await loadRevenusFormations(pctFormations.map((f) => f.id), b.mois, annee); 
       const bilanData = bilanDataOf(all, teacherId);
 const r = applyBilan(professeur, bilanData, revenusMap);
-// APRÈS
 const formations = await Promise.all(r.formations.map(async (f) => {
   const hasGroupes = (f.groupes ?? []).length > 0;
   return {
