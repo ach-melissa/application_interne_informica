@@ -12,7 +12,7 @@ const sum = (list, key = 'montant') => list.reduce((s, x) => s + Number(x[key] ?
 // Description lisible du mode de rémunération d'un prof pour une formation donnée,
 // à partir des champs renvoyés par l'API (typeSalaire / tauxOuMontant / heuresEffectuees / part).
 const profDetail = (p) => {
-  if (p.typeSalaire === "À l'heure") return `${Number(p.heuresEffectuees ?? 0).toFixed(1)} h × ${fmt(p.tauxOuMontant)}/h`;
+  if (p.typeSalaire === "À l'heure") return `${Number(p.heuresEffectuees ?? 0).toFixed(2)} h × ${fmt(p.tauxOuMontant)}/h`;
   if (p.typeSalaire === 'Pourcentage') return `${p.part ?? 0}% du revenu de la formation`;
   return 'Fixe';
 };
@@ -57,25 +57,29 @@ const FormationBlock = ({ f }) => (
       <p className="font-semibold text-slate-800">{f.nom}</p>
       <span className="text-[11px] text-slate-400">{f.etudiants} étudiants</span>
     </div>
-    <p className="text-[11px] text-slate-400 mb-1.5">
-      {f.groupes.length ? f.groupes.map((g) => `${g.nom} (${g.etudiants})`).join(', ') : 'Aucun groupe actif'}
-    </p>
-    <div className="grid grid-cols-2 gap-2 mb-1.5">
-      <div className="text-[11px] text-slate-500">Attendu
-        <span className="block font-semibold text-slate-700">{fmt(f.attendu)}</span>
-      </div>
-      <div className="text-[11px] text-slate-500">Obtenu
-        <span className="block font-semibold text-[#0369A1]">{fmt(f.obtenu)}</span>
-      </div>
+    <p className="text-[11px] font-medium text-slate-500 mb-0.5">Groupes ({f.groupes.length})</p>
+    {f.groupes.length === 0 ? <p className="text-[11px] text-slate-400 mb-1.5">Aucun groupe actif</p> : f.groupes.map((g, i) => (
+      <Row key={i} left={g.nom} sub={g.etudiants != null ? `${g.etudiants} étudiants` : ''} right={fmt(g.obtenu)} />
+    ))}
+    <div className="text-[11px] text-slate-500 mb-1.5">Obtenu (tous les groupes)
+      <span className="block font-semibold text-[#0369A1]">{fmt(f.obtenu)}</span>
     </div>
     <p className="text-[11px] font-medium text-slate-500 mb-0.5">Charges ({f.charges.length})</p>
     {f.charges.length === 0 ? <Empty /> : f.charges.map((c, i) => (
       <Row key={i} left={c.categorie} sub={c.date} right={fmt(c.montant)} />
     ))}
     {f.charges.length > 0 && <Row bold left="Total charges de la formation" right={fmt(f.chargesTotal)} />}
-    {f.profPaiements.map((p, i) => (
+    <p className="text-[11px] font-medium text-slate-500 mt-1.5 mb-0.5">Professeurs ({f.profPaiements.length})</p>
+    {f.profPaiements.length === 0 ? <Empty /> : f.profPaiements.map((p, i) => (
       <Row key={i} left={p.nom} sub={profDetail(p)} right={fmt(p.montant)} />
     ))}
+    {f.profPaiements.length > 0 && <Row bold left="Total professeurs de la formation" right={fmt(f.profTotal)} />}
+    {f.partEcole != null && (
+      <>
+        <Row left="Part de l'école" right={fmt(f.partEcole)} />
+        <Row left="Part des professeurs" right={fmt(f.profTotal)} />
+      </>
+    )}
     <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-xs">
       <span className="font-semibold text-slate-700">Bénéfice de la formation</span>
       <span className={`font-bold ${f.benefice >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{fmt(f.benefice)}</span>
@@ -105,8 +109,7 @@ const ReportModal = ({ title, r, onClose }) => (
 
         <Section icon={GraduationCap} title="Formations — revenus et charges">
           {r.formations.map((f, i) => <FormationBlock key={i} f={f} />)}
-          <div className="grid grid-cols-3 gap-2 mt-1 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-            <div>Total attendu<span className="block font-bold text-slate-800">{fmt(r.revenuAttenduTotal)}</span></div>
+          <div className="grid grid-cols-2 gap-2 mt-1 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
             <div>Total obtenu<span className="block font-bold text-[#0369A1]">{fmt(r.revenuObtenuTotal)}</span></div>
             <div>Total charges<span className="block font-bold text-slate-800">{fmt(r.chFTotal)}</span></div>
           </div>
@@ -127,8 +130,18 @@ const ReportModal = ({ title, r, onClose }) => (
         </Section>
 
         <Section icon={Briefcase} title="Professeurs">
-          {r.profs.length === 0 ? <Empty /> : r.profs.map((x, i) => (
-            <Row key={i} left={x.nom} sub={`${x.formation} · ${profDetail(x)}`} right={fmt(x.montant)} />
+          {r.profs.length === 0 ? <Empty /> : Object.values(
+            r.profs.reduce((acc, x) => {
+              (acc[x.profId] ??= { nom: x.nom, total: x.totalValide, lignes: [] }).lignes.push(x);
+              return acc;
+            }, {})
+          ).map((g, i) => (
+            <div key={i} className="mb-2 last:mb-0">
+              <Row bold left={g.nom} sub="Total validé" right={fmt(g.total)} />
+              {g.lignes.map((x, j) => (
+                <Row key={j} left={x.formation} sub={profDetail(x)} right={fmt(x.montant)} />
+              ))}
+            </div>
           ))}
           {r.profs.length > 0 && <Row bold left="Total professeurs" right={fmt(r.profsTotal)} />}
         </Section>

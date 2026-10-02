@@ -96,7 +96,7 @@ const getFormationsEtEcheances = async (dateFrom, dateTo) => {
   const parFormation = {};
   const parNiveau = {};
   formations.forEach((f) => {
-    parFormation[f.id] = { attendu: 0, encaisse: 0, etudiantsEnCredit: new Set() };
+    parFormation[f.id] = { attendu: 0, encaisse: 0, etudiantsEnCredit: new Set(), groupes: {} };
   });
   (niveauxData ?? []).forEach((n) => {
     parNiveau[n.id] = { nom: n.nom, prix: Number(n.prix || 0), nb_etudiants: 0, attendu: 0 };
@@ -124,6 +124,7 @@ const getFormationsEtEcheances = async (dateFrom, dateTo) => {
     const pf = parFormation[i.formation_id];
     pf.attendu += attendu;
     pf.encaisse += encaissePeriode;
+    if (i.group_id) pf.groupes[i.group_id] = (pf.groupes[i.group_id] || 0) + encaissePeriode;
     if (attendu - encaissePeriode > 0.01) pf.etudiantsEnCredit.add(i.etudiant_id);
 
     if (i.niveau_id && parNiveau[i.niveau_id]) {
@@ -164,6 +165,7 @@ const getFormationsEtEcheances = async (dateFrom, dateTo) => {
       niveaux, // [] si !a_niveaux
       attendu: pf.attendu,
       encaisse: pf.encaisse, // = "revenus" de la formation pour la période filtrée
+      obtenuParGroupe: pf.groupes, // { [group_id]: encaissé du groupe }
       credit,
       nbCredit: pf.etudiantsEnCredit.size,
     };
@@ -199,7 +201,7 @@ const getGroupesActifsAvecEtudiants = async (formationIds) => {
 
   const byFormation = {};
   (groupes ?? []).forEach((g) => {
-    (byFormation[g.formation_id] ??= []).push({ nom: g.nom, etudiants: countByGroup[g.id] || 0 });
+    (byFormation[g.formation_id] ??= []).push({ id: g.id, nom: g.nom, etudiants: countByGroup[g.id] || 0 });
   });
   return byFormation;
 };
@@ -279,7 +281,9 @@ const getPartEnseignantParFormation = async (dateFrom, dateTo) => {
         parFormation[f.id] = (parFormation[f.id] || 0) + f.montantPeriode;
         total += f.montantPeriode;
         details.push({
+          profId: p.id,
           profNom: p.nom,
+          profTotalValide: r.total, // total validé du prof pour le mois (avances, retenues, primes, override inclus)
           formationId: f.id,
           formationNom: f.nom,
           typeSalaire: f.typeSalaire, // 'Fixe' | "À l'heure" | 'Pourcentage'
@@ -335,8 +339,7 @@ const getSalairesEmployesValidesPeriode = async (dateFrom, dateTo) => {
 
   const { data: salaires, error: smErr } = await supabase
     .from('salaires_mensuels')
-    .select('employe_id, mois, annee, montant_net')
-    .not('valide_le', 'is', null);
+    .select('employe_id, mois, annee, montant_net');
   if (smErr) throw smErr;
 
   const retenus = (salaires ?? []).filter((s) => monthOverlapsRange(s.mois, s.annee, dateFrom, dateTo));
@@ -475,10 +478,14 @@ const buildRapportMois = async (mois, annee) => {
     const profTotal = sum(profPaiements, 'montant');
     const hasPourcentage = profPaiements.some((p) => p.typeSalaire === 'Pourcentage');
 
+    const groupesListe = (groupesByFormation[f.id] || []).map((g) => ({ ...g, obtenu: f.obtenuParGroupe[g.id] || 0 }));
+    const obtenuSansGroupe = f.encaisse - sum(groupesListe, 'obtenu');
+    if (obtenuSansGroupe > 0.01) groupesListe.push({ nom: 'Sans groupe', etudiants: null, obtenu: obtenuSansGroupe });
+
     return {
       nom: f.nom,
       etudiants: f.nb_etudiants,
-      groupes: groupesByFormation[f.id] || [],
+      groupes: groupesListe,
       obtenu: f.encaisse,
       charges: chargesListe,
       chargesTotal,
@@ -505,6 +512,8 @@ const buildRapportMois = async (mois, annee) => {
     autresRev: autresRevenus,
     chA: chargesAutres,
     profs: partEnseignant.details.map((d) => ({
+      profId: d.profId,
+      totalValide: d.profTotalValide,
       nom: d.profNom,
       formation: d.formationNom,
       montant: d.montantPeriode,
