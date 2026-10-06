@@ -242,7 +242,7 @@ const getChargesPeriode = async (formationIds, dateFrom, dateTo) => {
 const getPartEnseignantParFormation = async (dateFrom, dateTo) => {
   const { data: bilansValides, error } = await supabase
     .from('bilans_salaires')
-    .select('id, teacher_id, mois, annee')
+    .select('id, teacher_id, mois, annee, total_override, total_calcule_valide')
     .eq('valide', true);
   if (error) throw error;
 
@@ -294,7 +294,9 @@ const getPartEnseignantParFormation = async (dateFrom, dateTo) => {
     });
   }
 
-  return { parFormation, total, details };
+  const totalValideFige = bilansRetenus.reduce(
+  (s, b) => s + Number(b.total_override ?? b.total_calcule_valide ?? 0), 0);
+return { parFormation, total: totalValideFige, details };
 };
 
 // ============================================================
@@ -337,7 +339,8 @@ const getSalairesEmployesValidesPeriode = async (dateFrom, dateTo) => {
 
   const { data: salaires, error: smErr } = await supabase
     .from('salaires_mensuels')
-    .select('employe_id, mois, annee, montant_net');
+    .select('employe_id, mois, annee, montant_net, valide_le')
+.not('valide_le', 'is', null);
   if (smErr) throw smErr;
 
   const retenus = (salaires ?? []).filter((s) => monthOverlapsRange(s.mois, s.annee, dateFrom, dateTo));
